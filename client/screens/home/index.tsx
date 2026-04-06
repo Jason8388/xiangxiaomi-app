@@ -115,6 +115,13 @@ const adminNavItems: NavigationItem[] = [
     color: '#E74C3C',
     route: '/reminders',
   },
+  {
+    id: 'organization',
+    title: '组织结构',
+    icon: 'sitemap',
+    color: '#00CEC9',
+    route: '/organization',
+  },
 ];
 
 export default function HomeScreen() {
