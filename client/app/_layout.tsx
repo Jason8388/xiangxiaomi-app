@@ -50,6 +50,7 @@ function RootLayoutInner() {
         <Stack.Screen name="file-detail" options={{ title: "" }} />
         <Stack.Screen name="gallery" options={{ title: "" }} />
         <Stack.Screen name="media-detail" options={{ title: "" }} />
+        <Stack.Screen name="employee-management" options={{ title: "" }} />
       </Stack>
       {renderDialog()}
       <Toast />

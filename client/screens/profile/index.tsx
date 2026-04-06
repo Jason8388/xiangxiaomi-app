@@ -44,6 +44,15 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
+    ...(user?.role === 'admin' ? [
+      {
+        icon: 'user-gear',
+        title: '员工管理',
+        subtitle: '管理员工账号和权限',
+        color: '#9B59B6',
+        onPress: () => router.push('/employee-management'),
+      },
+    ] : []),
     {
       icon: 'users',
       title: '客户管理',

@@ -112,6 +112,20 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                '忘记密码',
+                '如需重置密码，请联系管理员。\n\n管理员将通过员工管理功能为您重置密码。'
+              );
+            }}
+            style={{ width: '100%', alignItems: 'flex-end', marginBottom: 16 }}
+          >
+            <Text style={{ fontSize: 13, color: '#1E88E5' }}>
+              忘记密码？
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
             activeOpacity={0.8}
