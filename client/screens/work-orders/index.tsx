@@ -7,11 +7,16 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 export default function WorkOrdersScreen() {
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [stats, setStats] = useState({
+    totalWorkOrders: 0,
+    chargedWorkOrders: 0,
+    performanceAmount: 0,
+    pendingPaymentAmount: 0,
+    paidAmount: 0,
+  });
   const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingOrder, setEditingOrder] = useState<any>(null);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -25,6 +30,7 @@ export default function WorkOrdersScreen() {
 
   useEffect(() => {
     fetchWorkOrders();
+    fetchStats();
     fetchCustomers();
     fetchDevices();
   }, []);
@@ -32,24 +38,22 @@ export default function WorkOrdersScreen() {
   useEffect(() => {
     let filtered = workOrders;
 
-    // 状态筛选
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((order) => order.status === filterStatus);
-    }
-
-    // 搜索筛选
+    // 搜索筛选（支持多字段）
     if (searchKeyword.trim()) {
       const keyword = searchKeyword.toLowerCase();
       filtered = filtered.filter(
         (order) =>
           (order.order_no && order.order_no.toLowerCase().includes(keyword)) ||
           (order.description && order.description.toLowerCase().includes(keyword)) ||
-          (order.customer_name && order.customer_name.toLowerCase().includes(keyword))
+          (order.customer_name && order.customer_name.toLowerCase().includes(keyword)) ||
+          (order.device_name && order.device_name.toLowerCase().includes(keyword)) ||
+          (order.device_number && order.device_number.toLowerCase().includes(keyword)) ||
+          (order.assignee_name && order.assignee_name.toLowerCase().includes(keyword))
       );
     }
 
     setFilteredOrders(filtered);
-  }, [filterStatus, searchKeyword, workOrders]);
+  }, [searchKeyword, workOrders]);
 
   const fetchWorkOrders = async () => {
     try {
@@ -60,6 +64,18 @@ export default function WorkOrdersScreen() {
       }
     } catch (error) {
       console.error('Fetch work orders error:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/stats`);
+      const data = await response.json();
+      if (data) {
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Fetch stats error:', error);
     }
   };
 
@@ -128,6 +144,7 @@ export default function WorkOrdersScreen() {
             if (response.ok) {
               Alert.alert('成功', '删除成功');
               fetchWorkOrders();
+              fetchStats();
             } else {
               throw new Error('删除失败');
             }
@@ -137,6 +154,14 @@ export default function WorkOrdersScreen() {
         },
       },
     ]);
+  };
+
+  const handleDownload = async (order: any) => {
+    try {
+      Alert.alert('提示', '工单下载功能正在开发中，敬请期待！');
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
   };
 
   const handleSave = async () => {
@@ -179,6 +204,7 @@ export default function WorkOrdersScreen() {
 
       setModalVisible(false);
       fetchWorkOrders();
+      fetchStats();
       Alert.alert('成功', editingOrder ? '修改成功' : '创建成功');
     } catch (error: any) {
       Alert.alert('错误', error.message);
@@ -257,191 +283,185 @@ export default function WorkOrdersScreen() {
           <Text className="text-3xl font-bold text-[#2D3436] mb-2">
             工单管理
           </Text>
-          <Text className="text-sm text-[#636E72]">
-            共 {workOrders.length} 个工单
-          </Text>
         </View>
 
-        {/* 搜索栏 */}
+        {/* 栏1：操作按钮 */}
+        <View className="px-6 mb-4 flex-row gap-3">
+          <TouchableOpacity
+            onPress={handleAdd}
+            className="flex-1 py-3 rounded-2xl bg-[#6C63FF] items-center justify-center"
+          >
+            <Text className="text-white font-semibold text-base">新建工单</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {}}
+            className="flex-1 py-3 rounded-2xl bg-[#F39C12] items-center justify-center"
+          >
+            <Text className="text-white font-semibold text-base">待审工单</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 栏2：工单统计 */}
         <View className="px-6 mb-4">
-          <View className="flex-row items-center bg-[#E8E8EB] rounded-2xl px-4 py-3">
-            <FontAwesome6 name="magnifying-glass" size={16} color="#636E72" />
-            <TextInput
-              className="flex-1 ml-2 text-[#2D3436] text-base"
-              placeholder="搜索工单编号、工单名称、客户"
-              placeholderTextColor="#B2BEC3"
-              value={searchKeyword}
-              onChangeText={setSearchKeyword}
-            />
+          <View
+            className="rounded-3xl p-5"
+            style={{
+              backgroundColor: '#F0F0F3',
+              shadowColor: '#D1D9E6',
+              shadowOffset: { width: 6, height: 6 },
+              shadowOpacity: 0.7,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+          >
+            <Text className="text-lg font-bold text-[#2D3436] mb-4">工单统计</Text>
+            <View className="grid grid-cols-2 gap-4">
+              <View className="bg-white rounded-2xl p-4">
+                <Text className="text-xs text-[#636E72] mb-1">总工单数</Text>
+                <Text className="text-2xl font-bold text-[#6C63FF]">{stats.totalWorkOrders}</Text>
+              </View>
+              <View className="bg-white rounded-2xl p-4">
+                <Text className="text-xs text-[#636E72] mb-1">总收费工单数</Text>
+                <Text className="text-2xl font-bold text-[#00B894]">{stats.chargedWorkOrders}</Text>
+              </View>
+              <View className="bg-white rounded-2xl p-4">
+                <Text className="text-xs text-[#636E72] mb-1">售后业绩金额</Text>
+                <Text className="text-xl font-bold text-[#F39C12]">¥{stats.performanceAmount.toFixed(2)}</Text>
+              </View>
+              <View className="bg-white rounded-2xl p-4">
+                <Text className="text-xs text-[#636E72] mb-1">售后代收款金额</Text>
+                <Text className="text-xl font-bold text-[#E74C3C]">¥{stats.pendingPaymentAmount.toFixed(2)}</Text>
+              </View>
+              <View className="bg-white rounded-2xl p-4 col-span-2">
+                <Text className="text-xs text-[#636E72] mb-1">售后已收款金额</Text>
+                <Text className="text-2xl font-bold text-[#6C63FF]">¥{stats.paidAmount.toFixed(2)}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* 筛选按钮 */}
-        <View className="px-6 mb-4 flex-row gap-2">
-          <TouchableOpacity
-            onPress={() => setFilterStatus('all')}
-            className={`px-4 py-2 rounded-full ${filterStatus === 'all' ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
+        {/* 栏3：工单查询 */}
+        <View className="px-6 mb-4">
+          <View
+            className="rounded-3xl p-5"
+            style={{
+              backgroundColor: '#F0F0F3',
+              shadowColor: '#D1D9E6',
+              shadowOffset: { width: 6, height: 6 },
+              shadowOpacity: 0.7,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
           >
-            <Text className={`text-sm font-medium ${filterStatus === 'all' ? 'text-white' : 'text-[#636E72]'}`}>
-              全部
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setFilterStatus('pending')}
-            className={`px-4 py-2 rounded-full ${filterStatus === 'pending' ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
-          >
-            <Text className={`text-sm font-medium ${filterStatus === 'pending' ? 'text-white' : 'text-[#636E72]'}`}>
-              待处理
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setFilterStatus('processing')}
-            className={`px-4 py-2 rounded-full ${filterStatus === 'processing' ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
-          >
-            <Text className={`text-sm font-medium ${filterStatus === 'processing' ? 'text-white' : 'text-[#636E72]'}`}>
-              处理中
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setFilterStatus('completed')}
-            className={`px-4 py-2 rounded-full ${filterStatus === 'completed' ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
-          >
-            <Text className={`text-sm font-medium ${filterStatus === 'completed' ? 'text-white' : 'text-[#636E72]'}`}>
-              已完成
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <Text className="text-lg font-bold text-[#2D3436] mb-4">工单查询</Text>
 
-        {/* 工单列表 */}
-        <View className="px-6">
-          {filteredOrders.map((order) => (
-            <View key={order.id} className="mb-4">
-              <View
-                className="rounded-3xl p-5 shadow-lg"
-                style={{
-                  backgroundColor: '#F0F0F3',
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 6, height: 6 },
-                  shadowOpacity: 0.7,
-                  shadowRadius: 8,
-                  elevation: 6,
-                }}
-              >
-                {/* 卡片头部 */}
-                <View className="flex-row justify-between items-start mb-3">
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-[#2D3436] mb-1">
-                      {order.description || '无描述'}
-                    </Text>
-                    <Text className="text-xs text-[#636E72] mb-1">
-                      {order.order_no}
-                    </Text>
-                  </View>
+            {/* 搜索栏 */}
+            <View className="flex-row items-center bg-white rounded-2xl px-4 py-3 mb-4">
+              <FontAwesome6 name="magnifying-glass" size={16} color="#636E72" />
+              <TextInput
+                className="flex-1 ml-2 text-[#2D3436] text-base"
+                placeholder="搜索工单名称、客户名称、工单编号、任务号、任务负责人、设备名称、设备编号"
+                placeholderTextColor="#B2BEC3"
+                value={searchKeyword}
+                onChangeText={setSearchKeyword}
+              />
+            </View>
+
+            {/* 工单列表 */}
+            <View>
+              {filteredOrders.map((order) => (
+                <View key={order.id} className="mb-3">
                   <View
-                    className="px-3 py-1 rounded-full"
-                    style={{ backgroundColor: `${getStatusColor(order.status)}33` }}
+                    className="rounded-2xl p-4"
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      shadowColor: '#D1D9E6',
+                      shadowOffset: { width: 4, height: 4 },
+                      shadowOpacity: 0.5,
+                      shadowRadius: 6,
+                      elevation: 4,
+                    }}
                   >
-                    <Text
-                      className="text-xs font-semibold"
-                      style={{ color: getStatusColor(order.status) }}
-                    >
-                      {getStatusText(order.status)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 卡片信息 */}
-                <View className="mb-3">
-                  <View className="flex-row items-center mb-2">
-                    <FontAwesome6 name="building" size={14} color="#636E72" />
-                    <Text className="text-sm text-[#636E72] ml-2">
-                      {order.customer_name || '未指定客户'}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center mb-2">
-                    <FontAwesome6 name="user" size={14} color="#636E72" />
-                    <Text className="text-sm text-[#636E72] ml-2">
-                      {order.creator_name || order.assignee_name || '系统'}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <FontAwesome6 name="calendar" size={14} color="#636E72" />
-                    <Text className="text-sm text-[#636E72] ml-2">
-                      {order.created_at?.split('T')[0] || ''}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* 操作按钮 */}
-                <View className="flex-row justify-between items-center">
-                  <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleEdit(order);
-                      }}
-                      className="px-3 py-1.5 rounded-full bg-[#F39C12]"
-                    >
-                      <Text className="text-xs text-white font-medium">修改</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDelete(order);
-                      }}
-                      className="px-3 py-1.5 rounded-full bg-[#E74C3C]"
-                    >
-                      <Text className="text-xs text-white font-medium">删除</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View className="flex-row gap-2">
-                    <View
-                      className="px-2 py-1 rounded"
-                      style={{ backgroundColor: `${getPriorityColor(order.priority)}33` }}
-                    >
-                      <Text
-                        className="text-xs font-medium"
-                        style={{ color: getPriorityColor(order.priority) }}
+                    {/* 工单名称和任务号 */}
+                    <View className="flex-row justify-between items-start mb-2">
+                      <View className="flex-1">
+                        <Text className="text-base font-bold text-[#2D3436] mb-1" numberOfLines={1}>
+                          {order.description || '无描述'}
+                        </Text>
+                        <Text className="text-xs text-[#636E72]">
+                          任务号: {order.order_no}
+                        </Text>
+                      </View>
+                      {/* 是否收费标识 */}
+                      <View
+                        className="px-2 py-1 rounded-full ml-2"
+                        style={{ backgroundColor: order.is_charged ? 'rgba(0, 184, 148, 0.2)' : 'rgba(178, 190, 195, 0.3)' }}
                       >
-                        {order.priority === 'high' ? '高' : order.priority === 'medium' ? '中' : '低'}优先级
-                      </Text>
+                        <Text
+                          className="text-xs font-semibold"
+                          style={{ color: order.is_charged ? '#00B894' : '#B2BEC3' }}
+                        >
+                          {order.is_charged ? '收费' : '免费'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 客户名称和任务负责人 */}
+                    <View className="flex-row items-center mb-2">
+                      <View className="flex-row items-center flex-1">
+                        <FontAwesome6 name="building" size={12} color="#636E72" />
+                        <Text className="text-xs text-[#636E72] ml-1" numberOfLines={1}>
+                          {order.customer_name || '未指定客户'}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center flex-1">
+                        <FontAwesome6 name="user" size={12} color="#636E72" />
+                        <Text className="text-xs text-[#636E72] ml-1" numberOfLines={1}>
+                          {order.assignee_name || '未指定负责人'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 操作按钮 */}
+                    <View className="flex-row gap-2 mt-3">
+                      <TouchableOpacity
+                        onPress={() => router.push('/work-order-detail', { id: order.id })}
+                        className="flex-1 py-2 rounded-full bg-[#6C63FF] items-center justify-center"
+                      >
+                        <Text className="text-white text-xs font-semibold">查看</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleEdit(order);
+                        }}
+                        className="flex-1 py-2 rounded-full bg-[#F39C12] items-center justify-center"
+                      >
+                        <Text className="text-white text-xs font-semibold">修改</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDownload(order);
+                        }}
+                        className="flex-1 py-2 rounded-full bg-[#00B894] items-center justify-center"
+                      >
+                        <Text className="text-white text-xs font-semibold">下载</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </View>
-              </View>
+              ))}
 
-              {/* 详情跳转 */}
-              <TouchableOpacity
-                onPress={() => router.push('/work-order-detail', { id: order.id })}
-                className="mt-2"
-              >
-                <Text className="text-xs text-[#6C63FF] text-center">查看详情 →</Text>
-              </TouchableOpacity>
+              {filteredOrders.length === 0 && (
+                <View className="py-8 items-center">
+                  <Text className="text-sm text-[#636E72]">暂无工单数据</Text>
+                </View>
+              )}
             </View>
-          ))}
+          </View>
         </View>
       </ScrollView>
-
-      {/* 新增按钮 */}
-      <TouchableOpacity
-        onPress={handleAdd}
-        className="absolute bottom-6 right-6"
-        style={{
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          backgroundColor: '#6C63FF',
-          justifyContent: 'center',
-          alignItems: 'center',
-          shadowColor: '#6C63FF',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.35,
-          shadowRadius: 8,
-          elevation: 8,
-        }}
-      >
-        <FontAwesome6 name="plus" size={26} color="#FFFFFF" />
-      </TouchableOpacity>
 
       {/* 新增工单 Modal */}
       {modalVisible && (

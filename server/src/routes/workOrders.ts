@@ -3,19 +3,109 @@ import pool from '../database/db';
 
 const router = express.Router();
 
+// 获取工单统计
+router.get('/stats', async (req, res) => {
+  try {
+    // 总工单数
+    const totalResult = await pool.query('SELECT COUNT(*) as total FROM work_orders');
+    const totalWorkOrders = parseInt(totalResult.rows[0].total);
+
+    // 总收费工单数（假设有一个 is_charged 字段）
+    let chargedWorkOrders = 0;
+    try {
+      const chargedResult = await pool.query(
+        "SELECT COUNT(*) as total FROM work_orders WHERE is_charged = true"
+      );
+      chargedWorkOrders = parseInt(chargedResult.rows[0].total);
+    } catch (e) {
+      console.log('is_charged field not found, using 0');
+    }
+
+    // 售后业绩金额（假设有 service_amount 字段）
+    let performanceAmount = 0;
+    try {
+      const performanceResult = await pool.query(
+        'SELECT COALESCE(SUM(service_amount), 0) as total FROM work_orders WHERE service_amount IS NOT NULL'
+      );
+      performanceAmount = parseFloat(performanceResult.rows[0].total);
+    } catch (e) {
+      console.log('service_amount field not found, using 0');
+    }
+
+    // 售后代收款金额（假设有 pending_payment 字段）
+    let pendingPaymentAmount = 0;
+    try {
+      const pendingPaymentResult = await pool.query(
+        'SELECT COALESCE(SUM(pending_payment), 0) as total FROM work_orders WHERE pending_payment IS NOT NULL'
+      );
+      pendingPaymentAmount = parseFloat(pendingPaymentResult.rows[0].total);
+    } catch (e) {
+      console.log('pending_payment field not found, using 0');
+    }
+
+    // 售后已收款金额（假设有 paid_amount 字段）
+    let paidAmount = 0;
+    try {
+      const paidAmountResult = await pool.query(
+        'SELECT COALESCE(SUM(paid_amount), 0) as total FROM work_orders WHERE paid_amount IS NOT NULL'
+      );
+      paidAmount = parseFloat(paidAmountResult.rows[0].total);
+    } catch (e) {
+      console.log('paid_amount field not found, using 0');
+    }
+
+    res.json({
+      totalWorkOrders,
+      chargedWorkOrders,
+      performanceAmount,
+      pendingPaymentAmount,
+      paidAmount,
+    });
+  } catch (error) {
+    console.error('Get work order stats error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
 // 获取工单列表
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT wo.*, cu.name as customer_name, d.device_name,
+    const { keyword, status } = req.query;
+
+    let query = `
+      SELECT wo.*, cu.name as customer_name, d.device_name, d.device_number,
               u.name as assignee_name, creator.name as creator_name
        FROM work_orders wo
        LEFT JOIN customers cu ON wo.customer_id = cu.id
        LEFT JOIN devices d ON wo.device_id = d.id
        LEFT JOIN users u ON wo.assignee_id = u.id
        LEFT JOIN users creator ON wo.created_by = creator.id
-       ORDER BY wo.id DESC`
-    );
+       WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    // 状态筛选
+    if (status && status !== 'all') {
+      query += ' AND wo.status = $' + (params.length + 1);
+      params.push(status);
+    }
+
+    // 关键词搜索（支持多字段模糊搜索）
+    if (keyword) {
+      query += ` AND (
+        wo.description ILIKE $${params.length + 1} OR
+        wo.order_no ILIKE $${params.length + 1} OR
+        cu.name ILIKE $${params.length + 1} OR
+        d.device_name ILIKE $${params.length + 1} OR
+        d.device_number ILIKE $${params.length + 1} OR
+        u.name ILIKE $${params.length + 1}
+      )`;
+      params.push(`%${keyword}%`);
+    }
+
+    query += ' ORDER BY wo.created_at DESC';
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Get work orders error:', error);
