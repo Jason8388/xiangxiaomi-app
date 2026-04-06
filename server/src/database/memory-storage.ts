@@ -22,6 +22,83 @@ export const memoryUsers = {
   },
 };
 
+// 导出内存用户列表（数组格式）
+export const memoryUsersList = [
+  {
+    id: 1,
+    username: 'admin',
+    name: '系统管理员',
+    role: 'admin',
+    position: '管理员',
+    department_id: 1,
+    department_name: '技术部',
+    is_disabled: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    username: 'user',
+    name: '张三',
+    role: 'staff',
+    position: '工程师',
+    department_id: 1,
+    department_name: '技术部',
+    is_disabled: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    username: 'lisi',
+    name: '李四',
+    role: 'staff',
+    position: '销售',
+    department_id: 2,
+    department_name: '销售部',
+    is_disabled: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    username: 'wangwu',
+    name: '王五',
+    role: 'staff',
+    position: '经理',
+    department_id: 3,
+    department_name: '市场部',
+    is_disabled: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+// 导出内存部门列表
+export const memoryDepartments = [
+  {
+    id: 1,
+    name: '技术部',
+    parent_id: null,
+    sort_order: 1,
+    is_disabled: false,
+  },
+  {
+    id: 2,
+    name: '销售部',
+    parent_id: null,
+    sort_order: 2,
+    is_disabled: false,
+  },
+  {
+    id: 3,
+    name: '市场部',
+    parent_id: null,
+    sort_order: 3,
+    is_disabled: false,
+  },
+];
+
 export const memorySessions: any[] = [];
 
 export function getUserByUsername(username: string) {

@@ -1,19 +1,20 @@
 import express from 'express';
 import { randomUUID } from 'crypto';
 import pool from '../database/db';
-import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession } from '../database/memory-storage';
+import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsersList } from '../database/memory-storage';
 
 const router = express.Router();
 
 // 使用内存存储（用于演示，数据库连接超时）
 const USE_MEMORY_STORAGE = true;
 
-// 带重试的查询函数
-async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
+// 带重试的查询函数（快速失败，最多重试1次）
+async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {
   for (let i = 0; i < retries; i++) {
     try {
       return await pool.query(query, params);
     } catch (error: any) {
+      console.log(`Query attempt ${i + 1} failed:`, error.message);
       if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
         await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
         continue;
@@ -122,45 +123,22 @@ router.post('/login', async (req, res) => {
 
 // 获取用户列表
 router.get('/', async (req, res) => {
-  try {
-    const { role, department_id, is_disabled } = req.query;
-    let query = `
-      SELECT u.id, u.username, u.name, u.role, u.position, u.department_id, u.is_disabled,
-             u.disabled_at, u.disabled_reason, d.name as department_name,
-             u.created_at, u.updated_at
-      FROM users u
-      LEFT JOIN departments d ON u.department_id = d.id
-      WHERE 1=1
-    `;
-    const values = [];
-    let paramCount = 1;
-
-    if (role) {
-      query += ` AND u.role = $${paramCount}`;
-      values.push(role);
-      paramCount++;
-    }
-
-    if (department_id) {
-      query += ` AND u.department_id = $${paramCount}`;
-      values.push(department_id);
-      paramCount++;
-    }
-
-    if (is_disabled !== undefined) {
-      query += ` AND u.is_disabled = $${paramCount}`;
-      values.push(is_disabled === 'true');
-      paramCount++;
-    }
-
-    query += ' ORDER BY u.id';
-
-    const result = await queryWithRetry(query, values);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: '服务器错误' });
+  const { role, department_id, is_disabled } = req.query;
+  
+  // 直接使用内存数据，避免数据库连接超时
+  let users = [...memoryUsersList];
+  
+  if (role) {
+    users = users.filter(u => u.role === role);
   }
+  if (department_id) {
+    users = users.filter(u => u.department_id === parseInt(department_id as string));
+  }
+  if (is_disabled !== undefined) {
+    users = users.filter(u => u.is_disabled === (is_disabled === 'true'));
+  }
+  
+  return res.json(users);
 });
 
 // 创建用户

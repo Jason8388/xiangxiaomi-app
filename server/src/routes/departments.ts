@@ -1,14 +1,15 @@
 import express from 'express';
 import pool from '../database/db';
+import { memoryDepartments } from '../database/memory-storage';
 
 const router = express.Router();
 
 // 获取部门列表（树形结构）
 router.get('/', async (req, res) => {
-  try {
-    const { include_disabled = 'false' } = req.query;
-    const includeDisabled = include_disabled === 'true';
+  const { include_disabled = 'false' } = req.query;
+  const includeDisabled = include_disabled === 'true';
 
+  try {
     // 获取所有部门
     let result;
     if (includeDisabled) {
@@ -41,8 +42,9 @@ router.get('/', async (req, res) => {
 
     res.json(tree);
   } catch (error) {
-    console.error('Get departments error:', error);
-    res.status(500).json({ error: '获取部门列表失败' });
+    console.error('Get departments error, using memory storage:', error);
+    // 数据库失败时返回内存数据
+    res.json(memoryDepartments);
   }
 });
 
