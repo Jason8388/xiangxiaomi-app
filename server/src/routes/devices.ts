@@ -80,7 +80,7 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
         warranty_expire,
         status: status || 'normal',
         qr_code: qr_code || `S${memoryDevices.length + 1}`,
-        site_photos: [],
+        site_photos: [] as string[],
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -99,7 +99,7 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
       res.json(newDevice);
     } else {
       // 使用数据库
-      const { customer_id, contract_id, device_number, device_name, device_model, device_type, customer_name, factory_date, acceptance_date, warranty_end_date, contract_name, location, remarks, qr_code } = req.body;
+      const { customer_id, contract_id, device_number, device_name, device_model, device_type, customer_name, factory_date, acceptance_date, warranty_end_date, contract_name, location, remarks, qr_code, service_number } = req.body;
 
       if (!device_number || !device_name) {
         return res.status(400).json({ error: '缺少必填字段' });
@@ -123,8 +123,8 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
         `INSERT INTO devices (
           customer_id, contract_id, device_number, device_name, device_model, device_type,
           customer_name, factory_date, acceptance_date, warranty_end_date, contract_name,
-          location, remarks, site_photos, qr_code, status, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+          location, remarks, site_photos, qr_code, service_number, status, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
         RETURNING *`,
         [
           customer_id || null,
@@ -142,6 +142,7 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
           remarks,
           JSON.stringify(sitePhotos),
           deviceQrCode,
+          service_number || null,
           'normal'
         ]
       );
@@ -164,7 +165,7 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
       // 使用内存存储
       const { device_name, serial_no, model, purchase_date, warranty_expire, status, qr_code } = req.body;
 
-      const deviceIndex = memoryDevices.findIndex((d) => d.id === parseInt(id));
+      const deviceIndex = memoryDevices.findIndex((d) => d.id === parseInt(id as string));
       if (deviceIndex === -1) {
         return res.status(404).json({ error: '设备不存在' });
       }
@@ -181,7 +182,7 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
 
       // 处理照片
       if (files && Object.keys(files).length > 0) {
-        device.site_photos = [];
+        device.site_photos = [] as string[];
         Object.keys(files).forEach((key) => {
           if (files[key] && files[key][0]) {
             const photoBuffer = files[key][0].buffer;
@@ -193,7 +194,7 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
       res.json(device);
     } else {
       // 使用数据库
-      const { device_number, device_name, device_model, device_type, customer_name, factory_date, acceptance_date, warranty_end_date, contract_name, location, remarks, qr_code } = req.body;
+      const { device_number, device_name, device_model, device_type, customer_name, factory_date, acceptance_date, warranty_end_date, contract_name, location, remarks, qr_code, service_number } = req.body;
 
       // 处理现场照片
       let sitePhotos: string[] = [];
@@ -258,6 +259,10 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
       if (qr_code) {
         updateFields.push(`qr_code = $${paramIndex++}`);
         updateValues.push(qr_code);
+      }
+      if (service_number !== undefined) {
+        updateFields.push(`service_number = $${paramIndex++}`);
+        updateValues.push(service_number);
       }
       if (sitePhotos.length > 0) {
         updateFields.push(`site_photos = $${paramIndex++}`);

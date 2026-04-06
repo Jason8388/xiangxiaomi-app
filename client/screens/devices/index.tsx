@@ -43,6 +43,8 @@ interface Device {
   qr_code_id?: string;
   location?: string;
   remarks?: string;
+  service_number?: string;
+  site_photos?: string[];
 }
 
 export default function DeviceManagement() {
@@ -69,6 +71,7 @@ export default function DeviceManagement() {
     contract_number: '',
     location: '',
     remarks: '',
+    service_number: '',
   });
 
   useEffect(() => {
@@ -125,6 +128,7 @@ export default function DeviceManagement() {
       contract_number: '',
       location: '',
       remarks: '',
+      service_number: '',
     });
     setModalVisible(true);
   };
@@ -144,6 +148,7 @@ export default function DeviceManagement() {
       contract_number: '',
       location: device.location || '',
       remarks: device.remarks || '',
+      service_number: device.service_number || '',
     });
     // 加载现场照片
     if (device.site_photos && Array.isArray(device.site_photos)) {
@@ -165,7 +170,7 @@ export default function DeviceManagement() {
 
   const handleSave = async () => {
     if (!formData.device_number || !formData.device_name || !formData.device_type) {
-      Alert.alert('提示', '设备编号、设备名称和设备类型不能为空');
+      Alert.alert('提示', '设备出厂编号、设备名称和设备类型不能为空');
       return;
     }
 
@@ -291,10 +296,10 @@ export default function DeviceManagement() {
       // 编辑模式：使用现有设备ID
       setQrCode(`S${editingDevice.id}`);
     } else if (formData.device_number) {
-      // 新增模式：使用设备编号（临时方案）
+      // 新增模式：使用设备出厂编号（临时方案）
       setQrCode(`S${formData.device_number}`);
     } else {
-      Alert.alert('提示', '请先输入设备编号');
+      Alert.alert('提示', '请先输入设备出厂编号');
     }
   };
 
@@ -528,13 +533,25 @@ export default function DeviceManagement() {
 
             <ScrollView style={styles.modalBody}>
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>设备编号 *</Text>
+                <Text style={styles.formLabel}>设备出厂编号 *</Text>
                 <TextInput
                   style={styles.formInput}
-                  placeholder="请输入设备编号"
+                  placeholder="请输入设备出厂编号"
                   value={formData.device_number}
                   onChangeText={(text) =>
                     setFormData({ ...formData, device_number: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备服务编号</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入设备服务编号"
+                  value={formData.service_number}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, service_number: text })
                   }
                 />
               </View>
