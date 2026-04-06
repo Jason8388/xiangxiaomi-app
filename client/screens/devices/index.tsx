@@ -1,0 +1,901 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  StyleSheet,
+  Alert,
+} from 'react-native';
+import { Screen } from '@/components/Screen';
+import { PageHeader } from '@/components/PageHeader';
+import { FontAwesome6 } from '@expo/vector-icons';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
+
+const DEVICE_TYPES = [
+  '智能测温',
+  '智能焊接',
+  '智能测量',
+  '外观品检',
+  '尺寸测量',
+  '角度定位',
+  '数字化产品',
+  '第三方设备',
+  '其它',
+];
+
+interface Device {
+  id: number;
+  device_number: string;
+  device_name: string;
+  device_model: string;
+  device_type: string;
+  customer_name: string;
+  factory_date: string;
+  acceptance_date?: string;
+  warranty_end_date?: string;
+  status: string;
+  contract_name?: string;
+  qr_code_id?: string;
+  location?: string;
+  remarks?: string;
+}
+
+export default function DeviceManagement() {
+  const router = useSafeRouter();
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [filteredDevices, setFilteredDevices] = useState<Device[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState('');
+  const [formData, setFormData] = useState({
+    device_number: '',
+    device_name: '',
+    device_model: '',
+    device_type: '',
+    customer_name: '',
+    factory_date: '',
+    acceptance_date: '',
+    warranty_end_date: '',
+    contract_name: '',
+    contract_number: '',
+    location: '',
+    remarks: '',
+  });
+
+  useEffect(() => {
+    const loadDevices = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`);
+        const data = await response.json();
+        if (response.ok) {
+          const sorted = data.sort((a: Device, b: Device) =>
+            new Date(a.factory_date).getTime() - new Date(b.factory_date).getTime()
+          );
+          setDevices(sorted);
+        }
+      } catch (error) {
+        console.error('Fetch devices error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDevices();
+  }, []);
+
+  useEffect(() => {
+    if (searchKeyword.trim() || deviceTypeFilter) {
+      const filtered = devices.filter(
+        (d) =>
+          (!searchKeyword.trim() ||
+            d.device_name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+            d.device_model.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+            d.device_number.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+            d.customer_name.toLowerCase().includes(searchKeyword.toLowerCase())) &&
+          (!deviceTypeFilter || d.device_type === deviceTypeFilter)
+      );
+      setFilteredDevices(filtered);
+    } else {
+      setFilteredDevices(devices);
+    }
+  }, [searchKeyword, deviceTypeFilter, devices]);
+
+  const handleAdd = () => {
+    setEditingDevice(null);
+    setFormData({
+      device_number: '',
+      device_name: '',
+      device_model: '',
+      device_type: '',
+      customer_name: '',
+      factory_date: '',
+      acceptance_date: '',
+      warranty_end_date: '',
+      contract_name: '',
+      contract_number: '',
+      location: '',
+      remarks: '',
+    });
+    setModalVisible(true);
+  };
+
+  const handleEdit = (device: Device) => {
+    setEditingDevice(device);
+    setFormData({
+      device_number: device.device_number,
+      device_name: device.device_name,
+      device_model: device.device_model,
+      device_type: device.device_type,
+      customer_name: device.customer_name,
+      factory_date: device.factory_date,
+      acceptance_date: device.acceptance_date || '',
+      warranty_end_date: device.warranty_end_date || '',
+      contract_name: device.contract_name || '',
+      contract_number: '',
+      location: device.location || '',
+      remarks: device.remarks || '',
+    });
+    setModalVisible(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.device_number || !formData.device_name || !formData.device_type) {
+      Alert.alert('提示', '设备编号、设备名称和设备类型不能为空');
+      return;
+    }
+
+    try {
+      const response = editingDevice
+        ? await fetch(
+            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${editingDevice.id}`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(formData),
+            }
+          )
+        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('成功', editingDevice ? '修改成功' : '创建成功');
+        setModalVisible(false);
+        setLoading(true);
+        const loadResponse = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`
+        );
+        const loadData = await loadResponse.json();
+        if (loadResponse.ok) {
+          const sorted = loadData.sort((a: Device, b: Device) =>
+            new Date(a.factory_date).getTime() - new Date(b.factory_date).getTime()
+          );
+          setDevices(sorted);
+        }
+        setLoading(false);
+      } else {
+        throw new Error(data.error || '操作失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  const handleDelete = (device: Device) => {
+    Alert.alert('确认删除', `确定要删除设备"${device.device_name}"吗？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${device.id}`,
+              {
+                method: 'DELETE',
+              }
+            );
+            const data = await response.json();
+            if (response.ok) {
+              Alert.alert('成功', '删除成功');
+              setLoading(true);
+              const loadResponse = await fetch(
+                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`
+              );
+              const loadData = await loadResponse.json();
+              if (loadResponse.ok) {
+                const sorted = loadData.sort((a: Device, b: Device) =>
+                  new Date(a.factory_date).getTime() - new Date(b.factory_date).getTime()
+                );
+                setDevices(sorted);
+              }
+              setLoading(false);
+            } else {
+              throw new Error(data.error || '删除失败');
+            }
+          } catch (error: any) {
+            Alert.alert('错误', error.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  return (
+    <Screen>
+      <PageHeader title="设备管理" />
+
+      {/* 统计信息 */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <FontAwesome6 name="microchip" size={20} color="#1E88E5" />
+          <View style={styles.statContent}>
+            <Text style={styles.statValue}>{devices.length}</Text>
+            <Text style={styles.statLabel}>设备总数</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 搜索和筛选 */}
+      <View style={styles.searchBar}>
+        <FontAwesome6 name="magnifying-glass" size={16} color="#636E72" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="搜索设备名称、型号、编号、客户"
+          value={searchKeyword}
+          onChangeText={setSearchKeyword}
+          placeholderTextColor="#95A5A6"
+        />
+      </View>
+
+      {/* 设备类型筛选 */}
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <TouchableOpacity
+            style={[styles.filterChip, !deviceTypeFilter && styles.filterChipActive]}
+            onPress={() => setDeviceTypeFilter('')}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                !deviceTypeFilter && styles.filterChipTextActive,
+              ]}
+            >
+              全部
+            </Text>
+          </TouchableOpacity>
+          {DEVICE_TYPES.map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[styles.filterChip, deviceTypeFilter === type && styles.filterChipActive]}
+              onPress={() => setDeviceTypeFilter(deviceTypeFilter === type ? '' : type)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  deviceTypeFilter === type && styles.filterChipTextActive,
+                ]}
+              >
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* 操作按钮 */}
+      <View style={styles.actionBar}>
+        <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
+          <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>新增设备</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 设备列表 */}
+      <ScrollView style={styles.listContainer}>
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <Text>加载中...</Text>
+          </View>
+        ) : filteredDevices.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>
+              {searchKeyword || deviceTypeFilter ? '未找到匹配的设备' : '暂无设备信息'}
+            </Text>
+          </View>
+        ) : (
+          filteredDevices.map((device) => (
+            <TouchableOpacity
+              key={device.id}
+              style={styles.card}
+              onPress={() => router.push('/device-detail', { id: device.id })}
+              activeOpacity={0.7}
+            >
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleContainer}>
+                  <FontAwesome6 name="microchip" size={18} color="#2ECC71" />
+                  <Text style={styles.cardTitle}>{device.device_name}</Text>
+                </View>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleEdit(device);
+                    }}
+                  >
+                    <FontAwesome6 name="pen" size={16} color="#F39C12" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDelete(device);
+                    }}
+                  >
+                    <FontAwesome6 name="trash" size={16} color="#E74C3C" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.cardInfo}>
+                <Text style={styles.infoLabel}>型号:</Text>
+                <Text style={styles.infoValue}>{device.device_model}</Text>
+              </View>
+
+              <View style={styles.cardInfo}>
+                <Text style={styles.infoLabel}>客户:</Text>
+                <Text style={styles.infoValue}>{device.customer_name}</Text>
+              </View>
+
+              <View style={styles.cardInfo}>
+                <Text style={styles.infoLabel}>类型:</Text>
+                <View style={styles.typeBadge}>
+                  <Text style={styles.typeText}>{device.device_type}</Text>
+                </View>
+              </View>
+
+              <View style={styles.cardInfo}>
+                <FontAwesome6 name="calendar" size={14} color="#636E72" />
+                <Text style={styles.infoValue}>进厂日期: {formatDate(device.factory_date)}</Text>
+              </View>
+
+              <View style={styles.cardFooter}>
+                <View style={styles.statusContainer}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor:
+                          device.status === '正常' ? '#2ECC71' : '#E74C3C',
+                      },
+                    ]}
+                  />
+                  <Text style={styles.statusText}>{device.status}</Text>
+                </View>
+                {device.qr_code_id && (
+                  <View style={styles.qrContainer}>
+                    <FontAwesome6 name="qrcode" size={14} color="#636E72" />
+                    <Text style={styles.qrText}>{device.qr_code_id}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+
+      {/* 新增/编辑设备 Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {editingDevice ? '编辑设备' : '新增设备'}
+              </Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备编号 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入设备编号"
+                  value={formData.device_number}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, device_number: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备名称 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入设备名称"
+                  value={formData.device_name}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, device_name: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备型号 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入设备型号"
+                  value={formData.device_model}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, device_model: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备类型 *</Text>
+                <View style={styles.typeSelector}>
+                  {DEVICE_TYPES.map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.typeOption,
+                        formData.device_type === type && styles.typeOptionSelected,
+                      ]}
+                      onPress={() => setFormData({ ...formData, device_type: type })}
+                    >
+                      <Text
+                        style={[
+                          styles.typeOptionText,
+                          formData.device_type === type && styles.typeOptionTextSelected,
+                        ]}
+                      >
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>归属客户 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入客户名称"
+                  value={formData.customer_name}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, customer_name: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>进厂日期</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="YYYY-MM-DD"
+                    value={formData.factory_date}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, factory_date: text })
+                    }
+                  />
+                </View>
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>验收日期</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="YYYY-MM-DD"
+                    value={formData.acceptance_date}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, acceptance_date: text })
+                    }
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>质保到期日期</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="YYYY-MM-DD"
+                  value={formData.warranty_end_date}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, warranty_end_date: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>合同名称</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入合同名称"
+                  value={formData.contract_name}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, contract_name: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备所在位置</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea]}
+                  placeholder="请输入设备位置说明"
+                  value={formData.location}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, location: text })
+                  }
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>备注</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea]}
+                  placeholder="请输入备注信息"
+                  value={formData.remarks}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, remarks: text })
+                  }
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleSave}
+              >
+                <Text style={styles.saveButtonText}>保存</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  statsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  statCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statContent: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#636E72',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F5F7FA',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  filterContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F5F7FA',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: '#1E88E5',
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  actionBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#1E88E5',
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  listContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  cardTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: '#F5F7FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: '#636E72',
+    width: 50,
+  },
+  infoValue: {
+    fontSize: 13,
+    color: '#2D3436',
+    flex: 1,
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(30, 136, 229, 0.1)',
+  },
+  typeText: {
+    fontSize: 11,
+    color: '#1E88E5',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  qrContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  qrText: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '100%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  modalBody: {
+    padding: 16,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  formTextArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  typeOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+  },
+  typeOptionSelected: {
+    backgroundColor: '#1E88E5',
+    borderColor: '#1E88E5',
+  },
+  typeOptionText: {
+    fontSize: 13,
+    color: '#636E72',
+  },
+  typeOptionTextSelected: {
+    color: '#FFFFFF',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F5F7FA',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#636E72',
+  },
+  saveButton: {
+    backgroundColor: '#1E88E5',
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+});

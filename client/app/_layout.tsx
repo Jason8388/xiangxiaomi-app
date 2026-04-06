@@ -62,6 +62,7 @@ function RootLayoutInner() {
         <Stack.Screen name="contracts" options={{ title: "" }} />
         <Stack.Screen name="contract-detail" options={{ title: "" }} />
         <Stack.Screen name="contract-ledger" options={{ title: "" }} />
+        <Stack.Screen name="devices" options={{ title: "" }} />
         <Stack.Screen name="device-detail" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}
