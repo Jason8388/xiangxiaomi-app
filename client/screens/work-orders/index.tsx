@@ -230,7 +230,9 @@ export default function WorkOrdersScreen() {
           {filteredOrders.map((order) => (
             <TouchableOpacity
               key={order.id}
+              onPress={() => router.push('/work-order-detail', { id: order.id })}
               className="mb-4"
+              activeOpacity={0.7}
             >
               <View
                 className="rounded-3xl p-5 shadow-lg"

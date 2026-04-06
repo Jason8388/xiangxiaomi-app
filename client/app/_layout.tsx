@@ -24,6 +24,8 @@ export default function RootLayout() {
       >
         <Stack.Screen name="login" options={{ title: "" }} />
         <Stack.Screen name="(tabs)" options={{ title: "" }} />
+        <Stack.Screen name="customer-detail" options={{ title: "" }} />
+        <Stack.Screen name="work-order-detail" options={{ title: "" }} />
       </Stack>
       <Toast />
     </Provider>

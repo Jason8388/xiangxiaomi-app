@@ -354,8 +354,9 @@ export default function HomeScreen() {
           {recentOrders.map((order: any) => (
             <TouchableOpacity
               key={order.id}
-              onPress={() => router.push('/(tabs)/work-orders')}
+              onPress={() => router.push('/work-order-detail', { id: order.id })}
               style={{ marginBottom: 16 }}
+              activeOpacity={0.7}
             >
               <View
                 style={{
