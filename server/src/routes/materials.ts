@@ -89,18 +89,35 @@ router.get('/low-stock/list', async (req, res) => {
 // 创建物料
 router.post('/', async (req, res) => {
   try {
-    const { name, code, category, unit, min_stock, description } = req.body;
+    const {
+      material_number, material_name, material_spec, material_unit,
+      category, stock_quantity, warning_stock, supplier, unit_price,
+      material_photo, qr_code_id, remarks, tags
+    } = req.body;
 
-    if (!name || !code) {
-      return res.status(400).json({ error: '物料名称和编码不能为空' });
+    if (!material_number || !material_name) {
+      return res.status(400).json({ error: '物料编号和名称不能为空' });
     }
 
+    // 如果没有提供二维码ID，自动生成
+    const finalQrCodeId = qr_code_id || `QR-${material_number}-${Date.now()}`;
+
     const result = await pool.query(
-      'INSERT INTO materials (name, code, category, unit, min_stock, description) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, code, category, unit, min_stock || 0, description]
+      `INSERT INTO materials (
+        material_number, material_name, material_spec, material_unit,
+        category, stock_quantity, warning_stock, supplier, unit_price,
+        material_photo, qr_code_id, remarks, tags,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [
+        material_number, material_name, material_spec, material_unit,
+        category, stock_quantity || 0, warning_stock || 0, supplier, unit_price,
+        material_photo, finalQrCodeId, remarks, tags || []
+      ]
     );
 
-    res.json(result.rows[0]);
+    res.status(201).json(result.rows[0]);
   } catch (error: any) {
     console.error('Create material error:', error);
     if (error.code === '23505') {
@@ -115,11 +132,34 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, code, category, unit, min_stock, description } = req.body;
+    const {
+      material_number, material_name, material_spec, material_unit,
+      category, stock_quantity, warning_stock, supplier, unit_price,
+      material_photo, qr_code_id, remarks, tags
+    } = req.body;
 
     const result = await pool.query(
-      'UPDATE materials SET name = $1, code = $2, category = $3, unit = $4, min_stock = $5, description = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-      [name, code, category, unit, min_stock, description, id]
+      `UPDATE materials SET
+        material_number = COALESCE($1, material_number),
+        material_name = COALESCE($2, material_name),
+        material_spec = COALESCE($3, material_spec),
+        material_unit = COALESCE($4, material_unit),
+        category = COALESCE($5, category),
+        stock_quantity = COALESCE($6, stock_quantity),
+        warning_stock = COALESCE($7, warning_stock),
+        supplier = COALESCE($8, supplier),
+        unit_price = COALESCE($9, unit_price),
+        material_photo = COALESCE($10, material_photo),
+        qr_code_id = COALESCE($11, qr_code_id),
+        remarks = COALESCE($12, remarks),
+        tags = COALESCE($13, tags),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $14 RETURNING *`,
+      [
+        material_number, material_name, material_spec, material_unit,
+        category, stock_quantity, warning_stock, supplier, unit_price,
+        material_photo, qr_code_id, remarks, tags, id
+      ]
     );
 
     if (result.rows.length === 0) {

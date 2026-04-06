@@ -14,6 +14,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as ImagePicker from 'expo-image-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -28,9 +29,12 @@ interface Material {
   material_unit: string;
   category?: string;
   stock_quantity: number;
+  warning_stock?: number;
   supplier?: string;
   unit_price?: number;
+  material_photo?: string;
   qr_code?: string;
+  qr_code_id?: string;
   remarks?: string;
   tags?: string[];
 }
@@ -54,11 +58,15 @@ export default function MaterialManagement() {
     material_unit: '',
     category: '',
     stock_quantity: 0,
+    warning_stock: 0,
     supplier: '',
     unit_price: '',
+    material_photo: '',
+    qr_code_id: '',
     remarks: '',
     tags: [] as string[],
   });
+  const [tempPhotoUri, setTempPhotoUri] = useState('');
 
   useEffect(() => {
     const loadMaterials = async () => {
@@ -105,11 +113,15 @@ export default function MaterialManagement() {
       material_unit: '',
       category: '',
       stock_quantity: 0,
+      warning_stock: 0,
       supplier: '',
       unit_price: '',
+      material_photo: '',
+      qr_code_id: '',
       remarks: '',
       tags: [],
     });
+    setTempPhotoUri('');
     setModalVisible(true);
   };
 
@@ -122,12 +134,57 @@ export default function MaterialManagement() {
       material_unit: material.material_unit,
       category: material.category || '',
       stock_quantity: material.stock_quantity,
+      warning_stock: material.warning_stock || 0,
       supplier: material.supplier || '',
       unit_price: material.unit_price?.toString() || '',
+      material_photo: material.material_photo || '',
+      qr_code_id: material.qr_code_id || '',
       remarks: material.remarks || '',
       tags: material.tags || [],
     });
+    setTempPhotoUri(material.material_photo || '');
     setModalVisible(true);
+  };
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('提示', '需要相册权限才能上传图片');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setTempPhotoUri(asset.uri);
+      setFormData({ ...formData, material_photo: asset.uri });
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('提示', '需要相机权限才能拍照');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setTempPhotoUri(asset.uri);
+      setFormData({ ...formData, material_photo: asset.uri });
+    }
   };
 
   const handleSave = async () => {
@@ -137,8 +194,37 @@ export default function MaterialManagement() {
     }
 
     try {
+      // 如果有图片，先上传获取URL
+      let materialPhotoUrl = formData.material_photo;
+      if (tempPhotoUri && tempPhotoUri !== material?.material_photo && !tempPhotoUri.startsWith('http')) {
+        try {
+          const formDataPhoto = new FormData();
+          formDataPhoto.append('file', {
+            uri: tempPhotoUri,
+            name: `material_photo_${Date.now()}.jpg`,
+            type: 'image/jpeg',
+          } as any);
+
+          const uploadRes = await fetch(
+            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/upload`,
+            {
+              method: 'POST',
+              body: formDataPhoto,
+            }
+          );
+          const uploadData = await uploadRes.json();
+          if (uploadRes.ok && uploadData.url) {
+            materialPhotoUrl = uploadData.url;
+          }
+        } catch (uploadError) {
+          console.error('Photo upload error:', uploadError);
+        }
+      }
+
       const payload = {
         ...formData,
+        material_photo: materialPhotoUrl,
+        warning_stock: Number(formData.warning_stock) || 0,
         stock_quantity: Number(formData.stock_quantity),
         unit_price: formData.unit_price ? Number(formData.unit_price) : null,
       };
@@ -635,6 +721,18 @@ export default function MaterialManagement() {
                   />
                 </View>
                 <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>预警库存值</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="库存预警值"
+                    value={String(formData.warning_stock)}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, warning_stock: Number(text) })
+                    }
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <View style={[styles.formGroup, { flex: 1 }]}>
                   <Text style={styles.formLabel}>单价</Text>
                   <TextInput
                     style={styles.formInput}
@@ -645,6 +743,55 @@ export default function MaterialManagement() {
                     }
                     keyboardType="decimal-pad"
                   />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>二维码ID</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入或自动生成二维码ID"
+                  value={formData.qr_code_id}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, qr_code_id: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>物料照片</Text>
+                <View style={styles.photoUploadContainer}>
+                  {tempPhotoUri ? (
+                    <TouchableOpacity onPress={handlePickImage} style={styles.photoPreviewContainer}>
+                      <Image source={{ uri: tempPhotoUri }} style={styles.photoPreview} />
+                      <View style={styles.photoOverlay}>
+                        <FontAwesome6 name="camera" size={20} color="#FFF" />
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.photoButtonsRow}>
+                      <TouchableOpacity style={styles.photoButton} onPress={handleTakePhoto}>
+                        <FontAwesome6 name="camera" size={20} color="#1E88E5" />
+                        <Text style={styles.photoButtonText}>拍照</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.photoButton} onPress={handlePickImage}>
+                        <FontAwesome6 name="image" size={20} color="#27AE60" />
+                        <Text style={styles.photoButtonText}>从相册选择</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {tempPhotoUri && (
+                    <TouchableOpacity
+                      style={styles.removePhotoButton}
+                      onPress={() => {
+                        setTempPhotoUri('');
+                        setFormData({ ...formData, material_photo: '' });
+                      }}
+                    >
+                      <FontAwesome6 name="trash" size={16} color="#E74C3C" />
+                      <Text style={styles.removePhotoText}>删除照片</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
@@ -1013,6 +1160,63 @@ const styles = StyleSheet.create({
   formTextArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  photoUploadContainer: {
+    gap: 12,
+  },
+  photoButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  photoButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+  },
+  photoButtonText: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  photoPreviewContainer: {
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  photoPreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+  },
+  photoOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  removePhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+  },
+  removePhotoText: {
+    fontSize: 14,
+    color: '#E74C3C',
   },
   modalFooter: {
     flexDirection: 'row',
