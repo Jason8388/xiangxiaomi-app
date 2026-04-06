@@ -1,1 +1,1 @@
-export { default } from "@/screens/query";
+export { default } from "@/screens/query-assistant";

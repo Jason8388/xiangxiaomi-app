@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, StyleSheet } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -7,22 +7,26 @@ import { storage } from '@/utils/storage';
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [versionModalVisible, setVersionModalVisible] = useState(false);
   const router = useSafeRouter();
 
   useEffect(() => {
-    const loadUserInfo = async () => {
-      try {
-        const userStr = await storage.getItem('user');
-        if (userStr) {
-          setUser(JSON.parse(userStr));
-        }
-      } catch (error) {
-        console.error('Load user error:', error);
-      }
-    };
-
     loadUserInfo();
   }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      const userStr = await storage.getItem('user');
+      if (userStr) {
+        setUser(JSON.parse(userStr));
+      }
+    } catch (error) {
+      console.error('Load user error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('确认', '确定要退出登录吗？', [
@@ -44,195 +48,379 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleCheckUpdate = () => {
+    Alert.alert('检查更新', '当前已是最新版本', [{ text: '确定' }]);
+  };
+
+  // 菜单项
   const menuItems = [
-    ...(user?.role === 'admin' ? [
-      {
-        icon: 'user-gear',
-        title: '员工管理',
-        subtitle: '管理员工账号和权限',
-        color: '#9B59B6',
-        onPress: () => router.push('/employee-management'),
-      },
-      {
-        icon: 'sitemap',
-        title: '部门管理',
-        subtitle: '管理组织架构和部门',
-        color: '#3498DB',
-        onPress: () => router.push('/department-management'),
-      },
-      {
-        icon: 'code-branch',
-        title: '版本管理',
-        subtitle: '管理版本发布和回退',
-        color: '#E74C3C',
-        onPress: () => router.push('/version-management'),
-      },
-    ] : []),
     {
-      icon: 'users',
-      title: '客户管理',
-      subtitle: '管理客户信息',
+      icon: 'user',
+      title: '账号设置',
+      subtitle: '修改密码、个人信息',
       color: '#6C63FF',
-      onPress: () => router.push('/(tabs)/query'),
+      onPress: () => Alert.alert('提示', '账号设置功能开发中'),
     },
     {
-      icon: 'clipboard-list',
-      title: '工单管理',
-      subtitle: '查看和处理工单',
-      color: '#FF6584',
-      onPress: () => router.push('/(tabs)/work-orders'),
-    },
-    {
-      icon: 'search',
-      title: '信息查询',
-      subtitle: '查询客户、设备、工单',
+      icon: 'circle-question',
+      title: '帮助与反馈',
+      subtitle: '产品操作指导手册',
       color: '#00B894',
-      onPress: () => router.push('/(tabs)/query'),
+      onPress: () => Alert.alert('帮助与反馈', '请联系客服获取产品操作指导手册'),
     },
     {
-      icon: 'folder-open',
-      title: '文件库',
-      subtitle: '管理文档和附件',
-      color: '#1E88E5',
-      onPress: () => router.push('/files'),
-    },
-    {
-      icon: 'images',
-      title: '相册',
-      subtitle: '管理照片和视频',
-      color: '#FDCB6E',
-      onPress: () => router.push('/gallery'),
-    },
-    {
-      icon: 'cog',
-      title: '系统设置',
-      subtitle: '应用配置',
-      color: '#B2BEC3',
-      onPress: () => Alert.alert('提示', '功能开发中'),
-    },
-    {
-      icon: 'circle-info',
-      title: '关于我们',
-      subtitle: '版本信息',
-      color: '#B2BEC3',
-      onPress: () => Alert.alert('关于', '项小秘售后助手 v1.0.0'),
+      icon: 'mobile-screen',
+      title: '系统版本与更新',
+      subtitle: '检查更新、版本信息',
+      color: '#3498DB',
+      onPress: () => setVersionModalVisible(true),
     },
   ];
+
+  if (loading) {
+    return (
+      <Screen>
+        <View style={styles.loadingContainer}>
+          <Text>加载中...</Text>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
       <ScrollView
-        className="flex-1"
+        style={styles.container}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* Header */}
-        <View className="px-6 pt-8 pb-6">
-          <View
-            className="rounded-3xl p-6 shadow-lg"
-            style={{
-              backgroundColor: '#F0F0F3',
-              shadowColor: '#D1D9E6',
-              shadowOffset: { width: 6, height: 6 },
-              shadowOpacity: 0.7,
-              shadowRadius: 8,
-              elevation: 6,
-            }}
-          >
-            <View className="flex-row items-center mb-4">
-              <View
-                className="w-20 h-20 rounded-full items-center justify-center mr-4"
-                style={{ backgroundColor: 'rgba(108, 99, 255, 0.12)' }}
-              >
-                <FontAwesome6 name="user" size={40} color="#6C63FF" />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>我的</Text>
+        </View>
+
+        {/* 账号信息卡 */}
+        <View style={styles.section}>
+          <View style={styles.accountCard}>
+            <View style={styles.accountHeader}>
+              <View style={styles.avatarContainer}>
+                <FontAwesome6 name="user" size={32} color="#6C63FF" />
               </View>
-              <View className="flex-1">
-                <Text className="text-2xl font-bold text-[#2D3436] mb-1">
-                  {user?.name || '未登录'}
-                </Text>
-                <Text className="text-sm text-[#636E72]">
+              <View style={styles.accountInfo}>
+                <Text style={styles.accountName}>{user?.name || '未登录'}</Text>
+                <Text style={styles.accountRole}>
                   {user?.role === 'admin' ? '管理员' : '售后工程师'}
                 </Text>
               </View>
             </View>
-            {user && (
-              <View className="flex-row gap-3">
-                <View
-                  className="flex-1 p-4 rounded-2xl items-center"
-                  style={{ backgroundColor: 'rgba(108, 99, 255, 0.08)' }}
-                >
-                  <FontAwesome6 name="phone" size={20} color="#6C63FF" />
-                  <Text className="text-xs text-[#636E72] mt-2">
-                    {user.username}
-                  </Text>
-                </View>
+            <View style={styles.accountDetails}>
+              <View style={styles.detailItem}>
+                <FontAwesome6 name="phone" size={14} color="#636E72" />
+                <Text style={styles.detailText}>{user?.username || '-'}</Text>
               </View>
-            )}
+              <View style={styles.detailItem}>
+                <FontAwesome6 name="briefcase" size={14} color="#636E72" />
+                <Text style={styles.detailText}>{user?.position || '-'}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
         {/* 功能菜单 */}
-        <View className="px-6">
-          <Text className="text-lg font-bold text-[#2D3436] mb-4">
-            功能菜单
-          </Text>
-
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>功能</Text>
           {menuItems.map((item, index) => (
             <TouchableOpacity
               key={index}
               onPress={item.onPress}
-              className="mb-4"
+              activeOpacity={0.7}
+              style={styles.menuItem}
             >
-              <View
-                className="rounded-3xl p-5 shadow-lg"
-                style={{
-                  backgroundColor: '#F0F0F3',
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 6, height: 6 },
-                  shadowOpacity: 0.7,
-                  shadowRadius: 8,
-                  elevation: 6,
-                }}
-              >
-                <View className="flex-row items-center">
-                  <View
-                    className="w-12 h-12 rounded-full items-center justify-center"
-                    style={{ backgroundColor: `${item.color}1E` }}
-                  >
-                    <FontAwesome6 name={item.icon as any} size={20} color={item.color} />
-                  </View>
-                  <View className="flex-1 ml-4">
-                    <Text className="text-base font-bold text-[#2D3436] mb-1">
-                      {item.title}
-                    </Text>
-                    <Text className="text-sm text-[#636E72]">
-                      {item.subtitle}
-                    </Text>
-                  </View>
-                  <FontAwesome6 name="chevron-right" size={18} color="#B2BEC3" />
+              <View style={styles.menuItemContent}>
+                <View style={[styles.menuIcon, { backgroundColor: `${item.color}15` }]}>
+                  <FontAwesome6 name={item.icon as any} size={20} color={item.color} />
                 </View>
+                <View style={styles.menuTextContainer}>
+                  <Text style={styles.menuTitle}>{item.title}</Text>
+                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                </View>
+                <FontAwesome6 name="chevron-right" size={16} color="#B2BEC3" />
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* 退出登录 */}
-        <View className="px-6 mt-6">
+        <View style={styles.logoutSection}>
           <TouchableOpacity
             onPress={handleLogout}
-            className="py-4 rounded-full items-center"
-            style={{ backgroundColor: '#FF6B6B' }}
+            style={styles.logoutButton}
+            activeOpacity={0.7}
           >
-            <Text className="text-white font-bold text-base">退出登录</Text>
+            <FontAwesome6 name="right-from-bracket" size={18} color="#FF6B6B" />
+            <Text style={styles.logoutText}>退出登录</Text>
           </TouchableOpacity>
         </View>
 
         {/* 版本信息 */}
-        <View className="px-6 mt-8 mb-6">
-          <Text className="text-center text-xs text-[#B2BEC3]">
-            项小秘售后助手 v1.0.0
-          </Text>
+        <View style={styles.versionSection}>
+          <Text style={styles.versionText}>项小秘售后助手 v1.0.0</Text>
         </View>
+
+        {/* 系统版本与更新弹窗 */}
+        <Modal
+          visible={versionModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setVersionModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>系统版本与更新</Text>
+                <TouchableOpacity onPress={() => setVersionModalVisible(false)}>
+                  <FontAwesome6 name="xmark" size={20} color="#636E72" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.versionInfo}>
+                <View style={styles.versionRow}>
+                  <Text style={styles.versionLabel}>应用名称</Text>
+                  <Text style={styles.versionValue}>项小秘售后助手</Text>
+                </View>
+                <View style={styles.versionRow}>
+                  <Text style={styles.versionLabel}>应用版本</Text>
+                  <Text style={styles.versionValue}>v1.0.0</Text>
+                </View>
+                <View style={styles.versionRow}>
+                  <Text style={styles.versionLabel}>运行平台</Text>
+                  <Text style={styles.versionValue}>iOS / Android / Web</Text>
+                </View>
+                <View style={styles.versionRow}>
+                  <Text style={styles.versionLabel}>软件版本号</Text>
+                  <Text style={styles.versionValue}>1.0.0.20240101</Text>
+                </View>
+                <View style={styles.versionRow}>
+                  <Text style={styles.versionLabel}>更新说明</Text>
+                  <Text style={styles.versionValue}>首次发布版本</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.checkUpdateButton}
+                onPress={handleCheckUpdate}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.checkUpdateText}>检查更新</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  section: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#636E72',
+    marginBottom: 12,
+  },
+  accountCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  accountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(108, 99, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  accountInfo: {
+    flex: 1,
+  },
+  accountName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
+  accountRole: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  accountDetails: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    fontSize: 13,
+    color: '#636E72',
+  },
+  menuItem: {
+    marginBottom: 12,
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  menuIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  menuTextContainer: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 2,
+  },
+  menuSubtitle: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  logoutSection: {
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+  versionSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  versionText: {
+    fontSize: 12,
+    color: '#B2BEC3',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  versionInfo: {
+    marginBottom: 24,
+  },
+  versionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F3',
+  },
+  versionLabel: {
+    fontSize: 15,
+    color: '#636E72',
+  },
+  versionValue: {
+    fontSize: 15,
+    color: '#2D3436',
+    fontWeight: '500',
+  },
+  checkUpdateButton: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  checkUpdateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});
