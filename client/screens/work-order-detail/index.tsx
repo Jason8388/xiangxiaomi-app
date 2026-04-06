@@ -13,12 +13,20 @@ import {
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import * as ImagePicker from 'expo-image-picker';
 
 interface ContactPerson {
   id: string;
   name: string;
   role: string;
   phone: string;
+}
+
+interface MediaItem {
+  id: string;
+  uri: string;
+  type: 'photo' | 'video';
+  name?: string;
 }
 
 interface WorkOrderDetail {
@@ -40,6 +48,14 @@ interface WorkOrderDetail {
   created_at?: string;
   updated_at?: string;
   contacts?: ContactPerson[];
+  // 需求信息
+  demand_received_date?: string;
+  demand_description?: string;
+  problem_description?: string;
+  device_media?: MediaItem[];
+  device_number?: string;
+  contract_name?: string;
+  contract_no?: string;
 }
 
 export default function WorkOrderDetailScreen() {
@@ -54,6 +70,9 @@ export default function WorkOrderDetailScreen() {
   const [contactModalVisible, setContactModalVisible] = useState(false);
   const [editingContact, setEditingContact] = useState<ContactPerson | null>(null);
   const [contactForm, setContactForm] = useState({ name: '', role: '', phone: '' });
+  const [editingDemandField, setEditingDemandField] = useState('');
+  const [demandEditValue, setDemandEditValue] = useState('');
+  const [mediaPickerVisible, setMediaPickerVisible] = useState(false);
 
   const router = useSafeRouter();
   const { id } = useSafeSearchParams<{ id: string }>();
@@ -312,6 +331,172 @@ export default function WorkOrderDetailScreen() {
     }
   };
 
+  // 处理需求信息编辑
+  const handleDemandEdit = (field: string, value: string) => {
+    setEditingDemandField(field);
+    setDemandEditValue(value);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveDemandField = async () => {
+    if (!order) return;
+
+    try {
+      const updates: any = {};
+      updates[editingDemandField] = demandEditValue;
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }
+      );
+
+      if (response.ok) {
+        setOrder({ ...order, [editingDemandField]: demandEditValue });
+        setEditModalVisible(false);
+        Alert.alert('成功', '修改成功');
+      } else {
+        throw new Error('修改失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 上传设备照片/视频
+  const pickMedia = async (type: 'photo' | 'video') => {
+    try {
+      if (type === 'photo') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('提示', '需要相册权限才能上传照片');
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: type === 'photo' 
+          ? ImagePicker.MediaTypeOptions.Images 
+          : ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const newMedia: MediaItem = {
+          id: Date.now().toString(),
+          uri: asset.uri,
+          type: type,
+          name: asset.fileName || `media_${Date.now()}`,
+        };
+
+        const updatedMedia = [...(order?.device_media || []), newMedia];
+        
+        // 上传到服务器
+        const formData = new FormData();
+        formData.append('device_media', JSON.stringify(updatedMedia));
+
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order?.id}`,
+          {
+            method: 'PUT',
+            body: formData,
+          }
+        );
+
+        if (response.ok) {
+          setOrder({ ...order!, device_media: updatedMedia });
+          Alert.alert('成功', '上传成功');
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相机权限才能拍照');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const newMedia: MediaItem = {
+          id: Date.now().toString(),
+          uri: asset.uri,
+          type: 'photo',
+          name: `photo_${Date.now()}.jpg`,
+        };
+
+        const updatedMedia = [...(order?.device_media || []), newMedia];
+        
+        const formData = new FormData();
+        formData.append('device_media', JSON.stringify(updatedMedia));
+
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order?.id}`,
+          {
+            method: 'PUT',
+            body: formData,
+          }
+        );
+
+        if (response.ok) {
+          setOrder({ ...order!, device_media: updatedMedia });
+          Alert.alert('成功', '拍照上传成功');
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  const deleteMedia = async (mediaId: string) => {
+    Alert.alert('确认删除', '确定要删除此媒体文件吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          if (!order) return;
+          const updatedMedia = (order.device_media || []).filter(m => m.id !== mediaId);
+          
+          const formData = new FormData();
+          formData.append('device_media', JSON.stringify(updatedMedia));
+
+          try {
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+              {
+                method: 'PUT',
+                body: formData,
+              }
+            );
+
+            if (response.ok) {
+              setOrder({ ...order, device_media: updatedMedia });
+              Alert.alert('成功', '删除成功');
+            }
+          } catch (error: any) {
+            Alert.alert('错误', error.message);
+          }
+        },
+      },
+    ]);
+  };
+
   const renderInfoRow = (label: string, value: string | number, field?: string, isEditable = false) => (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -479,6 +664,65 @@ export default function WorkOrderDetailScreen() {
           </View>
         </View>
 
+        {/* 栏4：需求信息 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="list-check" size={20} color="#0984E3" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>需求信息</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            {renderInfoRow('需求收到日期', order.demand_received_date || '', 'demand_received_date', true)}
+            {renderInfoRow('需求描述', order.demand_description || '', 'demand_description', true)}
+            {renderInfoRow('问题说明', order.problem_description || '', 'problem_description', true)}
+
+            {/* 设备编号 */}
+            {renderInfoRow('设备编号', order.device_number || '', 'device_number', true)}
+
+            {/* 合同名称 */}
+            {renderInfoRow('合同名称', order.contract_name || '', 'contract_name', true)}
+
+            {/* 合同编号 */}
+            {renderInfoRow('合同编号', order.contract_no || '', 'contract_no', true)}
+
+            {/* 设备照片/视频 */}
+            <View style={styles.mediaSection}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>设备照片/视频</Text>
+              </View>
+              <View style={styles.mediaGrid}>
+                {/* 已有媒体 */}
+                {order.device_media && order.device_media.length > 0 && (
+                  order.device_media.map((media) => (
+                    <View key={media.id} style={styles.mediaItem}>
+                      <View style={styles.mediaThumbnail}>
+                        {media.type === 'photo' ? (
+                          <FontAwesome6 name="image" size={24} color="#636E72" />
+                        ) : (
+                          <FontAwesome6 name="video" size={24} color="#636E72" />
+                        )}
+                      </View>
+                      <TouchableOpacity
+                        style={styles.mediaDeleteButton}
+                        onPress={() => deleteMedia(media.id)}
+                      >
+                        <FontAwesome6 name="times" size={10} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+                {/* 添加按钮 */}
+                <TouchableOpacity
+                  style={styles.mediaAddButton}
+                  onPress={() => setMediaPickerVisible(true)}
+                >
+                  <FontAwesome6 name="plus" size={24} color="#6C63FF" />
+                  <Text style={styles.mediaAddText}>添加</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* 工单描述 */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -517,19 +761,39 @@ export default function WorkOrderDetailScreen() {
                   <Text style={styles.modalCancelButton}>取消</Text>
                 </TouchableOpacity>
                 <Text style={styles.modalTitle}>编辑信息</Text>
-                <TouchableOpacity onPress={handleSave}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (editingDemandField) {
+                      handleSaveDemandField();
+                    } else {
+                      handleSave();
+                    }
+                  }}
+                >
                   <Text style={styles.modalSaveButton}>保存</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.modalBody}>
                 <TextInput
-                  style={styles.modalInput}
-                  value={editValue}
-                  onChangeText={setEditValue}
+                  style={[
+                    styles.modalInput,
+                    (editingDemandField === 'demand_description' || editingDemandField === 'problem_description') && styles.modalTextArea,
+                  ]}
+                  value={editingDemandField ? demandEditValue : editValue}
+                  onChangeText={(text) => {
+                    if (editingDemandField) {
+                      setDemandEditValue(text);
+                    } else {
+                      setEditValue(text);
+                    }
+                  }}
                   placeholder="请输入内容"
                   autoFocus
-                  multiline={editingField === 'implement_subject'}
-                  numberOfLines={editingField === 'implement_subject' ? 3 : 1}
+                  multiline={editingDemandField === 'demand_description' || editingDemandField === 'problem_description' || editingField === 'implement_subject'}
+                  numberOfLines={
+                    editingDemandField === 'demand_description' || editingDemandField === 'problem_description' ? 4 : 
+                    editingField === 'implement_subject' ? 3 : 1
+                  }
                 />
               </View>
             </View>
@@ -646,6 +910,61 @@ export default function WorkOrderDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* 媒体选择 Modal */}
+      <Modal
+        visible={mediaPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMediaPickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.selectModalContainer}
+          activeOpacity={1}
+          onPress={() => setMediaPickerVisible(false)}
+        >
+          <View style={styles.selectModalContent}>
+            <View style={styles.selectModalHeader}>
+              <Text style={styles.selectModalTitle}>添加设备照片/视频</Text>
+              <TouchableOpacity onPress={() => setMediaPickerVisible(false)}>
+                <FontAwesome6 name="xmark" size={24} color="#2D3436" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.mediaPickerBody}>
+              <TouchableOpacity
+                style={styles.mediaPickerItem}
+                onPress={() => {
+                  setMediaPickerVisible(false);
+                  takePhoto();
+                }}
+              >
+                <FontAwesome6 name="camera" size={32} color="#6C63FF" />
+                <Text style={styles.mediaPickerText}>拍照</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mediaPickerItem}
+                onPress={() => {
+                  setMediaPickerVisible(false);
+                  pickMedia('photo');
+                }}
+              >
+                <FontAwesome6 name="image" size={32} color="#00B894" />
+                <Text style={styles.mediaPickerText}>从相册选择照片</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mediaPickerItem}
+                onPress={() => {
+                  setMediaPickerVisible(false);
+                  pickMedia('video');
+                }}
+              >
+                <FontAwesome6 name="video" size={32} color="#E74C3C" />
+                <Text style={styles.mediaPickerText}>从相册选择视频</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   );
 }
@@ -725,6 +1044,76 @@ const styles = {
     fontSize: 14,
     color: '#2D3436',
     lineHeight: 22,
+  },
+  mediaSection: {
+    marginTop: 8,
+  },
+  mediaGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 12,
+  },
+  mediaItem: {
+    position: 'relative' as const,
+    width: 70,
+    height: 70,
+  },
+  mediaThumbnail: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F3',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  mediaDeleteButton: {
+    position: 'absolute' as const,
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E74C3C',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  mediaAddButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderStyle: 'dashed' as const,
+    borderColor: '#6C63FF',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  mediaAddText: {
+    fontSize: 10,
+    color: '#6C63FF',
+    marginTop: 2,
+  },
+  mediaPickerBody: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  mediaPickerItem: {
+    alignItems: 'center' as const,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+    minWidth: 100,
+  },
+  mediaPickerText: {
+    fontSize: 12,
+    color: '#2D3436',
+    marginTop: 8,
+    textAlign: 'center' as const,
+  },
+  modalTextArea: {
+    minHeight: 100,
+    textAlignVertical: 'top' as const,
   },
   addButton: {
     flexDirection: 'row' as const,
