@@ -281,77 +281,42 @@ export default function ContractManagement() {
           </View>
         ) : (
           filteredContracts.map((contract) => (
-            <TouchableOpacity
-              key={contract.id}
-              style={styles.card}
-              onPress={() => router.push('/contract-detail', { id: contract.id })}
-              activeOpacity={0.7}
-            >
+            <View key={contract.id} style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
-                  <View>
-                    <Text style={styles.cardNumber}>{contract.contract_number}</Text>
-                    <Text style={styles.cardTitle}>{contract.contract_name}</Text>
-                  </View>
-                </View>
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleEdit(contract);
-                    }}
-                  >
-                    <FontAwesome6 name="pen" size={16} color="#F39C12" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleDelete(contract);
-                    }}
-                  >
-                    <FontAwesome6 name="trash" size={16} color="#E74C3C" />
-                  </TouchableOpacity>
+                  <FontAwesome6 name="file-signature" size={18} color="#2ECC71" />
+                  <Text style={styles.cardTitle}>{contract.contract_name}</Text>
                 </View>
               </View>
 
               <View style={styles.cardInfo}>
-                <FontAwesome6 name="user-tie" size={14} color="#636E72" />
-                <Text style={styles.cardInfoText}>{contract.business_manager}</Text>
+                <Text style={styles.infoLabel}>合同编号:</Text>
+                <Text style={styles.infoValue}>{contract.contract_number}</Text>
               </View>
 
               <View style={styles.cardInfo}>
-                <FontAwesome6 name="building" size={14} color="#636E72" />
-                <Text style={styles.cardInfoText}>{contract.customer_name}</Text>
+                <Text style={styles.infoLabel}>客户名称:</Text>
+                <Text style={styles.infoValue}>{contract.customer_name}</Text>
               </View>
 
-              <View style={styles.cardInfo}>
-                <FontAwesome6 name="calendar" size={14} color="#636E72" />
-                <Text style={styles.cardInfoText}>签订日期: {formatDate(contract.sign_date)}</Text>
-              </View>
+              <View style={styles.cardActionsRow}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleEdit(contract)}
+                >
+                  <FontAwesome6 name="pen" size={16} color="#F39C12" />
+                  <Text style={styles.actionButtonText}>修改</Text>
+                </TouchableOpacity>
 
-              {contract.tags && contract.tags.length > 0 && (
-                <View style={styles.tagsContainer}>
-                  {contract.tags.map((tag, index) => (
-                    <View key={index} style={styles.tag}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              <View style={styles.cardFooter}>
-                <View style={styles.statItem}>
-                  <FontAwesome6 name="microchip" size={12} color="#1E88E5" />
-                  <Text style={styles.statText}>{contract.device_count}台设备</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <FontAwesome6 name="clipboard-list" size={12} color="#9B59B6" />
-                  <Text style={styles.statText}>{contract.work_order_count}个工单</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleDelete(contract)}
+                >
+                  <FontAwesome6 name="trash" size={16} color="#E74C3C" />
+                  <Text style={styles.actionButtonText}>删除</Text>
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
+            </View>
           ))
         )}
       </ScrollView>
@@ -901,6 +866,35 @@ const styles = StyleSheet.create({
   formInputPlaceholder: {
     fontSize: 14,
     color: '#95A5A6',
+    flex: 1,
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#7F8C8D',
+    width: 80,
+    flexShrink: 0,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#2C3E50',
     flex: 1,
   },
 });
