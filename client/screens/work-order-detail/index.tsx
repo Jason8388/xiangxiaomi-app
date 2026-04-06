@@ -29,6 +29,13 @@ interface MediaItem {
   name?: string;
 }
 
+interface ServiceDocument {
+  id: string;
+  uri: string;
+  type: string;
+  name?: string;
+}
+
 interface WorkOrderDetail {
   id: number;
   name?: string;
@@ -56,6 +63,16 @@ interface WorkOrderDetail {
   device_number?: string;
   contract_name?: string;
   contract_no?: string;
+  // 服务方案
+  service_plan?: string;
+  planned_hours?: number;
+  material_requirements?: string;
+  warranty_status?: string;
+  is_charged?: boolean;
+  quoted_amount?: number;
+  service_quote_docs?: ServiceDocument[];
+  customer_consensus_docs?: ServiceDocument[];
+  customer_consensus_date?: string;
 }
 
 export default function WorkOrderDetailScreen() {
@@ -73,6 +90,17 @@ export default function WorkOrderDetailScreen() {
   const [editingDemandField, setEditingDemandField] = useState('');
   const [demandEditValue, setDemandEditValue] = useState('');
   const [mediaPickerVisible, setMediaPickerVisible] = useState(false);
+  const [documentPickerVisible, setDocumentPickerVisible] = useState(false);
+  const [documentPickerType, setDocumentPickerType] = useState<'quote' | 'consensus'>('quote');
+
+  // 质保期状态选项
+  const warrantyStatusOptions = ['质保期内', '质保期外'];
+
+  // 是否收费选项
+  const isChargedOptions = [
+    { label: '收费', value: true },
+    { label: '免费', value: false },
+  ];
 
   const router = useSafeRouter();
   const { id } = useSafeSearchParams<{ id: string }>();
@@ -203,12 +231,17 @@ export default function WorkOrderDetailScreen() {
 
     try {
       const updates: any = {};
-      updates[editingField] = editValue;
+      let value: any = editValue;
 
       // 特殊字段处理
       if (editingField === 'name') {
         updates.description = editValue;
+      } else if (editingField === 'is_charged') {
+        // 是否收费转换为布尔值
+        value = editValue === '收费';
       }
+
+      updates[editingField] = value;
 
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
@@ -220,7 +253,7 @@ export default function WorkOrderDetailScreen() {
       );
 
       if (response.ok) {
-        setOrder({ ...order, [editingField]: editValue });
+        setOrder({ ...order, [editingField]: value });
         setEditModalVisible(false);
         setSelectModalVisible(false);
         Alert.alert('成功', '修改成功');
@@ -343,7 +376,14 @@ export default function WorkOrderDetailScreen() {
 
     try {
       const updates: any = {};
-      updates[editingDemandField] = demandEditValue;
+      let value: any = demandEditValue;
+
+      // 特殊字段类型转换
+      if (editingDemandField === 'quoted_amount' || editingDemandField === 'planned_hours') {
+        value = parseFloat(demandEditValue) || 0;
+      }
+
+      updates[editingDemandField] = value;
 
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
@@ -355,7 +395,7 @@ export default function WorkOrderDetailScreen() {
       );
 
       if (response.ok) {
-        setOrder({ ...order, [editingDemandField]: demandEditValue });
+        setOrder({ ...order, [editingDemandField]: value });
         setEditModalVisible(false);
         Alert.alert('成功', '修改成功');
       } else {
@@ -495,6 +535,142 @@ export default function WorkOrderDetailScreen() {
         },
       },
     ]);
+  };
+
+  // 服务方案字段编辑
+  const handleServiceEdit = (field: string, value: any, isBoolean = false) => {
+    if (isBoolean) {
+      // 布尔值类型（下拉选择）
+      handleServiceFieldUpdate(field, value);
+    } else if (field === 'service_plan' || field === 'material_requirements') {
+      // 多行文本
+      setEditingDemandField(field);
+      setDemandEditValue(value || '');
+      setEditModalVisible(true);
+    } else {
+      // 普通文本或数字
+      setEditingDemandField(field);
+      setDemandEditValue(String(value || ''));
+      setEditModalVisible(true);
+    }
+  };
+
+  const handleServiceFieldUpdate = async (field: string, value: any) => {
+    if (!order) return;
+
+    try {
+      const updates: any = {};
+      updates[field] = value;
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }
+      );
+
+      if (response.ok) {
+        setOrder({ ...order, [field]: value });
+        Alert.alert('成功', '修改成功');
+      } else {
+        throw new Error('修改失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 上传服务报价单或客户共识凭证
+  const handleUploadDocument = async (type: 'quote' | 'consensus') => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相册权限才能上传文件');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const newDoc: ServiceDocument = {
+          id: Date.now().toString(),
+          uri: asset.uri,
+          type: 'quote',
+          name: asset.fileName || `doc_${Date.now()}.jpg`,
+        };
+
+        const fieldName = type === 'quote' ? 'service_quote_docs' : 'customer_consensus_docs';
+        const currentDocs = (order as any)[fieldName] || [];
+        const updatedDocs = [...currentDocs, newDoc];
+
+        const formData = new FormData();
+        formData.append(fieldName, JSON.stringify(updatedDocs));
+
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order?.id}`,
+          {
+            method: 'PUT',
+            body: formData,
+          }
+        );
+
+        if (response.ok) {
+          setOrder({ ...order!, [fieldName]: updatedDocs });
+          Alert.alert('成功', '上传成功');
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 删除服务报价单或客户共识凭证
+  const deleteDocument = async (docId: string, type: 'quote' | 'consensus') => {
+    Alert.alert('确认删除', '确定要删除此文件吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          if (!order) return;
+          const fieldName = type === 'quote' ? 'service_quote_docs' : 'customer_consensus_docs';
+          const currentDocs = (order as any)[fieldName] || [];
+          const updatedDocs = currentDocs.filter((d: ServiceDocument) => d.id !== docId);
+
+          const formData = new FormData();
+          formData.append(fieldName, JSON.stringify(updatedDocs));
+
+          try {
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+              {
+                method: 'PUT',
+                body: formData,
+              }
+            );
+
+            if (response.ok) {
+              setOrder({ ...order, [fieldName]: updatedDocs });
+              Alert.alert('成功', '删除成功');
+            }
+          } catch (error: any) {
+            Alert.alert('错误', error.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const openDocumentPicker = (type: 'quote' | 'consensus') => {
+    setDocumentPickerType(type);
+    setDocumentPickerVisible(true);
   };
 
   const renderInfoRow = (label: string, value: string | number, field?: string, isEditable = false) => (
@@ -717,6 +893,142 @@ export default function WorkOrderDetailScreen() {
                 >
                   <FontAwesome6 name="plus" size={24} color="#6C63FF" />
                   <Text style={styles.mediaAddText}>添加</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* 栏5：服务方案 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="file-contract" size={20} color="#00B894" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>服务方案</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            {/* 服务方案 */}
+            {renderInfoRow('服务方案', order.service_plan || '', 'service_plan', true)}
+
+            {/* 计划工时 */}
+            {renderInfoRow(
+              '计划工时',
+              order.planned_hours ? `${order.planned_hours} 小时` : '',
+              'planned_hours',
+              true
+            )}
+
+            {/* 物料需求 */}
+            {renderInfoRow('物料需求', order.material_requirements || '', 'material_requirements', true)}
+
+            {/* 质保期状态 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>质保期状态</Text>
+              <TouchableOpacity
+                style={styles.infoValueContainer}
+                onPress={() => {
+                  setSelectOptions(warrantyStatusOptions);
+                  setSelectTitle('选择质保期状态');
+                  setEditValue(order.warranty_status || '');
+                  setEditingDemandField('warranty_status');
+                  setSelectModalVisible(true);
+                }}
+              >
+                <Text style={[styles.infoValue, !order.warranty_status && styles.infoValuePlaceholder]}>
+                  {order.warranty_status || '请选择'}
+                </Text>
+                <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 是否收费 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>是否收费</Text>
+              <TouchableOpacity
+                style={styles.infoValueContainer}
+                onPress={() => {
+                  setSelectOptions(['收费', '免费']);
+                  setSelectTitle('选择是否收费');
+                  setEditValue(order.is_charged ? '收费' : '免费');
+                  setEditingDemandField('is_charged');
+                  setSelectModalVisible(true);
+                }}
+              >
+                <Text style={[styles.infoValue, order.is_charged === undefined && styles.infoValuePlaceholder]}>
+                  {order.is_charged === true ? '收费' : order.is_charged === false ? '免费' : '请选择'}
+                </Text>
+                <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 报价金额 */}
+            {renderInfoRow(
+              '报价金额',
+              order.quoted_amount ? `¥${order.quoted_amount.toFixed(2)}` : '',
+              'quoted_amount',
+              true
+            )}
+
+            {/* 客户方案共识日期 */}
+            {renderInfoRow('客户方案共识日期', order.customer_consensus_date || '', 'customer_consensus_date', true)}
+
+            {/* 服务报价单 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>服务报价单</Text>
+            </View>
+            <View style={styles.documentSection}>
+              <View style={styles.mediaGrid}>
+                {order.service_quote_docs && order.service_quote_docs.length > 0 && (
+                  order.service_quote_docs.map((doc) => (
+                    <View key={doc.id} style={styles.mediaItem}>
+                      <View style={styles.mediaThumbnail}>
+                        <FontAwesome6 name="file-image" size={24} color="#636E72" />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.mediaDeleteButton}
+                        onPress={() => deleteDocument(doc.id, 'quote')}
+                      >
+                        <FontAwesome6 name="times" size={10} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+                <TouchableOpacity
+                  style={styles.mediaAddButton}
+                  onPress={() => openDocumentPicker('quote')}
+                >
+                  <FontAwesome6 name="plus" size={24} color="#6C63FF" />
+                  <Text style={styles.mediaAddText}>上传</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* 客户共识凭证 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>客户共识凭证</Text>
+            </View>
+            <View style={styles.documentSection}>
+              <View style={styles.mediaGrid}>
+                {order.customer_consensus_docs && order.customer_consensus_docs.length > 0 && (
+                  order.customer_consensus_docs.map((doc) => (
+                    <View key={doc.id} style={styles.mediaItem}>
+                      <View style={styles.mediaThumbnail}>
+                        <FontAwesome6 name="file-image" size={24} color="#636E72" />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.mediaDeleteButton}
+                        onPress={() => deleteDocument(doc.id, 'consensus')}
+                      >
+                        <FontAwesome6 name="times" size={10} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+                <TouchableOpacity
+                  style={styles.mediaAddButton}
+                  onPress={() => openDocumentPicker('consensus')}
+                >
+                  <FontAwesome6 name="plus" size={24} color="#6C63FF" />
+                  <Text style={styles.mediaAddText}>上传</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -965,6 +1277,43 @@ export default function WorkOrderDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* 文档上传 Modal */}
+      <Modal
+        visible={documentPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDocumentPickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.selectModalContainer}
+          activeOpacity={1}
+          onPress={() => setDocumentPickerVisible(false)}
+        >
+          <View style={styles.selectModalContent}>
+            <View style={styles.selectModalHeader}>
+              <Text style={styles.selectModalTitle}>
+                {documentPickerType === 'quote' ? '上传服务报价单' : '上传客户共识凭证'}
+              </Text>
+              <TouchableOpacity onPress={() => setDocumentPickerVisible(false)}>
+                <FontAwesome6 name="xmark" size={24} color="#2D3436" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.mediaPickerBody}>
+              <TouchableOpacity
+                style={styles.mediaPickerItem}
+                onPress={() => {
+                  setDocumentPickerVisible(false);
+                  handleUploadDocument(documentPickerType);
+                }}
+              >
+                <FontAwesome6 name="image" size={32} color="#6C63FF" />
+                <Text style={styles.mediaPickerText}>从相册选择</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   );
 }
@@ -1047,6 +1396,10 @@ const styles = {
   },
   mediaSection: {
     marginTop: 8,
+  },
+  documentSection: {
+    marginTop: 8,
+    marginBottom: 12,
   },
   mediaGrid: {
     flexDirection: 'row' as const,
