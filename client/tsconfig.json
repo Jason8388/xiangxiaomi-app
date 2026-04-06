@@ -2,7 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "skipLibCheck": true,
-    "jsx": "react-jsx",
+    "jsx": "react-native",
     "baseUrl": ".",
     "strict": true,
     "noEmit": true,

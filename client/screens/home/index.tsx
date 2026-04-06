@@ -3,7 +3,6 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { Platform } from 'react-native';
 import { storage } from '@/utils/storage';
 
 interface User {
@@ -147,7 +146,6 @@ export default function HomeScreen() {
     }
   };
 
-  // 加载中状态
   if (loading) {
     return (
       <Screen>
@@ -158,52 +156,48 @@ export default function HomeScreen() {
     );
   }
 
-  // 统一工作台（所有用户都看到完整功能导航）
   return (
-      <Screen>
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={{ paddingBottom: 120 }}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.headerTitle}>工作台</Text>
-              <Text style={styles.headerSubtitle}>
-                欢迎回来，{user?.name || '用户'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => router.push('/profile')}
-            >
-              <FontAwesome6 name="bell" size={20} color="#2D3436" />
-            </TouchableOpacity>
+    <Screen>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>工作台</Text>
+            <Text style={styles.headerSubtitle}>
+              欢迎回来，{user?.name || '用户'}
+            </Text>
           </View>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => router.push('/profile')}
+          >
+            <FontAwesome6 name="bell" size={20} color="#2D3436" />
+          </TouchableOpacity>
+        </View>
 
-          {/* 功能导航 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>功能导航</Text>
-            <View style={styles.navGrid}>
-              {adminNavItems.map(item => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.navItem}
-                  onPress={() => router.push(item.route)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.navIcon, { backgroundColor: `${item.color}15` }]}>
-                    <FontAwesome6 name={item.icon as any} size={24} color={item.color} />
-                  </View>
-                  <Text style={styles.navTitle}>{item.title}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>功能导航</Text>
+          <View style={styles.navGrid}>
+            {adminNavItems.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.navItem}
+                onPress={() => router.push(item.route)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.navIcon, { backgroundColor: `${item.color}15` }]}>
+                  <FontAwesome6 name={item.icon as any} size={24} color={item.color} />
+                </View>
+                <Text style={styles.navTitle}>{item.title}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        </ScrollView>
-      </Screen>
-    );
-  }
+        </View>
+      </ScrollView>
+    </Screen>
+  );
 }
 
 const styles = StyleSheet.create({
