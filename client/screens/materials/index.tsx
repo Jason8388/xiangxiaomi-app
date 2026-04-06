@@ -18,6 +18,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import MaterialTagSelector from '@/components/MaterialTagSelector';
 
 interface Material {
   id: number;
@@ -31,6 +32,7 @@ interface Material {
   unit_price?: number;
   qr_code?: string;
   remarks?: string;
+  tags?: string[];
 }
 
 export default function MaterialManagement() {
@@ -44,6 +46,7 @@ export default function MaterialManagement() {
   const [qrCodeModalVisible, setQrCodeModalVisible] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [tagSelectorVisible, setTagSelectorVisible] = useState(false);
   const [formData, setFormData] = useState({
     material_number: '',
     material_name: '',
@@ -54,6 +57,7 @@ export default function MaterialManagement() {
     supplier: '',
     unit_price: '',
     remarks: '',
+    tags: [] as string[],
   });
 
   useEffect(() => {
@@ -104,6 +108,7 @@ export default function MaterialManagement() {
       supplier: '',
       unit_price: '',
       remarks: '',
+      tags: [],
     });
     setModalVisible(true);
   };
@@ -120,6 +125,7 @@ export default function MaterialManagement() {
       supplier: material.supplier || '',
       unit_price: material.unit_price?.toString() || '',
       remarks: material.remarks || '',
+      tags: material.tags || [],
     });
     setModalVisible(true);
   };
@@ -465,6 +471,22 @@ export default function MaterialManagement() {
                 </View>
               )}
 
+              {material.tags && material.tags.length > 0 && (
+                <View style={styles.cardInfo}>
+                  <Text style={styles.infoLabel}>标签:</Text>
+                  <View style={styles.tagsContainer}>
+                    {material.tags.slice(0, 3).map((tag, index) => (
+                      <View key={index} style={styles.tagBadge}>
+                        <Text style={styles.tagText}>{tag}</Text>
+                      </View>
+                    ))}
+                    {material.tags.length > 3 && (
+                      <Text style={styles.moreTagsText}>+{material.tags.length - 3}</Text>
+                    )}
+                  </View>
+                </View>
+              )}
+
               {material.supplier && (
                 <View style={styles.cardInfo}>
                   <FontAwesome6 name="truck" size={14} color="#636E72" />
@@ -569,6 +591,34 @@ export default function MaterialManagement() {
                     setFormData({ ...formData, category: text })
                   }
                 />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>物料标签（最多10个）</Text>
+                <TouchableOpacity
+                  style={styles.tagSelectorButton}
+                  onPress={() => setTagSelectorVisible(true)}
+                >
+                  {formData.tags && formData.tags.length > 0 ? (
+                    <View style={styles.selectedTagsContainer}>
+                      {formData.tags.slice(0, 3).map((tag, index) => (
+                        <View key={index} style={styles.selectedTag}>
+                          <Text style={styles.selectedTagText}>{tag}</Text>
+                        </View>
+                      ))}
+                      {formData.tags.length > 3 && (
+                        <Text style={styles.moreTagsText}>
+                          +{formData.tags.length - 3}
+                        </Text>
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={styles.tagSelectorPlaceholder}>
+                      点击选择标签
+                    </Text>
+                  )}
+                  <FontAwesome6 name="chevron-right" size={14} color="#95A5A6" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.formRow}>
@@ -689,6 +739,14 @@ export default function MaterialManagement() {
           </View>
         </View>
       </Modal>
+
+      {/* 标签选择器 */}
+      <MaterialTagSelector
+        visible={tagSelectorVisible}
+        selectedTags={formData.tags}
+        onConfirm={(tags) => setFormData({ ...formData, tags })}
+        onClose={() => setTagSelectorVisible(false)}
+      />
     </Screen>
   );
 }
@@ -1013,5 +1071,55 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: '#636E72',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  tagBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(30, 136, 229, 0.1)',
+  },
+  tagText: {
+    fontSize: 11,
+    color: '#1E88E5',
+  },
+  moreTagsText: {
+    fontSize: 11,
+    color: '#95A5A6',
+    marginLeft: 4,
+  },
+  tagSelectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  tagSelectorPlaceholder: {
+    fontSize: 14,
+    color: '#95A5A6',
+  },
+  selectedTagsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  selectedTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(30, 136, 229, 0.1)',
+  },
+  selectedTagText: {
+    fontSize: 12,
+    color: '#1E88E5',
   },
 });
