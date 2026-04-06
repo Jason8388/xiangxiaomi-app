@@ -58,6 +58,7 @@ export default function DeviceManagement() {
   const [deviceTypeFilter, setDeviceTypeFilter] = useState('');
   const [sitePhotos, setSitePhotos] = useState<string[]>([]);
   const [qrCode, setQrCode] = useState<string>('');
+  const [deviceTypeSelectorVisible, setDeviceTypeSelectorVisible] = useState(false);
   const [formData, setFormData] = useState({
     device_number: '',
     device_name: '',
@@ -166,6 +167,7 @@ export default function DeviceManagement() {
     setEditingDevice(null);
     setSitePhotos([]);
     setQrCode('');
+    setDeviceTypeSelectorVisible(false);
   };
 
   const handleSave = async () => {
@@ -547,27 +549,51 @@ export default function DeviceManagement() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>设备类型 *</Text>
-                <View style={styles.typeSelector}>
-                  {DEVICE_TYPES.map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.typeOption,
-                        formData.device_type === type && styles.typeOptionSelected,
-                      ]}
-                      onPress={() => setFormData({ ...formData, device_type: type })}
-                    >
-                      <Text
-                        style={[
-                          styles.typeOptionText,
-                          formData.device_type === type && styles.typeOptionTextSelected,
-                        ]}
-                      >
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => setDeviceTypeSelectorVisible(!deviceTypeSelectorVisible)}
+                >
+                  <Text style={formData.device_type ? styles.dropdownText : styles.dropdownPlaceholder}>
+                    {formData.device_type || '请选择设备类型'}
+                  </Text>
+                  <FontAwesome6
+                    name={deviceTypeSelectorVisible ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color="#95A5A6"
+                  />
+                </TouchableOpacity>
+
+                {deviceTypeSelectorVisible && (
+                  <View style={styles.dropdownMenu}>
+                    <ScrollView style={styles.dropdownList}>
+                      {DEVICE_TYPES.map((type) => (
+                        <TouchableOpacity
+                          key={type}
+                          style={[
+                            styles.dropdownItem,
+                            formData.device_type === type && styles.dropdownItemSelected,
+                          ]}
+                          onPress={() => {
+                            setFormData({ ...formData, device_type: type });
+                            setDeviceTypeSelectorVisible(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              formData.device_type === type && styles.dropdownItemTextSelected,
+                            ]}
+                          >
+                            {type}
+                          </Text>
+                          {formData.device_type === type && (
+                            <FontAwesome6 name="check" size={16} color="#2ECC71" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
 
               <View style={styles.formGroup}>
@@ -995,36 +1021,67 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  typeSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  typeOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    backgroundColor: '#FFFFFF',
-  },
-  typeOptionSelected: {
-    backgroundColor: '#1E88E5',
-    borderColor: '#1E88E5',
-  },
-  typeOptionText: {
-    fontSize: 13,
-    color: '#636E72',
-  },
-  typeOptionTextSelected: {
-    color: '#FFFFFF',
-  },
   modalFooter: {
     flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
     gap: 12,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  dropdownText: {
+    fontSize: 14,
+    color: '#2C3E50',
+  },
+  dropdownPlaceholder: {
+    fontSize: 14,
+    color: '#95A5A6',
+  },
+  dropdownMenu: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    maxHeight: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dropdownList: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  dropdownItemSelected: {
+    backgroundColor: '#EBF5FF',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#2C3E50',
+  },
+  dropdownItemTextSelected: {
+    color: '#1E88E5',
+    fontWeight: '500',
   },
   modalButton: {
     flex: 1,
