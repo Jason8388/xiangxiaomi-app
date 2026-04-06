@@ -36,12 +36,20 @@ router.get('/', async (req, res) => {
     );
 
     // 构建部门树，并添加员工
-    const buildTree = (parentId: number | null = null) => {
+    interface OrgNode {
+      id: number;
+      name: string;
+      parent_id: number | null;
+      employeeCount: number;
+      employees: any[];
+      children: OrgNode[];
+    }
+    const buildTree = (parentId: number | null = null): OrgNode[] => {
       return deptResult.rows
-        .filter(dept => dept.parent_id === parentId)
-        .map(dept => {
+        .filter((dept: any) => dept.parent_id === parentId)
+        .map((dept: any) => {
           const employees = userResult.rows.filter(
-            user => user.department_id === dept.id
+            (user: any) => user.department_id === dept.id
           );
           return {
             ...dept,
@@ -56,7 +64,7 @@ router.get('/', async (req, res) => {
 
     // 获取未分配部门的员工
     const unassignedEmployees = userResult.rows.filter(
-      user => !user.department_id
+      (user: any) => !user.department_id
     );
 
     res.json({

@@ -262,8 +262,8 @@ router.patch('/:id/disable', async (req, res) => {
       SET is_disabled = $1,
           updated_at = CURRENT_TIMESTAMP
     `;
-    const values = [is_disabled];
-    let paramCount = 2;
+    const values: any[] = [is_disabled];
+    let paramCount: number = 2;
 
     if (is_disabled) {
       query += `,

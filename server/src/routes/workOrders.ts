@@ -3,17 +3,33 @@ import pool from '../database/db';
 
 const router = express.Router();
 
+// 带重试的查询函数
+async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
+}
+
 // 获取工单统计
 router.get('/stats', async (req, res) => {
   try {
     // 总工单数
-    const totalResult = await pool.query('SELECT COUNT(*) as total FROM work_orders');
+    const totalResult = await queryWithRetry('SELECT COUNT(*) as total FROM work_orders');
     const totalWorkOrders = parseInt(totalResult.rows[0].total);
 
     // 总收费工单数（假设有一个 is_charged 字段）
     let chargedWorkOrders = 0;
     try {
-      const chargedResult = await pool.query(
+      const chargedResult = await queryWithRetry(
         "SELECT COUNT(*) as total FROM work_orders WHERE is_charged = true"
       );
       chargedWorkOrders = parseInt(chargedResult.rows[0].total);
@@ -24,7 +40,7 @@ router.get('/stats', async (req, res) => {
     // 售后业绩金额（假设有 service_amount 字段）
     let performanceAmount = 0;
     try {
-      const performanceResult = await pool.query(
+      const performanceResult = await queryWithRetry(
         'SELECT COALESCE(SUM(service_amount), 0) as total FROM work_orders WHERE service_amount IS NOT NULL'
       );
       performanceAmount = parseFloat(performanceResult.rows[0].total);
@@ -35,7 +51,7 @@ router.get('/stats', async (req, res) => {
     // 售后代收款金额（假设有 pending_payment 字段）
     let pendingPaymentAmount = 0;
     try {
-      const pendingPaymentResult = await pool.query(
+      const pendingPaymentResult = await queryWithRetry(
         'SELECT COALESCE(SUM(pending_payment), 0) as total FROM work_orders WHERE pending_payment IS NOT NULL'
       );
       pendingPaymentAmount = parseFloat(pendingPaymentResult.rows[0].total);
@@ -46,7 +62,7 @@ router.get('/stats', async (req, res) => {
     // 售后已收款金额（假设有 paid_amount 字段）
     let paidAmount = 0;
     try {
-      const paidAmountResult = await pool.query(
+      const paidAmountResult = await queryWithRetry(
         'SELECT COALESCE(SUM(paid_amount), 0) as total FROM work_orders WHERE paid_amount IS NOT NULL'
       );
       paidAmount = parseFloat(paidAmountResult.rows[0].total);
@@ -103,9 +119,9 @@ router.get('/', async (req, res) => {
       params.push(`%${keyword}%`);
     }
 
-    query += ' ORDER BY wo.created_at DESC';
+    query += ' ORDER BY wo.created_at DESC LIMIT 50';
 
-    const result = await pool.query(query, params);
+    const result = await queryWithRetry(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Get work orders error:', error);
@@ -117,7 +133,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await queryWithRetry(
       `SELECT wo.*, cu.name as customer_name, d.device_name,
               u.name as assignee_name, creator.name as creator_name
        FROM work_orders wo
@@ -143,15 +159,22 @@ router.get('/:id', async (req, res) => {
 // 创建工单
 router.post('/', async (req, res) => {
   try {
-    const { customer_id, device_id, contract_id, order_no, type, priority, status, description, assignee_id, created_by } = req.body;
+    const {
+      customer_id, device_id, contract_id, order_no, type, priority, status, description,
+      assignee_id, created_by, stage, plan_hours, is_charged, quoted_price
+    } = req.body;
 
     if (!customer_id || !type || !order_no) {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
-    const result = await pool.query(
-      'INSERT INTO work_orders (customer_id, device_id, contract_id, order_no, type, priority, status, description, assignee_id, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-      [customer_id, device_id, contract_id, order_no, type, priority || 'normal', status || 'pending', description, assignee_id, created_by]
+    const result = await queryWithRetry(
+      `INSERT INTO work_orders (customer_id, device_id, contract_id, order_no, type, priority, status,
+        description, assignee_id, created_by, stage, plan_hours, is_charged, quoted_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+      [customer_id, device_id, contract_id, order_no, type, priority || 'normal', status || 'pending',
+        description, assignee_id, created_by, stage || 'pending', plan_hours || 0,
+        is_charged || false, quoted_price || 0]
     );
 
     res.json(result.rows[0]);
@@ -169,11 +192,15 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, priority, description, assignee_id } = req.body;
+    const { status, priority, description, assignee_id, stage, plan_hours, is_charged, quoted_price } = req.body;
 
-    const result = await pool.query(
-      'UPDATE work_orders SET status = $1, priority = $2, description = $3, assignee_id = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [status, priority, description, assignee_id, id]
+    const result = await queryWithRetry(
+      `UPDATE work_orders SET status = $1, priority = $2, description = $3, assignee_id = $4,
+        updated_at = CURRENT_TIMESTAMP, stage = COALESCE($5, stage),
+        plan_hours = COALESCE($6, plan_hours), is_charged = COALESCE($7, is_charged),
+        quoted_price = COALESCE($8, quoted_price)
+       WHERE id = $9 RETURNING *`,
+      [status, priority, description, assignee_id, stage, plan_hours, is_charged, quoted_price, id]
     );
 
     if (result.rows.length === 0) {
@@ -191,7 +218,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM work_orders WHERE id = $1', [id]);
+    await queryWithRetry('DELETE FROM work_orders WHERE id = $1', [id]);
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('Delete work order error:', error);

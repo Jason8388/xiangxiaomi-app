@@ -1,12 +1,46 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 
+interface WorkOrder {
+  id: number;
+  order_no: string;
+  description: string;
+  customer_id: number;
+  device_id?: number;
+  type: string;
+  priority: string;
+  status: string;
+  stage: string;
+  plan_hours: number;
+  is_charged: boolean;
+  quoted_price: number;
+  assignee_id?: number;
+  created_by: number;
+  customer_name?: string;
+  device_name?: string;
+  assignee_name?: string;
+  created_at: string;
+}
+
+interface FormDataType {
+  customer_id: string;
+  device_id: string;
+  type: string;
+  priority: string;
+  description: string;
+  stage: string;
+  plan_hours: string;
+  is_charged: boolean;
+  quoted_price: string;
+  assignee_id: string;
+}
+
 export default function WorkOrdersScreen() {
-  const [workOrders, setWorkOrders] = useState<any[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<WorkOrder[]>([]);
   const [stats, setStats] = useState({
     totalWorkOrders: 0,
     chargedWorkOrders: 0,
@@ -16,15 +50,21 @@ export default function WorkOrdersScreen() {
   });
   const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
-  const [formData, setFormData] = useState({
+  const [users, setUsers] = useState<any[]>([]);
+  const [formData, setFormData] = useState<FormDataType>({
     customer_id: '',
     device_id: '',
     type: '维修',
     priority: 'normal',
     description: '',
+    stage: 'pending',
+    plan_hours: '',
+    is_charged: false,
+    quoted_price: '',
+    assignee_id: '',
   });
   const router = useSafeRouter();
 
@@ -33,6 +73,7 @@ export default function WorkOrdersScreen() {
     fetchStats();
     fetchCustomers();
     fetchDevices();
+    fetchUsers();
   }, []);
 
   useEffect(() => {
@@ -103,6 +144,18 @@ export default function WorkOrdersScreen() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error('Fetch users error:', error);
+    }
+  };
+
   const handleAdd = () => {
     setEditingOrder(null);
     setFormData({
@@ -111,11 +164,16 @@ export default function WorkOrdersScreen() {
       type: '维修',
       priority: 'normal',
       description: '',
+      stage: 'pending',
+      plan_hours: '',
+      is_charged: false,
+      quoted_price: '',
+      assignee_id: '',
     });
     setModalVisible(true);
   };
 
-  const handleEdit = (order: any) => {
+  const handleEdit = (order: WorkOrder) => {
     setEditingOrder(order);
     setFormData({
       customer_id: order.customer_id?.toString() || '',
@@ -123,11 +181,16 @@ export default function WorkOrdersScreen() {
       type: order.type || '维修',
       priority: order.priority || 'normal',
       description: order.description || '',
+      stage: order.stage || 'pending',
+      plan_hours: order.plan_hours?.toString() || '',
+      is_charged: order.is_charged || false,
+      quoted_price: order.quoted_price?.toString() || '',
+      assignee_id: order.assignee_id?.toString() || '',
     });
     setModalVisible(true);
   };
 
-  const handleDelete = (order: any) => {
+  const handleDelete = (order: WorkOrder) => {
     Alert.alert('确认删除', `确定要删除工单"${order.order_no}"吗？`, [
       { text: '取消', style: 'cancel' },
       {
@@ -156,7 +219,7 @@ export default function WorkOrdersScreen() {
     ]);
   };
 
-  const handleDownload = async (order: any) => {
+  const handleDownload = async (order: WorkOrder) => {
     try {
       Alert.alert('提示', '工单下载功能正在开发中，敬请期待！');
     } catch (error: any) {
@@ -166,7 +229,7 @@ export default function WorkOrdersScreen() {
 
   const handleSave = async () => {
     if (!formData.customer_id || !formData.description) {
-      Alert.alert('提示', '请填写完整信息');
+      Alert.alert('提示', '请填写客户和工单描述');
       return;
     }
 
@@ -181,6 +244,11 @@ export default function WorkOrdersScreen() {
                 description: formData.description,
                 priority: formData.priority,
                 status: editingOrder.status,
+                stage: formData.stage,
+                plan_hours: formData.plan_hours ? parseFloat(formData.plan_hours) : 0,
+                is_charged: formData.is_charged,
+                quoted_price: formData.quoted_price ? parseFloat(formData.quoted_price) : 0,
+                assignee_id: formData.assignee_id ? parseInt(formData.assignee_id) : null,
               }),
             }
           )
@@ -188,12 +256,18 @@ export default function WorkOrdersScreen() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              ...formData,
               customer_id: parseInt(formData.customer_id),
               device_id: formData.device_id ? parseInt(formData.device_id) : null,
-              order_no: `WO${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(4, '0')}${String(new Date().getDate()).padStart(2, '0')}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+              order_no: `WO${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+              type: formData.type,
+              priority: formData.priority,
               status: 'pending',
-              assignee_id: 2,
+              description: formData.description,
+              stage: formData.stage,
+              plan_hours: formData.plan_hours ? parseFloat(formData.plan_hours) : 0,
+              is_charged: formData.is_charged,
+              quoted_price: formData.quoted_price ? parseFloat(formData.quoted_price) : 0,
+              assignee_id: formData.assignee_id ? parseInt(formData.assignee_id) : 2,
               created_by: 2,
             }),
           });
@@ -392,16 +466,26 @@ export default function WorkOrdersScreen() {
                           任务号: {order.order_no}
                         </Text>
                       </View>
-                      {/* 是否收费标识 */}
+                      {/* 工单阶段标识 */}
                       <View
                         className="px-2 py-1 rounded-full ml-2"
-                        style={{ backgroundColor: order.is_charged ? 'rgba(0, 184, 148, 0.2)' : 'rgba(178, 190, 195, 0.3)' }}
+                        style={{
+                          backgroundColor: order.stage === 'completed' ? 'rgba(0, 184, 148, 0.2)' :
+                            order.stage === 'processing' ? 'rgba(108, 99, 255, 0.2)' :
+                            order.stage === 'assigned' ? 'rgba(243, 156, 18, 0.2)' : 'rgba(253, 203, 110, 0.2)'
+                        }}
                       >
                         <Text
                           className="text-xs font-semibold"
-                          style={{ color: order.is_charged ? '#00B894' : '#B2BEC3' }}
+                          style={{
+                            color: order.stage === 'completed' ? '#00B894' :
+                              order.stage === 'processing' ? '#6C63FF' :
+                              order.stage === 'assigned' ? '#F39C12' : '#FDCB6E'
+                          }}
                         >
-                          {order.is_charged ? '收费' : '免费'}
+                          {order.stage === 'completed' ? '已完成' :
+                            order.stage === 'processing' ? '处理中' :
+                            order.stage === 'assigned' ? '已派工' : '待派工'}
                         </Text>
                       </View>
                     </View>
@@ -418,6 +502,37 @@ export default function WorkOrdersScreen() {
                         <FontAwesome6 name="user" size={12} color="#636E72" />
                         <Text className="text-xs text-[#636E72] ml-1" numberOfLines={1}>
                           {order.assignee_name || '未指定负责人'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 工单类型、计划工时、报价金额 */}
+                    <View className="flex-row items-center mb-2 flex-wrap gap-2">
+                      <View className="flex-row items-center">
+                        <FontAwesome6 name="wrench" size={10} color="#6C63FF" />
+                        <Text className="text-xs text-[#636E72] ml-1">{order.type || '维修'}</Text>
+                      </View>
+                      {order.plan_hours > 0 && (
+                        <View className="flex-row items-center">
+                          <FontAwesome6 name="clock" size={10} color="#F39C12" />
+                          <Text className="text-xs text-[#636E72] ml-1">{order.plan_hours}h</Text>
+                        </View>
+                      )}
+                      {order.quoted_price > 0 && (
+                        <View className="flex-row items-center">
+                          <FontAwesome6 name="yen-sign" size={10} color="#00B894" />
+                          <Text className="text-xs font-semibold text-[#00B894] ml-1">¥{order.quoted_price}</Text>
+                        </View>
+                      )}
+                      <View
+                        className="px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: order.is_charged ? 'rgba(0, 184, 148, 0.15)' : 'rgba(178, 190, 195, 0.15)' }}
+                      >
+                        <Text
+                          className="text-xs font-semibold"
+                          style={{ color: order.is_charged ? '#00B894' : '#B2BEC3' }}
+                        >
+                          {order.is_charged ? '有偿' : '免费'}
                         </Text>
                       </View>
                     </View>
@@ -466,167 +581,225 @@ export default function WorkOrdersScreen() {
       {/* 新增工单 Modal */}
       {modalVisible && (
         <Modal visible={modalVisible} transparent animationType="slide">
-          <View className="flex-1 bg-black/50 justify-center items-center px-6">
-            <ScrollView
-              className="w-full"
-              contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          <View className="flex-1 bg-black/50 justify-end">
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={{ flex: 1 }}
             >
-              <View
-                className="w-full rounded-3xl p-6"
-                style={{ backgroundColor: '#F0F0F3' }}
-              >
-                <Text className="text-xl font-bold text-[#2D3436] mb-6">
-                  {editingOrder ? '编辑工单' : '新建工单'}
-                </Text>
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View className="bg-white rounded-t-3xl p-6 max-h-[90%]">
+                  {/* Header */}
+                  <View className="flex-row justify-between items-center mb-6">
+                    <Text className="text-xl font-bold text-[#2D3436]">
+                      {editingOrder ? '编辑工单' : '新建工单'}
+                    </Text>
+                    <TouchableOpacity onPress={() => setModalVisible(false)}>
+                      <FontAwesome6 name="times" size={20} color="#636E72" />
+                    </TouchableOpacity>
+                  </View>
 
-                <View className="mb-4">
-                  <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">
-                    客户 *
-                  </Text>
-                  <View className="bg-[#E8E8EB] rounded-2xl px-4 py-3">
-                    <TextInput
-                      className="text-[#2D3436] text-base"
-                      placeholder="选择客户"
-                      placeholderTextColor="#B2BEC3"
-                      value={customers.find(c => c.id === parseInt(formData.customer_id))?.name || ''}
-                      editable={false}
-                    />
-                  </View>
-                  <View>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      className="mt-2"
-                    >
-                      {customers.map((customer) => (
-                        <TouchableOpacity
-                          key={customer.id}
-                          onPress={() => setFormData({ ...formData, customer_id: customer.id.toString() })}
-                          className={`px-4 py-2 rounded-full mr-2 ${formData.customer_id === customer.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
-                        >
-                          <Text className={`text-sm ${formData.customer_id === customer.id.toString() ? 'text-white' : 'text-[#636E72]'}`}>
-                            {customer.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                </View>
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    {/* 工单名称 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">工单名称 *</Text>
+                      <TextInput
+                        className="w-full bg-[#F5F5F5] rounded-2xl px-4 py-3 text-[#2D3436] text-base"
+                        placeholder="请输入工单名称"
+                        placeholderTextColor="#B2BEC3"
+                        value={formData.description}
+                        onChangeText={(text) => setFormData({ ...formData, description: text })}
+                      />
+                    </View>
 
-                <View className="mb-4">
-                  <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">
-                    设备
-                  </Text>
-                  <View className="bg-[#E8E8EB] rounded-2xl px-4 py-3">
-                    <TextInput
-                      className="text-[#2D3436] text-base"
-                      placeholder="选择设备"
-                      placeholderTextColor="#B2BEC3"
-                      value={devices.find(d => d.id === parseInt(formData.device_id))?.device_name || ''}
-                      editable={false}
-                    />
-                  </View>
-                  <View>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      className="mt-2"
-                    >
-                      {devices
-                        .filter(d => !formData.customer_id || d.customer_id === parseInt(formData.customer_id))
-                        .map((device) => (
+                    {/* 客户选择 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">客户 *</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
+                        {customers.map((c) => (
                           <TouchableOpacity
-                            key={device.id}
-                            onPress={() => setFormData({ ...formData, device_id: device.id.toString() })}
-                            className={`px-4 py-2 rounded-full mr-2 ${formData.device_id === device.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
+                            key={c.id}
+                            onPress={() => setFormData({ ...formData, customer_id: c.id.toString() })}
+                            className={`px-4 py-2 rounded-full mr-2 ${formData.customer_id === c.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#F5F5F5]'}`}
                           >
-                            <Text className={`text-sm ${formData.device_id === device.id.toString() ? 'text-white' : 'text-[#636E72]'}`}>
-                              {device.device_name}
-                            </Text>
+                            <Text className={`text-sm ${formData.customer_id === c.id.toString() ? 'text-white' : 'text-[#636E72]'}`} numberOfLines={1}>{c.name}</Text>
                           </TouchableOpacity>
                         ))}
-                    </ScrollView>
-                  </View>
-                </View>
+                      </ScrollView>
+                    </View>
 
-                <View className="mb-4">
-                  <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">
-                    工单类型
-                  </Text>
-                  <View className="flex-row gap-2">
-                    {['维修', '保养', '安装', '其他'].map((type) => (
+                    {/* 任务负责人 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">任务负责人</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
+                        {users.map((u) => (
+                          <TouchableOpacity
+                            key={u.id}
+                            onPress={() => setFormData({ ...formData, assignee_id: u.id.toString() })}
+                            className={`px-4 py-2 rounded-full mr-2 ${formData.assignee_id === u.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#F5F5F5]'}`}
+                          >
+                            <Text className={`text-sm ${formData.assignee_id === u.id.toString() ? 'text-white' : 'text-[#636E72]'}`}>{u.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* 设备选择 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">设备</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
+                        {devices.filter(d => !formData.customer_id || d.customer_id === parseInt(formData.customer_id)).map((d) => (
+                          <TouchableOpacity
+                            key={d.id}
+                            onPress={() => setFormData({ ...formData, device_id: d.id.toString() })}
+                            className={`px-4 py-2 rounded-full mr-2 ${formData.device_id === d.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#F5F5F5]'}`}
+                          >
+                            <Text className={`text-sm ${formData.device_id === d.id.toString() ? 'text-white' : 'text-[#636E72]'}`} numberOfLines={1}>{d.device_name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* 工单类型 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">工单类型</Text>
+                      <View className="flex-row gap-2">
+                        {['维修', '保养', '安装', '其他'].map((t) => (
+                          <TouchableOpacity
+                            key={t}
+                            onPress={() => setFormData({ ...formData, type: t })}
+                            className={`flex-1 py-3 rounded-2xl items-center ${formData.type === t ? 'bg-[#6C63FF]' : 'bg-[#F5F5F5]'}`}
+                          >
+                            <Text className={`text-sm font-medium ${formData.type === t ? 'text-white' : 'text-[#636E72]'}`}>{t}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* 工单阶段 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">工单阶段</Text>
+                      <View className="flex-row gap-2">
+                        {[
+                          { label: '待派工', value: 'pending' },
+                          { label: '已派工', value: 'assigned' },
+                          { label: '处理中', value: 'processing' },
+                          { label: '已完成', value: 'completed' },
+                        ].map((s) => (
+                          <TouchableOpacity
+                            key={s.value}
+                            onPress={() => setFormData({ ...formData, stage: s.value })}
+                            className={`flex-1 py-3 rounded-2xl items-center ${formData.stage === s.value ? 'bg-[#6C63FF]' : 'bg-[#F5F5F5]'}`}
+                          >
+                            <Text className={`text-xs font-medium ${formData.stage === s.value ? 'text-white' : 'text-[#636E72]'}`}>{s.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* 优先级 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">优先级</Text>
+                      <View className="flex-row gap-2">
+                        {[
+                          { label: '低', value: 'low', color: '#00B894' },
+                          { label: '中', value: 'normal', color: '#F39C12' },
+                          { label: '高', value: 'high', color: '#FF6B6B' },
+                        ].map((p) => (
+                          <TouchableOpacity
+                            key={p.value}
+                            onPress={() => setFormData({ ...formData, priority: p.value })}
+                            className={`flex-1 py-3 rounded-2xl items-center ${formData.priority === p.value ? 'bg-[#6C63FF]' : 'bg-[#F5F5F5]'}`}
+                          >
+                            <Text className={`text-sm font-medium ${formData.priority === p.value ? 'text-white' : 'text-[#636E72]'}`}>{p.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* 计划工时 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">计划工时（小时）</Text>
+                      <TextInput
+                        className="w-full bg-[#F5F5F5] rounded-2xl px-4 py-3 text-[#2D3436] text-base"
+                        placeholder="请输入计划工时"
+                        placeholderTextColor="#B2BEC3"
+                        keyboardType="decimal-pad"
+                        value={formData.plan_hours}
+                        onChangeText={(text) => setFormData({ ...formData, plan_hours: text })}
+                      />
+                    </View>
+
+                    {/* 有偿服务开关 */}
+                    <View className="mb-4">
+                      <View className="flex-row justify-between items-center bg-[#F5F5F5] rounded-2xl px-4 py-3">
+                        <Text className="text-base text-[#2D3436]">有偿服务</Text>
+                        <TouchableOpacity
+                          onPress={() => setFormData({ ...formData, is_charged: !formData.is_charged })}
+                          className={`w-12 h-7 rounded-full p-1 justify-center ${formData.is_charged ? 'bg-[#6C63FF]' : 'bg-[#B2BEC3]'}`}
+                        >
+                          <View className={`w-5 h-5 rounded-full bg-white shadow-sm ${formData.is_charged ? 'self-end' : 'self-start'}`} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* 报价金额 */}
+                    <View className="mb-4">
+                      <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">报价金额（元）</Text>
+                      <TextInput
+                        className="w-full bg-[#F5F5F5] rounded-2xl px-4 py-3 text-[#2D3436] text-base"
+                        placeholder="请输入报价金额"
+                        placeholderTextColor="#B2BEC3"
+                        keyboardType="decimal-pad"
+                        value={formData.quoted_price}
+                        onChangeText={(text) => setFormData({ ...formData, quoted_price: text })}
+                      />
+                    </View>
+
+                    {/* 工单状态（仅编辑时显示） */}
+                    {editingOrder && (
+                      <View className="mb-4">
+                        <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">工单状态</Text>
+                        <View className="flex-row gap-2">
+                          {[
+                            { label: '待处理', value: 'pending', color: '#FDCB6E' },
+                            { label: '处理中', value: 'processing', color: '#6C63FF' },
+                            { label: '已完成', value: 'completed', color: '#00B894' },
+                          ].map((s) => (
+                            <TouchableOpacity
+                              key={s.value}
+                              onPress={() => setEditingOrder(editingOrder ? { ...editingOrder, status: s.value } : null)}
+                              className={`flex-1 py-3 rounded-2xl items-center ${editingOrder?.status === s.value ? 'bg-[#6C63FF]' : 'bg-[#F5F5F5]'}`}
+                            >
+                              <Text className={`text-sm font-medium ${editingOrder?.status === s.value ? 'text-white' : 'text-[#636E72]'}`}>{s.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* 操作按钮 */}
+                    <View className="flex-row gap-3 mt-4 mb-6">
                       <TouchableOpacity
-                        key={type}
-                        onPress={() => setFormData({ ...formData, type })}
-                        className={`flex-1 py-3 rounded-2xl items-center ${formData.type === type ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
+                        onPress={() => setModalVisible(false)}
+                        className="flex-1 py-4 rounded-full items-center"
+                        style={{ backgroundColor: '#F5F5F5' }}
                       >
-                        <Text className={`text-sm font-medium ${formData.type === type ? 'text-white' : 'text-[#636E72]'}`}>
-                          {type}
+                        <Text className="text-[#636E72] font-semibold text-base">取消</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleSave}
+                        className="flex-1 py-4 rounded-full items-center"
+                        style={{ backgroundColor: '#6C63FF' }}
+                      >
+                        <Text className="text-white font-semibold text-base">
+                          {editingOrder ? '保存' : '创建'}
                         </Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
+                    </View>
+                  </ScrollView>
                 </View>
-
-                <View className="mb-4">
-                  <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">
-                    优先级
-                  </Text>
-                  <View className="flex-row gap-2">
-                    {[
-                      { label: '低', value: 'low' },
-                      { label: '中', value: 'normal' },
-                      { label: '高', value: 'high' },
-                    ].map((priority) => (
-                      <TouchableOpacity
-                        key={priority.value}
-                        onPress={() => setFormData({ ...formData, priority: priority.value })}
-                        className={`flex-1 py-3 rounded-2xl items-center ${formData.priority === priority.value ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
-                      >
-                        <Text className={`text-sm font-medium ${formData.priority === priority.value ? 'text-white' : 'text-[#636E72]'}`}>
-                          {priority.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <View className="mb-6">
-                  <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">
-                    问题描述 *
-                  </Text>
-                  <TextInput
-                    className="w-full bg-[#E8E8EB] rounded-2xl px-4 py-3 text-[#2D3436] text-base"
-                    placeholder="请详细描述问题"
-                    placeholderTextColor="#B2BEC3"
-                    value={formData.description}
-                    onChangeText={(text) => setFormData({ ...formData, description: text })}
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                  />
-                </View>
-
-                <View className="flex-row gap-3">
-                  <TouchableOpacity
-                    onPress={() => setModalVisible(false)}
-                    className="flex-1 py-4 rounded-full items-center"
-                    style={{ backgroundColor: '#E8E8EB' }}
-                  >
-                    <Text className="text-[#636E72] font-semibold text-base">取消</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    className="flex-1 py-4 rounded-full items-center"
-                    style={{ backgroundColor: '#6C63FF' }}
-                  >
-                    <Text className="text-white font-semibold text-base">
-                      {editingOrder ? '保存' : '创建'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
           </View>
         </Modal>
       )}

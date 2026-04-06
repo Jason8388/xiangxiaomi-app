@@ -22,7 +22,13 @@ router.get('/', async (req, res) => {
     }
 
     // 构建树形结构
-    const buildTree = (parentId: number | null = null) => {
+    interface DeptNode {
+      id: number;
+      name: string;
+      parent_id: number | null;
+      children: DeptNode[];
+    }
+    const buildTree = (parentId: number | null = null): DeptNode[] => {
       return result.rows
         .filter(dept => dept.parent_id === parentId)
         .map(dept => ({
