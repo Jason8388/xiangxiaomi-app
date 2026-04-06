@@ -14,14 +14,57 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
-interface HistoryRecord {
-  id: number;
-  device_id: number;
-  event_type: string;
-  event_date: string;
-  description: string;
-  operator: string;
-  created_at: string;
+interface DeviceHistoryData {
+  // 基本信息
+  device_name: string;
+  product_spec: string;
+  device_code: string;
+
+  // 销售订单信息
+  contract_name: string;
+  contract_number: string;
+  contract_date: string;
+  customer_name: string;
+  sales_manager: string;
+  warranty_period: string;
+
+  // 制造信息
+  production_unit: string;
+  production_order: string;
+  batch_number: string;
+  production_manager: string;
+  production_complete_date: string;
+  tester: string;
+  debug_complete_date: string;
+  quality_inspector: string;
+  factory_inspector: string;
+  factory_date: string;
+  manufacturing_sop_file: string;
+  factory_test_files: string;
+  warranty_scope_price: string;
+
+  // 交付验收信息
+  delivery_pm: string;
+  customer_contact: string;
+  delivery_location: string;
+  delivery_person: string;
+  planned_arrival_date: string;
+  actual_arrival_date: string;
+  acceptance_manager: string;
+  customer_acceptance_stakeholders: string;
+  planned_acceptance_date: string;
+  actual_acceptance_date: string;
+  warranty_expiry_date: string;
+  delivery_team: string;
+  customer_training_personnel: string;
+  device_warranty_period: string;
+  operation_sop: string;
+  training_confirmation_file: string;
+  maintenance_sop: string;
+
+  // 研发信息
+  solution_files: string;
+  software_version: string;
 }
 
 export default function DeviceHistory() {
@@ -31,90 +74,115 @@ export default function DeviceHistory() {
   const deviceId = params.deviceId ? parseInt(params.deviceId) : 0;
   const deviceName = params.deviceName || '';
 
-  const [histories, setHistories] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [formData, setFormData] = useState({
-    event_type: '',
-    event_date: '',
-    description: '',
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [historyData, setHistoryData] = useState<DeviceHistoryData>({
+    // 基本信息
+    device_name: '',
+    product_spec: '',
+    device_code: '',
+
+    // 销售订单信息
+    contract_name: '',
+    contract_number: '',
+    contract_date: '',
+    customer_name: '',
+    sales_manager: '',
+    warranty_period: '',
+
+    // 制造信息
+    production_unit: '',
+    production_order: '',
+    batch_number: '',
+    production_manager: '',
+    production_complete_date: '',
+    tester: '',
+    debug_complete_date: '',
+    quality_inspector: '',
+    factory_inspector: '',
+    factory_date: '',
+    manufacturing_sop_file: '',
+    factory_test_files: '',
+    warranty_scope_price: '',
+
+    // 交付验收信息
+    delivery_pm: '',
+    customer_contact: '',
+    delivery_location: '',
+    delivery_person: '',
+    planned_arrival_date: '',
+    actual_arrival_date: '',
+    acceptance_manager: '',
+    customer_acceptance_stakeholders: '',
+    planned_acceptance_date: '',
+    actual_acceptance_date: '',
+    warranty_expiry_date: '',
+    delivery_team: '',
+    customer_training_personnel: '',
+    device_warranty_period: '',
+    operation_sop: '',
+    training_confirmation_file: '',
+    maintenance_sop: '',
+
+    // 研发信息
+    solution_files: '',
+    software_version: '',
   });
 
-  const EVENT_TYPES = [
-    '设备安装',
-    '设备维修',
-    '设备保养',
-    '设备巡检',
-    '设备改造',
-    '设备报废',
-    '设备转移',
-    '其它',
-  ];
-
   useEffect(() => {
-    loadHistories();
+    loadHistoryData();
   }, []);
 
-  const loadHistories = async () => {
+  const loadHistoryData = async () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history`
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`
       );
       const data = await response.json();
       if (response.ok) {
-        setHistories(data);
+        setHistoryData(data);
       } else {
         Alert.alert('错误', data.error || '加载履历表失败');
       }
     } catch (error) {
-      console.error('Load histories error:', error);
+      console.error('Load history data error:', error);
       Alert.alert('错误', '网络请求失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAdd = () => {
-    setFormData({
-      event_type: '',
-      event_date: new Date().toISOString().split('T')[0],
-      description: '',
-    });
-    setModalVisible(true);
+  const handleEdit = () => {
+    setEditModalVisible(true);
   };
 
   const handleSave = async () => {
-    if (!formData.event_type || !formData.event_date) {
-      Alert.alert('提示', '事件类型和事件日期不能为空');
-      return;
-    }
-
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history`,
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`,
         {
-          method: 'POST',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(historyData),
         }
       );
 
-      const data = await response.json();
       if (response.ok) {
-        Alert.alert('成功', '添加履历记录成功');
-        setModalVisible(false);
-        loadHistories();
+        Alert.alert('成功', '保存成功');
+        setEditModalVisible(false);
+        loadHistoryData();
       } else {
-        throw new Error(data.error || '添加失败');
+        const data = await response.json();
+        throw new Error(data.error || '保存失败');
       }
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
   };
 
-  const handleDelete = (recordId: number) => {
-    Alert.alert('确认删除', '确定要删除这条履历记录吗？', [
+  const handleDelete = () => {
+    Alert.alert('确认删除', '确定要删除这份履历表吗？', [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',
@@ -122,14 +190,14 @@ export default function DeviceHistory() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history/${recordId}`,
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`,
               {
                 method: 'DELETE',
               }
             );
             if (response.ok) {
               Alert.alert('成功', '删除成功');
-              loadHistories();
+              router.back();
             } else {
               const data = await response.json();
               throw new Error(data.error || '删除失败');
@@ -142,160 +210,238 @@ export default function DeviceHistory() {
     ]);
   };
 
+  const handleImport = () => {
+    Alert.alert('提示', '导入功能开发中...');
+  };
+
+  const handleDownload = () => {
+    Alert.alert('提示', '下载功能开发中...');
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   };
 
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  };
+  const renderInfoField = (label: string, value: string) => (
+    <View style={styles.infoField}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value || '-'}</Text>
+    </View>
+  );
+
+  const renderInfoSection = (title: string, icon: string, children: React.ReactNode) => (
+    <View style={styles.infoSection}>
+      <View style={styles.sectionHeader}>
+        <FontAwesome6 name={icon as any} size={18} color="#1E88E5" />
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      <View style={styles.sectionContent}>{children}</View>
+    </View>
+  );
 
   return (
     <Screen>
       <PageHeader title="设备履历表" />
 
-      {/* 设备名称显示 */}
+      {/* 设备名称 */}
       {deviceName && (
-        <View style={styles.deviceInfoContainer}>
-          <FontAwesome6 name="microchip" size={16} color="#2ECC71" />
-          <Text style={styles.deviceInfoText}>{deviceName}</Text>
+        <View style={styles.deviceHeader}>
+          <FontAwesome6 name="microchip" size={20} color="#2ECC71" />
+          <Text style={styles.deviceHeaderText}>{deviceName}</Text>
         </View>
       )}
 
-      {/* 操作按钮 */}
-      <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-          <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>新增履历</Text>
+      {/* 顶部操作按钮 */}
+      <View style={styles.topActions}>
+        <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+          <FontAwesome6 name="pen" size={16} color="#F39C12" />
+          <Text style={styles.actionButtonText}>修改</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+          <FontAwesome6 name="trash" size={16} color="#E74C3C" />
+          <Text style={styles.actionButtonText}>删除</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionButton} onPress={handleImport}>
+          <FontAwesome6 name="file-import" size={16} color="#3498DB" />
+          <Text style={styles.actionButtonText}>导入</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionButton} onPress={handleDownload}>
+          <FontAwesome6 name="download" size={16} color="#2ECC71" />
+          <Text style={styles.actionButtonText}>下载</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 履历列表 */}
-      <ScrollView style={styles.listContainer}>
-        {loading ? (
-          <View style={styles.centerContainer}>
-            <Text>加载中...</Text>
-          </View>
-        ) : histories.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.emptyText}>暂无履历记录</Text>
-          </View>
-        ) : (
-          histories.map((record) => (
-            <View key={record.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleContainer}>
-                  <FontAwesome6 name="clock-rotate-left" size={18} color="#3498DB" />
-                  <Text style={styles.cardTitle}>{record.event_type}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={() => handleDelete(record.id)}
-                >
-                  <FontAwesome6 name="trash" size={16} color="#E74C3C" />
-                </TouchableOpacity>
-              </View>
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <Text>加载中...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.contentContainer}>
+          {/* 信息栏1：基本信息 */}
+          {renderInfoSection(
+            '基本信息',
+            'info-circle',
+            <>
+              {renderInfoField('设备名称', historyData.device_name)}
+              {renderInfoField('产品规格', historyData.product_spec)}
+              {renderInfoField('设备编码', historyData.device_code)}
+            </>
+          )}
 
-              <View style={styles.cardInfo}>
-                <Text style={styles.infoLabel}>事件日期:</Text>
-                <Text style={styles.infoValue}>{formatDate(record.event_date)}</Text>
-              </View>
+          {/* 信息栏2：销售订单信息 */}
+          {renderInfoSection(
+            '销售订单信息',
+            'file-contract',
+            <>
+              {renderInfoField('合同名称', historyData.contract_name)}
+              {renderInfoField('合同编号', historyData.contract_number)}
+              {renderInfoField('合同签订日期', formatDate(historyData.contract_date))}
+              {renderInfoField('客户名称', historyData.customer_name)}
+              {renderInfoField('业务经理', historyData.sales_manager)}
+              {renderInfoField('设备质保期', historyData.warranty_period)}
+            </>
+          )}
 
-              <View style={styles.cardInfo}>
-                <Text style={styles.infoLabel}>操作人:</Text>
-                <Text style={styles.infoValue}>{record.operator || '-'}</Text>
-              </View>
+          {/* 信息栏3：制造信息 */}
+          {renderInfoSection(
+            '制造信息',
+            'industry',
+            <>
+              {renderInfoField('生产单位', historyData.production_unit)}
+              {renderInfoField('生产订单号', historyData.production_order)}
+              {renderInfoField('批次号', historyData.batch_number)}
+              {renderInfoField('生产负责人', historyData.production_manager)}
+              {renderInfoField('生产完工日期', formatDate(historyData.production_complete_date))}
+              {renderInfoField('测试人', historyData.tester)}
+              {renderInfoField('调试完工日期', formatDate(historyData.debug_complete_date))}
+              {renderInfoField('质检员', historyData.quality_inspector)}
+              {renderInfoField('出厂检验人', historyData.factory_inspector)}
+              {renderInfoField('出厂日期', formatDate(historyData.factory_date))}
+              {renderInfoField('设备制造SOP文件', historyData.manufacturing_sop_file)}
+              {renderInfoField('出厂检验文件包', historyData.factory_test_files)}
+              {renderInfoField('设备质保范围与价格标准', historyData.warranty_scope_price)}
+            </>
+          )}
 
-              {record.description && (
-                <View style={styles.cardInfo}>
-                  <Text style={styles.infoLabel}>描述:</Text>
-                  <Text style={styles.infoValue}>{record.description}</Text>
-                </View>
-              )}
+          {/* 信息栏4：交付验收信息 */}
+          {renderInfoSection(
+            '交付验收信息',
+            'truck-ramp-box',
+            <>
+              {renderInfoField('项目交付PM', historyData.delivery_pm)}
+              {renderInfoField('客户现场对接人', historyData.customer_contact)}
+              {renderInfoField('交付厂区/车间区域', historyData.delivery_location)}
+              {renderInfoField('交付人', historyData.delivery_person)}
+              {renderInfoField('计划进场时间', formatDate(historyData.planned_arrival_date))}
+              {renderInfoField('实际进场时间', formatDate(historyData.actual_arrival_date))}
+              {renderInfoField('验收负责人', historyData.acceptance_manager)}
+              {renderInfoField('客户验收干系人', historyData.customer_acceptance_stakeholders)}
+              {renderInfoField('计划验收时间', formatDate(historyData.planned_acceptance_date))}
+              {renderInfoField('实际验收时间', formatDate(historyData.actual_acceptance_date))}
+              {renderInfoField('设备质保到期时间', formatDate(historyData.warranty_expiry_date))}
+              {renderInfoField('交付协同人员', historyData.delivery_team)}
+              {renderInfoField('客户培训人员', historyData.customer_training_personnel)}
+              {renderInfoField('设备质保期', historyData.device_warranty_period)}
+              {renderInfoField('设备操作SOP', historyData.operation_sop)}
+              {renderInfoField('设备培训确认单文件', historyData.training_confirmation_file)}
+              {renderInfoField('设备维保SOP', historyData.maintenance_sop)}
+            </>
+          )}
 
-              <View style={styles.cardFooter}>
-                <Text style={styles.timestampText}>
-                  创建时间: {formatDateTime(record.created_at)}
-                </Text>
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+          {/* 信息栏5：研发信息 */}
+          {renderInfoSection(
+            '研发信息',
+            'flask',
+            <>
+              {renderInfoField('方案文件', historyData.solution_files)}
+              {renderInfoField('出厂软件算法版本说明', historyData.software_version)}
+            </>
+          )}
+        </ScrollView>
+      )}
 
-      {/* 新增履历 Modal */}
+      {/* 编辑Modal */}
       <Modal
-        visible={modalVisible}
+        visible={editModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => setEditModalVisible(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>新增履历记录</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={styles.modalTitle}>编辑履历表</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <FontAwesome6 name="xmark" size={20} color="#636E72" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
+              <Text style={styles.modalSectionTitle}>基本信息</Text>
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>事件类型 *</Text>
-                <View style={styles.typeSelector}>
-                  {EVENT_TYPES.map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.typeOption,
-                        formData.event_type === type && styles.typeOptionSelected,
-                      ]}
-                      onPress={() => setFormData({ ...formData, event_type: type })}
-                    >
-                      <Text
-                        style={[
-                          styles.typeOptionText,
-                          formData.event_type === type && styles.typeOptionTextSelected,
-                        ]}
-                      >
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <Text style={styles.formLabel}>设备名称</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={historyData.device_name}
+                  onChangeText={(text) => setHistoryData({ ...historyData, device_name: text })}
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>产品规格</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={historyData.product_spec}
+                  onChangeText={(text) => setHistoryData({ ...historyData, product_spec: text })}
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备编码</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={historyData.device_code}
+                  onChangeText={(text) => setHistoryData({ ...historyData, device_code: text })}
+                />
               </View>
 
+              <Text style={styles.modalSectionTitle}>销售订单信息</Text>
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>事件日期 *</Text>
+                <Text style={styles.formLabel}>合同名称</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={historyData.contract_name}
+                  onChangeText={(text) => setHistoryData({ ...historyData, contract_name: text })}
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>合同编号</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={historyData.contract_number}
+                  onChangeText={(text) => setHistoryData({ ...historyData, contract_number: text })}
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>合同签订日期</Text>
                 <TextInput
                   style={styles.formInput}
                   placeholder="YYYY-MM-DD"
-                  value={formData.event_date}
-                  onChangeText={(text) => setFormData({ ...formData, event_date: text })}
+                  value={historyData.contract_date}
+                  onChangeText={(text) => setHistoryData({ ...historyData, contract_date: text })}
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>描述</Text>
-                <TextInput
-                  style={[styles.formInput, styles.formTextArea]}
-                  placeholder="请输入事件描述"
-                  value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
+              <Text style={styles.modalHint}>更多字段请在完整表单中编辑...</Text>
             </ScrollView>
 
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
+                onPress={() => setEditModalVisible(false)}
               >
                 <Text style={styles.cancelButtonText}>取消</Text>
               </TouchableOpacity>
@@ -314,95 +460,86 @@ export default function DeviceHistory() {
 }
 
 const styles = StyleSheet.create({
-  actionBar: {
+  deviceHeader: {
     flexDirection: 'row',
-    padding: 16,
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  addButton: {
+  deviceHeaderText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  topActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2ECC71',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
     gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  addButtonText: {
-    color: '#FFFFFF',
+  actionButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    color: '#636E72',
+    fontWeight: '500',
   },
-  listContainer: {
+  contentContainer: {
     flex: 1,
-    padding: 16,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
   },
-  emptyText: {
-    color: '#95A5A6',
-    fontSize: 16,
-  },
-  card: {
+  infoSection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    marginTop: 12,
     padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitleContainer: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#1E88E5',
   },
-  cardTitle: {
+  sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2C3E50',
   },
-  iconButton: {
-    padding: 8,
+  sectionContent: {
+    gap: 12,
   },
-  cardInfo: {
+  infoField: {
     flexDirection: 'row',
-    marginBottom: 8,
+    paddingVertical: 4,
   },
   infoLabel: {
+    width: 180,
     fontSize: 14,
     color: '#7F8C8D',
-    width: 80,
-    flexShrink: 0,
+    fontWeight: '500',
   },
   infoValue: {
+    flex: 1,
     fontSize: 14,
     color: '#2C3E50',
-    flex: 1,
-  },
-  cardFooter: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  timestampText: {
-    fontSize: 12,
-    color: '#95A5A6',
   },
   modalContainer: {
     flex: 1,
@@ -431,8 +568,15 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 20,
   },
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2C3E50',
+    marginTop: 16,
+    marginBottom: 12,
+  },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   formLabel: {
     fontSize: 14,
@@ -441,40 +585,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   formInput: {
-    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     color: '#2C3E50',
   },
-  formTextArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  typeOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-  },
-  typeOptionSelected: {
-    backgroundColor: '#3498DB',
-    borderColor: '#3498DB',
-  },
-  typeOptionText: {
+  modalHint: {
     fontSize: 14,
-    color: '#636E72',
-  },
-  typeOptionTextSelected: {
-    color: '#FFFFFF',
+    color: '#95A5A6',
+    textAlign: 'center',
+    marginTop: 20,
+    paddingVertical: 12,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -504,38 +628,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  cardActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#636E72',
-  },
-  deviceInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  deviceInfoText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2C3E50',
   },
 });

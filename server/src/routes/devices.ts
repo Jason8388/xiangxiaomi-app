@@ -301,6 +301,258 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// 获取设备履历表详情
+router.get('/:deviceId/history-detail', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const result = await pool.query(
+      'SELECT * FROM device_history_detail WHERE device_id = $1',
+      [deviceId]
+    );
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      // 返回空对象，允许前端创建新的履历表
+      res.json({
+        device_id: parseInt(deviceId),
+        device_name: '',
+        product_spec: '',
+        device_code: '',
+        contract_name: '',
+        contract_number: '',
+        contract_date: '',
+        customer_name: '',
+        sales_manager: '',
+        warranty_period: '',
+        production_unit: '',
+        production_order: '',
+        batch_number: '',
+        production_manager: '',
+        production_complete_date: '',
+        tester: '',
+        debug_complete_date: '',
+        quality_inspector: '',
+        factory_inspector: '',
+        factory_date: '',
+        manufacturing_sop_file: '',
+        factory_test_files: '',
+        warranty_scope_price: '',
+        delivery_pm: '',
+        customer_contact: '',
+        delivery_location: '',
+        delivery_person: '',
+        planned_arrival_date: '',
+        actual_arrival_date: '',
+        acceptance_manager: '',
+        customer_acceptance_stakeholders: '',
+        planned_acceptance_date: '',
+        actual_acceptance_date: '',
+        warranty_expiry_date: '',
+        delivery_team: '',
+        customer_training_personnel: '',
+        device_warranty_period: '',
+        operation_sop: '',
+        training_confirmation_file: '',
+        maintenance_sop: '',
+        solution_files: '',
+        software_version: '',
+      });
+    }
+  } catch (error) {
+    console.error('Get device history detail error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 创建或更新设备履历表详情
+router.put('/:deviceId/history-detail', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const data = req.body;
+
+    // 检查是否已存在记录
+    const checkResult = await pool.query(
+      'SELECT id FROM device_history_detail WHERE device_id = $1',
+      [deviceId]
+    );
+
+    if (checkResult.rows.length > 0) {
+      // 更新现有记录
+      const result = await pool.query(
+        `UPDATE device_history_detail SET
+          device_name = $1,
+          product_spec = $2,
+          device_code = $3,
+          contract_name = $4,
+          contract_number = $5,
+          contract_date = $6,
+          customer_name = $7,
+          sales_manager = $8,
+          warranty_period = $9,
+          production_unit = $10,
+          production_order = $11,
+          batch_number = $12,
+          production_manager = $13,
+          production_complete_date = $14,
+          tester = $15,
+          debug_complete_date = $16,
+          quality_inspector = $17,
+          factory_inspector = $18,
+          factory_date = $19,
+          manufacturing_sop_file = $20,
+          factory_test_files = $21,
+          warranty_scope_price = $22,
+          delivery_pm = $23,
+          customer_contact = $24,
+          delivery_location = $25,
+          delivery_person = $26,
+          planned_arrival_date = $27,
+          actual_arrival_date = $28,
+          acceptance_manager = $29,
+          customer_acceptance_stakeholders = $30,
+          planned_acceptance_date = $31,
+          actual_acceptance_date = $32,
+          warranty_expiry_date = $33,
+          delivery_team = $34,
+          customer_training_personnel = $35,
+          device_warranty_period = $36,
+          operation_sop = $37,
+          training_confirmation_file = $38,
+          maintenance_sop = $39,
+          solution_files = $40,
+          software_version = $41,
+          updated_at = NOW()
+        WHERE device_id = $42
+        RETURNING *`,
+        [
+          data.device_name,
+          data.product_spec,
+          data.device_code,
+          data.contract_name,
+          data.contract_number,
+          data.contract_date,
+          data.customer_name,
+          data.sales_manager,
+          data.warranty_period,
+          data.production_unit,
+          data.production_order,
+          data.batch_number,
+          data.production_manager,
+          data.production_complete_date,
+          data.tester,
+          data.debug_complete_date,
+          data.quality_inspector,
+          data.factory_inspector,
+          data.factory_date,
+          data.manufacturing_sop_file,
+          data.factory_test_files,
+          data.warranty_scope_price,
+          data.delivery_pm,
+          data.customer_contact,
+          data.delivery_location,
+          data.delivery_person,
+          data.planned_arrival_date,
+          data.actual_arrival_date,
+          data.acceptance_manager,
+          data.customer_acceptance_stakeholders,
+          data.planned_acceptance_date,
+          data.actual_acceptance_date,
+          data.warranty_expiry_date,
+          data.delivery_team,
+          data.customer_training_personnel,
+          data.device_warranty_period,
+          data.operation_sop,
+          data.training_confirmation_file,
+          data.maintenance_sop,
+          data.solution_files,
+          data.software_version,
+          parseInt(deviceId),
+        ]
+      );
+      res.json(result.rows[0]);
+    } else {
+      // 创建新记录
+      const result = await pool.query(
+        `INSERT INTO device_history_detail (
+          device_id, device_name, product_spec, device_code,
+          contract_name, contract_number, contract_date, customer_name, sales_manager, warranty_period,
+          production_unit, production_order, batch_number, production_manager, production_complete_date,
+          tester, debug_complete_date, quality_inspector, factory_inspector, factory_date,
+          manufacturing_sop_file, factory_test_files, warranty_scope_price,
+          delivery_pm, customer_contact, delivery_location, delivery_person,
+          planned_arrival_date, actual_arrival_date, acceptance_manager, customer_acceptance_stakeholders,
+          planned_acceptance_date, actual_acceptance_date, warranty_expiry_date,
+          delivery_team, customer_training_personnel, device_warranty_period,
+          operation_sop, training_confirmation_file, maintenance_sop,
+          solution_files, software_version,
+          created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, NOW(), NOW())
+        RETURNING *`,
+        [
+          parseInt(deviceId),
+          data.device_name,
+          data.product_spec,
+          data.device_code,
+          data.contract_name,
+          data.contract_number,
+          data.contract_date,
+          data.customer_name,
+          data.sales_manager,
+          data.warranty_period,
+          data.production_unit,
+          data.production_order,
+          data.batch_number,
+          data.production_manager,
+          data.production_complete_date,
+          data.tester,
+          data.debug_complete_date,
+          data.quality_inspector,
+          data.factory_inspector,
+          data.factory_date,
+          data.manufacturing_sop_file,
+          data.factory_test_files,
+          data.warranty_scope_price,
+          data.delivery_pm,
+          data.customer_contact,
+          data.delivery_location,
+          data.delivery_person,
+          data.planned_arrival_date,
+          data.actual_arrival_date,
+          data.acceptance_manager,
+          data.customer_acceptance_stakeholders,
+          data.planned_acceptance_date,
+          data.actual_acceptance_date,
+          data.warranty_expiry_date,
+          data.delivery_team,
+          data.customer_training_personnel,
+          data.device_warranty_period,
+          data.operation_sop,
+          data.training_confirmation_file,
+          data.maintenance_sop,
+          data.solution_files,
+          data.software_version,
+        ]
+      );
+      res.json(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Save device history detail error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 删除设备履历表详情
+router.delete('/:deviceId/history-detail', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    await pool.query('DELETE FROM device_history_detail WHERE device_id = $1', [deviceId]);
+    res.json({ message: '删除成功' });
+  } catch (error) {
+    console.error('Delete device history detail error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
 // 获取设备履历表列表
 router.get('/:deviceId/history', async (req, res) => {
   try {
