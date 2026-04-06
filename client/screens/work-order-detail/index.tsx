@@ -99,7 +99,7 @@ export default function WorkOrderDetailScreen() {
   };
 
   // 任务状态选项
-  const taskStatusOptions = ['未开始', '进行中', '已完成', '已暂停', '已取消'];
+  const taskStatusOptions = ['计划中', '延期风险', '已延期', '关单完成', '挂起或暂停'];
 
   useEffect(() => {
     fetchOrderDetail();
@@ -122,7 +122,7 @@ export default function WorkOrderDetailScreen() {
         work_order_type: data.is_charged ? '收费工单' : '免费工单', // 根据is_charged判断
         task_phase: '需求阶段', // 默认值
         task_progress: '', // 根据work_order_type动态设置
-        task_status: data.status === 'pending' ? '未开始' : data.status === 'processing' ? '进行中' : data.status === 'completed' ? '已完成' : '未开始',
+        task_status: data.status === 'pending' ? '计划中' : data.status === 'processing' ? '计划中' : data.status === 'completed' ? '关单完成' : '计划中',
         demand_assessment_period: 0,
         service_implementation_period: 0,
         payment_period: 0,
