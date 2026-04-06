@@ -159,8 +159,7 @@ export default function StandardMaterialList() {
   };
 
   const handleViewDetail = (list: StandardMaterialList) => {
-    setSelectedList(list);
-    setDetailModalVisible(true);
+    router.push('/standard-material-detail', { id: list.id });
   };
 
   const handleAddMaterial = (materialId: number) => {

@@ -15,6 +15,7 @@ import * as Sharing from 'expo-sharing';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 interface MaterialRequirementItem {
   material_id: number;
@@ -50,6 +51,8 @@ export default function MaterialRequirements() {
   const [quantityModalVisible, setQuantityModalVisible] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const [quantity, setQuantity] = useState('');
+
+  const router = useSafeRouter();
 
   useEffect(() => {
     loadRequirements();
@@ -162,8 +165,7 @@ export default function MaterialRequirements() {
   };
 
   const handleViewDetail = (requirement: MaterialRequirement) => {
-    setSelectedRequirement(requirement);
-    setDetailModalVisible(true);
+    router.push('/material-requirement-detail', { id: requirement.id });
   };
 
   const handleAddMaterial = (material: any) => {
