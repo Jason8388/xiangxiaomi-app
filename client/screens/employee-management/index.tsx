@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Modal,
+  StyleSheet,
+} from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -23,33 +32,37 @@ interface Department {
   id: number;
   name: string;
   code: string;
+  children?: Department[];
+}
+
+interface DepartmentWithUsers extends Department {
+  users?: User[];
 }
 
 export default function EmployeeManagement() {
   const [users, setUsers] = useState<User[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departments, setDepartments] = useState<DepartmentWithUsers[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
 
-  // 筛选状态
-  const [filterRole, setFilterRole] = useState<string | null>(null);
-  const [filterDepartment, setFilterDepartment] = useState<number | null>(null);
+  // 新增员工状态
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
+    username: '',
+    name: '',
+    password: '',
+    position: '',
+    department_id: null as number | null,
+  });
 
   // 编辑状态
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editPosition, setEditPosition] = useState('');
-  const [editDepartmentId, setEditDepartmentId] = useState<number | null>(null);
 
   // 禁用状态
   const [disableModalVisible, setDisableModalVisible] = useState(false);
   const [disableReason, setDisableReason] = useState('');
-  const [isDisabling, setIsDisabling] = useState(false);
-
-  // 重置密码状态
-  const [resetPasswordModalVisible, setResetPasswordModalVisible] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
     loadUserData();
@@ -71,17 +84,7 @@ export default function EmployeeManagement() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`;
-      const params = new URLSearchParams();
-
-      if (filterRole) params.append('role', filterRole);
-      if (filterDepartment) params.append('department_id', filterDepartment.toString());
-
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-
-      const response = await fetch(url);
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
       const data = await response.json();
 
       if (response.ok) {
@@ -101,42 +104,94 @@ export default function EmployeeManagement() {
       const data = await response.json();
 
       if (response.ok) {
-        // 扁平化部门列表（提取所有层级）
-        const flattenDepts = (depts: any[]): Department[] => {
-          const result: Department[] = [];
-          depts.forEach(dept => {
-            result.push({ id: dept.id, name: dept.name, code: dept.code });
-            if (dept.children && dept.children.length > 0) {
-              result.push(...flattenDepts(dept.children));
-            }
+        // 将用户分配到部门，构建树形结构
+        const assignUsersToDepts = (depts: Department[]): DepartmentWithUsers[] => {
+          return depts.map((dept) => {
+            const deptUsers = users.filter((u) => u.department_id === dept.id);
+            return {
+              ...dept,
+              users: deptUsers,
+              children: dept.children ? assignUsersToDepts(dept.children) : [],
+            };
           });
-          return result;
         };
 
-        setDepartments(flattenDepts(data));
+        setDepartments(assignUsersToDepts(data));
       }
     } catch (error) {
       console.error('Fetch departments error:', error);
     }
   };
 
+  useEffect(() => {
+    fetchDepartments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users]);
+
+  const handleAddEmployee = () => {
+    setNewEmployee({
+      username: '',
+      name: '',
+      password: '',
+      position: '',
+      department_id: null,
+    });
+    setAddModalVisible(true);
+  };
+
+  const handleSaveNewEmployee = async () => {
+    if (!newEmployee.username || !newEmployee.name || !newEmployee.password) {
+      Alert.alert('提示', '用户名、姓名和密码不能为空');
+      return;
+    }
+
+    if (newEmployee.password.length < 6) {
+      Alert.alert('提示', '密码长度至少6位');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newEmployee.username,
+          password: newEmployee.password,
+          name: newEmployee.name,
+          position: newEmployee.position,
+          department_id: newEmployee.department_id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '创建失败');
+      }
+
+      Alert.alert('成功', '员工创建成功');
+      setAddModalVisible(false);
+      fetchUsers();
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
   const handleEditUser = (userItem: User) => {
     setSelectedUser(userItem);
     setEditPosition(userItem.position || '');
-    setEditDepartmentId(userItem.department_id || null);
     setEditModalVisible(true);
   };
 
   const handleSavePosition = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${selectedUser?.id}/position`,
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${selectedUser?.id}`,
         {
-          method: 'PATCH',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             position: editPosition,
-            department_id: editDepartmentId,
             operator_id: user?.id,
           }),
         }
@@ -148,7 +203,7 @@ export default function EmployeeManagement() {
         throw new Error(data.error || '更新失败');
       }
 
-      Alert.alert('成功', data.message);
+      Alert.alert('成功', '更新成功');
       setEditModalVisible(false);
       fetchUsers();
     } catch (error: any) {
@@ -167,7 +222,7 @@ export default function EmployeeManagement() {
           { text: '取消', style: 'cancel' },
           {
             text: '确定',
-            onPress: () => executeDisableUser(false, ''),
+            onPress: () => executeDisableUser(userItem, false, ''),
           },
         ]
       );
@@ -175,14 +230,13 @@ export default function EmployeeManagement() {
       // 禁用账号
       setDisableReason('');
       setDisableModalVisible(true);
-      setIsDisabling(true);
     }
   };
 
-  const executeDisableUser = async (disable: boolean, reason: string) => {
+  const executeDisableUser = async (userItem: User, disable: boolean, reason: string) => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${selectedUser?.id}/disable`,
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${userItem.id}/disable`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -200,7 +254,7 @@ export default function EmployeeManagement() {
         throw new Error(data.error || '操作失败');
       }
 
-      Alert.alert('成功', data.message);
+      Alert.alert('成功', disable ? '账号已禁用' : '账号已启用');
       setDisableModalVisible(false);
       fetchUsers();
     } catch (error: any) {
@@ -208,259 +262,222 @@ export default function EmployeeManagement() {
     }
   };
 
-  const handleResetPassword = (userItem: User) => {
-    setSelectedUser(userItem);
-    setNewPassword('');
-    setConfirmPassword('');
-    setResetPasswordModalVisible(true);
+  const handleDeleteUser = (userItem: User) => {
+    Alert.alert('确认删除', `确定要删除员工 ${userItem.name} 吗？此操作不可恢复。`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${userItem.id}`,
+              {
+                method: 'DELETE',
+              }
+            );
+
+            if (response.ok) {
+              Alert.alert('成功', '删除成功');
+              fetchUsers();
+            } else {
+              const data = await response.json();
+              throw new Error(data.error || '删除失败');
+            }
+          } catch (error: any) {
+            Alert.alert('错误', error.message);
+          }
+        },
+      },
+    ]);
   };
 
-  const executeResetPassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      Alert.alert('提示', '密码长度至少6位');
-      return;
-    }
+  // 渲染部门树
+  const renderDepartmentTree = (depts: DepartmentWithUsers[], level: number = 0) => {
+    return depts.map((dept) => (
+      <View key={dept.id} style={[styles.departmentItem, { marginLeft: level * 16 }]}>
+        <View style={styles.departmentHeader}>
+          <FontAwesome6 name="folder" size={16} color="#F39C12" />
+          <Text style={styles.departmentName}>{dept.name}</Text>
+          {dept.users && dept.users.length > 0 && (
+            <Text style={styles.userCount}>({dept.users.length})</Text>
+          )}
+        </View>
 
-    if (newPassword !== confirmPassword) {
-      Alert.alert('提示', '两次输入的密码不一致');
-      return;
-    }
+        {/* 渲染该部门下的员工 */}
+        {dept.users && dept.users.length > 0 && (
+          <View style={styles.usersList}>
+            {dept.users.map((userItem) => renderUserCard(userItem))}
+          </View>
+        )}
 
-    try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${selectedUser?.id}/reset-password`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            new_password: newPassword,
-            operator_id: user?.id,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '重置失败');
-      }
-
-      Alert.alert('成功', data.message);
-      setResetPasswordModalVisible(false);
-    } catch (error: any) {
-      Alert.alert('错误', error.message);
-    }
+        {/* 递归渲染子部门 */}
+        {dept.children && dept.children.length > 0 && renderDepartmentTree(dept.children, level + 1)}
+      </View>
+    ));
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return '#FF6B6B';
-      case 'manager':
-        return '#4ECDC4';
-      default:
-        return '#95A5A6';
-    }
-  };
+  // 渲染用户卡片
+  const renderUserCard = (userItem: User) => {
+    return (
+      <View key={userItem.id} style={styles.userCard}>
+        <View style={styles.userContent}>
+          <FontAwesome6 name="user" size={18} color="#3498DB" />
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{userItem.name}</Text>
+            <Text style={styles.userPosition}>{userItem.position || '未设置岗位'}</Text>
+          </View>
+        </View>
 
-  const getRoleText = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return '管理员';
-      case 'manager':
-        return '经理';
-      case 'staff':
-        return '员工';
-      default:
-        return role;
-    }
+        {userItem.is_disabled && (
+          <View style={styles.disabledBadge}>
+            <FontAwesome6 name="ban" size={12} color="#FF6B6B" />
+            <Text style={styles.disabledText}>已禁用</Text>
+          </View>
+        )}
+
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleEditUser(userItem)}>
+            <FontAwesome6 name="pen" size={14} color="#F39C12" />
+            <Text style={styles.actionButtonText}>修改</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleToggleDisable(userItem)}
+          >
+            <FontAwesome6
+              name={userItem.is_disabled ? 'check' : 'ban'}
+              size={14}
+              color={userItem.is_disabled ? '#2ECC71' : '#E74C3C'}
+            />
+            <Text style={styles.actionButtonText}>{userItem.is_disabled ? '启用' : '禁用'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteUser(userItem)}>
+            <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+            <Text style={styles.actionButtonText}>删除</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   return (
     <Screen>
-      <PageHeader title="员工管理" />
+      <PageHeader title="账号管理" />
 
-      <View style={styles.filterContainer}>
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>角色</Text>
-          <View style={styles.filterScrollContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterScroll}
-            >
-              <TouchableOpacity
-                style={[styles.filterChip, filterRole === null && styles.filterChipActive]}
-                onPress={() => {
-                  setFilterRole(null);
-                  setTimeout(fetchUsers, 100);
-                }}
-              >
-                <Text style={[styles.filterChipText, filterRole === null && styles.filterChipTextActive]}>
-                  全部
-                </Text>
-              </TouchableOpacity>
-              {['admin', 'manager', 'staff'].map((role) => (
-                <TouchableOpacity
-                  key={role}
-                  style={[styles.filterChip, filterRole === role && styles.filterChipActive]}
-                  onPress={() => {
-                    setFilterRole(role);
-                    setTimeout(fetchUsers, 100);
-                  }}
-                >
-                  <Text
-                    style={[styles.filterChipText, filterRole === role && styles.filterChipTextActive]}
-                  >
-                    {getRoleText(role)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>部门</Text>
-          <View style={styles.filterScrollContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterScroll}
-            >
-              <TouchableOpacity
-                style={[styles.filterChip, filterDepartment === null && styles.filterChipActive]}
-                onPress={() => {
-                  setFilterDepartment(null);
-                  setTimeout(fetchUsers, 100);
-                }}
-              >
-                <Text style={[styles.filterChipText, filterDepartment === null && styles.filterChipTextActive]}>
-                  全部
-                </Text>
-              </TouchableOpacity>
-              {departments.map((dept) => (
-                <TouchableOpacity
-                  key={dept.id}
-                  style={[styles.filterChip, filterDepartment === dept.id && styles.filterChipActive]}
-                  onPress={() => {
-                    setFilterDepartment(dept.id);
-                    setTimeout(fetchUsers, 100);
-                  }}
-                >
-                  <Text
-                    style={[styles.filterChipText, filterDepartment === dept.id && styles.filterChipTextActive]}
-                  >
-                    {dept.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
+      {/* 新增员工按钮 */}
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.addButton} onPress={handleAddEmployee}>
+          <FontAwesome6 name="user-plus" size={16} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>新增员工</Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.listContainer}>
+      <ScrollView style={styles.content}>
         {loading ? (
           <View style={styles.centerContainer}>
             <Text>加载中...</Text>
           </View>
-        ) : users.length === 0 ? (
+        ) : departments.length === 0 ? (
           <View style={styles.centerContainer}>
-            <Text style={styles.emptyText}>暂无员工数据</Text>
+            <Text style={styles.emptyText}>暂无数据</Text>
           </View>
         ) : (
-          users.map((userItem) => (
-            <View key={userItem.id} style={styles.userCard}>
-              <View style={styles.userHeader}>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{userItem.name}</Text>
-                  <Text style={styles.userUsername}>{userItem.username}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.roleBadge,
-                    { backgroundColor: getRoleBadgeColor(userItem.role) },
-                  ]}
-                >
-                  <Text style={styles.roleText}>{getRoleText(userItem.role)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.userDetails}>
-                <View style={styles.detailItem}>
-                  <FontAwesome6 name="briefcase" size={14} color="#636E72" />
-                  <Text style={styles.detailText}>
-                    {userItem.position || '未设置'}
+          <>
+            {/* 未分配部门的员工 */}
+            {users.filter((u) => !u.department_id).length > 0 && (
+              <View style={styles.departmentItem}>
+                <View style={styles.departmentHeader}>
+                  <FontAwesome6 name="folder-open" size={16} color="#95A5A6" />
+                  <Text style={styles.departmentName}>未分配部门</Text>
+                  <Text style={styles.userCount}>
+                    ({users.filter((u) => !u.department_id).length})
                   </Text>
                 </View>
-                <View style={styles.detailItem}>
-                  <FontAwesome6 name="building" size={14} color="#636E72" />
-                  <Text style={styles.detailText}>
-                    {userItem.department_name || '未分配'}
-                  </Text>
+                <View style={styles.usersList}>
+                  {users.filter((u) => !u.department_id).map((userItem) => renderUserCard(userItem))}
                 </View>
               </View>
+            )}
 
-              {userItem.is_disabled && (
-                <View style={styles.disabledInfo}>
-                  <FontAwesome6 name="ban" size={14} color="#FF6B6B" />
-                  <Text style={styles.disabledText}>账号已禁用</Text>
-                  {userItem.disabled_reason && (
-                    <Text style={styles.disabledReason}>
-                      原因: {userItem.disabled_reason}
-                    </Text>
-                  )}
-                </View>
-              )}
-
-              <View style={styles.actionButtons}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEditUser(userItem)}
-                >
-                  <FontAwesome6 name="pen-to-square" size={16} color="#1E88E5" />
-                  <Text style={styles.actionButtonText}>编辑</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleResetPassword(userItem)}
-                >
-                  <FontAwesome6 name="key" size={16} color="#F5A623" />
-                  <Text style={styles.actionButtonText}>重置密码</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    userItem.is_disabled && styles.actionButtonEnable,
-                  ]}
-                  onPress={() => handleToggleDisable(userItem)}
-                >
-                  <FontAwesome6
-                    name={userItem.is_disabled ? 'check' : 'ban'}
-                    size={16}
-                    color={userItem.is_disabled ? '#2ECC71' : '#FF6B6B'}
-                  />
-                  <Text
-                    style={[
-                      styles.actionButtonText,
-                      userItem.is_disabled && styles.actionButtonTextEnable,
-                    ]}
-                  >
-                    {userItem.is_disabled ? '启用' : '禁用'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
+            {/* 部门树 */}
+            {renderDepartmentTree(departments)}
+          </>
         )}
       </ScrollView>
 
-      {/* 编辑岗位和部门弹窗 */}
+      {/* 新增员工 Modal */}
+      <Modal visible={addModalVisible} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>新增员工</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>用户名 *</Text>
+              <TextInput
+                style={styles.input}
+                value={newEmployee.username}
+                onChangeText={(text) => setNewEmployee({ ...newEmployee, username: text })}
+                placeholder="请输入用户名"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>姓名 *</Text>
+              <TextInput
+                style={styles.input}
+                value={newEmployee.name}
+                onChangeText={(text) => setNewEmployee({ ...newEmployee, name: text })}
+                placeholder="请输入姓名"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>密码 *</Text>
+              <TextInput
+                style={styles.input}
+                value={newEmployee.password}
+                onChangeText={(text) => setNewEmployee({ ...newEmployee, password: text })}
+                placeholder="请输入密码（至少6位）"
+                secureTextEntry
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>岗位</Text>
+              <TextInput
+                style={styles.input}
+                value={newEmployee.position}
+                onChangeText={(text) => setNewEmployee({ ...newEmployee, position: text })}
+                placeholder="请输入岗位名称"
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setAddModalVisible(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleSaveNewEmployee}
+              >
+                <Text style={styles.modalButtonTextConfirm}>创建</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 编辑岗位 Modal */}
       <Modal visible={editModalVisible} transparent animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>编辑岗位和部门</Text>
+            <Text style={styles.modalTitle}>修改岗位</Text>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>岗位</Text>
@@ -470,47 +487,6 @@ export default function EmployeeManagement() {
                 onChangeText={setEditPosition}
                 placeholder="请输入岗位名称"
               />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>部门</Text>
-              <View style={styles.departmentContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.departmentChip,
-                    editDepartmentId === null && styles.departmentChipActive,
-                  ]}
-                  onPress={() => setEditDepartmentId(null)}
-                >
-                  <Text
-                    style={[
-                      styles.departmentChipText,
-                      editDepartmentId === null && styles.departmentChipTextActive,
-                    ]}
-                  >
-                    未分配
-                  </Text>
-                </TouchableOpacity>
-                {departments.map((dept) => (
-                  <TouchableOpacity
-                    key={dept.id}
-                    style={[
-                      styles.departmentChip,
-                      editDepartmentId === dept.id && styles.departmentChipActive,
-                    ]}
-                    onPress={() => setEditDepartmentId(dept.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.departmentChipText,
-                        editDepartmentId === dept.id && styles.departmentChipTextActive,
-                      ]}
-                    >
-                      {dept.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
 
             <View style={styles.modalButtons}>
@@ -531,7 +507,7 @@ export default function EmployeeManagement() {
         </View>
       </Modal>
 
-      {/* 禁用账号弹窗 */}
+      {/* 禁用账号 Modal */}
       <Modal visible={disableModalVisible} transparent animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -561,58 +537,9 @@ export default function EmployeeManagement() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonDanger]}
-                onPress={() => executeDisableUser(true, disableReason)}
+                onPress={() => selectedUser && executeDisableUser(selectedUser, true, disableReason)}
               >
                 <Text style={styles.modalButtonTextDanger}>确认禁用</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 重置密码弹窗 */}
-      <Modal visible={resetPasswordModalVisible} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>重置密码</Text>
-            <Text style={styles.modalDescription}>
-              为员工 {selectedUser?.name} 设置新密码
-            </Text>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>新密码</Text>
-              <TextInput
-                style={styles.input}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="请输入新密码（至少6位）"
-                secureTextEntry
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>确认密码</Text>
-              <TextInput
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="请再次输入新密码"
-                secureTextEntry
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setResetPasswordModalVisible(false)}
-              >
-                <Text style={styles.modalButtonTextCancel}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={executeResetPassword}
-              >
-                <Text style={styles.modalButtonTextConfirm}>确认重置</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -623,181 +550,155 @@ export default function EmployeeManagement() {
 }
 
 const styles = StyleSheet.create({
-  filterContainer: {
-    padding: 16,
-    gap: 12,
-  },
-  filterGroup: {
-    gap: 8,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#636E72',
-  },
-  filterScrollContainer: {
-    overflow: 'hidden' as const,
-  },
-  filterScroll: {
+  topBar: {
     flexDirection: 'row',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#F5F7FA',
-    marginRight: 8,
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#2ECC71',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
-  filterChipActive: {
-    backgroundColor: '#1E88E5',
-  },
-  filterChipText: {
-    fontSize: 13,
-    color: '#636E72',
-  },
-  filterChipTextActive: {
+  addButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
-  listContainer: {
+  content: {
     flex: 1,
     padding: 16,
-    gap: 12,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40,
   },
   emptyText: {
     fontSize: 14,
-    color: '#636E72',
+    color: '#95A5A6',
+  },
+  departmentItem: {
+    marginBottom: 16,
+  },
+  departmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  departmentName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2C3E50',
+    flex: 1,
+  },
+  userCount: {
+    fontSize: 13,
+    color: '#7F8C8D',
+  },
+  usersList: {
+    marginTop: 8,
+    gap: 8,
+    paddingLeft: 8,
   },
   userCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  userHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  userContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
   userInfo: {
     flex: 1,
   },
   userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2D3436',
-    marginBottom: 4,
-  },
-  userUsername: {
-    fontSize: 13,
-    color: '#636E72',
-  },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  roleText: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '500',
-    color: '#FFFFFF',
+    color: '#2C3E50',
+    marginBottom: 2,
   },
-  userDetails: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detailText: {
+  userPosition: {
     fontSize: 13,
-    color: '#636E72',
+    color: '#7F8C8D',
   },
-  disabledInfo: {
+  disabledBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 4,
     backgroundColor: 'rgba(255, 107, 107, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginRight: 8,
   },
   disabledText: {
-    fontSize: 13,
+    fontSize: 11,
+    color: '#FF6B6B',
     fontWeight: '500',
-    color: '#FF6B6B',
-  },
-  disabledReason: {
-    fontSize: 12,
-    color: '#FF6B6B',
-    marginLeft: 4,
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    paddingTop: 12,
   },
   actionButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 4,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F5F7FA',
-  },
-  actionButtonEnable: {
-    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
   actionButtonText: {
-    fontSize: 13,
-    color: '#2D3436',
-  },
-  actionButtonTextEnable: {
-    color: '#2ECC71',
+    fontSize: 12,
+    color: '#636E72',
   },
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 12,
     width: '100%',
     maxWidth: 400,
+    padding: 20,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#2D3436',
-    marginBottom: 12,
+    color: '#2C3E50',
+    marginBottom: 16,
   },
   modalDescription: {
     fontSize: 14,
     color: '#636E72',
-    marginBottom: 20,
-    lineHeight: 20,
+    marginBottom: 16,
   },
   formGroup: {
     marginBottom: 16,
@@ -805,49 +706,26 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#2D3436',
+    color: '#34495E',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#2D3436',
+    color: '#2C3E50',
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
-  departmentContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  departmentChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F5F7FA',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  departmentChipActive: {
-    backgroundColor: '#1E88E5',
-    borderColor: '#1E88E5',
-  },
-  departmentChipText: {
-    fontSize: 13,
-    color: '#2D3436',
-  },
-  departmentChipTextActive: {
-    color: '#FFFFFF',
-  },
   modalButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 24,
+    marginTop: 20,
   },
   modalButton: {
     flex: 1,
@@ -856,27 +734,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalButtonCancel: {
-    backgroundColor: '#F5F7FA',
-  },
-  modalButtonConfirm: {
-    backgroundColor: '#1E88E5',
-  },
-  modalButtonDanger: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#F8F9FA',
   },
   modalButtonTextCancel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#2D3436',
+    color: '#636E72',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#3498DB',
   },
   modalButtonTextConfirm: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#FFFFFF',
+  },
+  modalButtonDanger: {
+    backgroundColor: '#E74C3C',
   },
   modalButtonTextDanger: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
 });

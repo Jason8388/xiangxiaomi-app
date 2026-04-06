@@ -150,15 +150,15 @@ router.get('/', async (req, res) => {
 // 创建用户
 router.post('/', async (req, res) => {
   try {
-    const { username, password, name, role } = req.body;
+    const { username, password, name, role, position, department_id } = req.body;
 
     if (!username || !password || !name) {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
     const result = await pool.query(
-      'INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, username, name, role, created_at',
-      [username, password, name, role || 'staff']
+      'INSERT INTO users (username, password, name, role, position, department_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, name, role, position, department_id, created_at',
+      [username, password, name, role || 'staff', position || null, department_id || null]
     );
 
     res.json(result.rows[0]);
@@ -176,7 +176,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, role, password } = req.body;
+    const { name, role, password, position } = req.body;
 
     let query = 'UPDATE users SET updated_at = CURRENT_TIMESTAMP';
     const values = [];
@@ -200,7 +200,13 @@ router.put('/:id', async (req, res) => {
       paramCount++;
     }
 
-    query += ` WHERE id = $${paramCount} RETURNING id, username, name, role, created_at`;
+    if (position !== undefined) {
+      query += `, position = $${paramCount}`;
+      values.push(position);
+      paramCount++;
+    }
+
+    query += ` WHERE id = $${paramCount} RETURNING id, username, name, role, position, created_at`;
     values.push(id);
 
     const result = await pool.query(query, values);
