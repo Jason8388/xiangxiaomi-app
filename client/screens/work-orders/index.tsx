@@ -6,8 +6,11 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 export default function WorkOrdersScreen() {
   const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
@@ -25,6 +28,28 @@ export default function WorkOrdersScreen() {
     fetchCustomers();
     fetchDevices();
   }, []);
+
+  useEffect(() => {
+    let filtered = workOrders;
+
+    // 状态筛选
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter((order) => order.status === filterStatus);
+    }
+
+    // 搜索筛选
+    if (searchKeyword.trim()) {
+      const keyword = searchKeyword.toLowerCase();
+      filtered = filtered.filter(
+        (order) =>
+          (order.order_no && order.order_no.toLowerCase().includes(keyword)) ||
+          (order.description && order.description.toLowerCase().includes(keyword)) ||
+          (order.customer_name && order.customer_name.toLowerCase().includes(keyword))
+      );
+    }
+
+    setFilteredOrders(filtered);
+  }, [filterStatus, searchKeyword, workOrders]);
 
   const fetchWorkOrders = async () => {
     try {
@@ -63,6 +88,7 @@ export default function WorkOrdersScreen() {
   };
 
   const handleAdd = () => {
+    setEditingOrder(null);
     setFormData({
       customer_id: '',
       device_id: '',
@@ -73,6 +99,46 @@ export default function WorkOrdersScreen() {
     setModalVisible(true);
   };
 
+  const handleEdit = (order: any) => {
+    setEditingOrder(order);
+    setFormData({
+      customer_id: order.customer_id?.toString() || '',
+      device_id: order.device_id?.toString() || '',
+      type: order.type || '维修',
+      priority: order.priority || 'normal',
+      description: order.description || '',
+    });
+    setModalVisible(true);
+  };
+
+  const handleDelete = (order: any) => {
+    Alert.alert('确认删除', `确定要删除工单"${order.order_no}"吗？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+              {
+                method: 'DELETE',
+              }
+            );
+            if (response.ok) {
+              Alert.alert('成功', '删除成功');
+              fetchWorkOrders();
+            } else {
+              throw new Error('删除失败');
+            }
+          } catch (error: any) {
+            Alert.alert('错误', error.message);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleSave = async () => {
     if (!formData.customer_id || !formData.description) {
       Alert.alert('提示', '请填写完整信息');
@@ -80,28 +146,40 @@ export default function WorkOrdersScreen() {
     }
 
     try {
-      const orderNo = `WO${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(4, '0')}${String(new Date().getDate()).padStart(2, '0')}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          customer_id: parseInt(formData.customer_id),
-          device_id: formData.device_id ? parseInt(formData.device_id) : null,
-          order_no: orderNo,
-          status: 'pending',
-          assignee_id: 2,
-        }),
-      });
+      const response = editingOrder
+        ? await fetch(
+            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${editingOrder.id}`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                description: formData.description,
+                priority: formData.priority,
+                status: editingOrder.status,
+              }),
+            }
+          )
+        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...formData,
+              customer_id: parseInt(formData.customer_id),
+              device_id: formData.device_id ? parseInt(formData.device_id) : null,
+              order_no: `WO${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(4, '0')}${String(new Date().getDate()).padStart(2, '0')}${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+              status: 'pending',
+              assignee_id: 2,
+              created_by: 2,
+            }),
+          });
 
       if (!response.ok) {
-        throw new Error('创建失败');
+        throw new Error(editingOrder ? '更新失败' : '创建失败');
       }
 
       setModalVisible(false);
       fetchWorkOrders();
-      Alert.alert('成功', '工单创建成功');
+      Alert.alert('成功', editingOrder ? '修改成功' : '创建成功');
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
@@ -128,11 +206,6 @@ export default function WorkOrdersScreen() {
       Alert.alert('错误', error.message);
     }
   };
-
-  const filteredOrders = workOrders.filter((order) => {
-    if (filterStatus === 'all') return true;
-    return order.status === filterStatus;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -189,6 +262,20 @@ export default function WorkOrdersScreen() {
           </Text>
         </View>
 
+        {/* 搜索栏 */}
+        <View className="px-6 mb-4">
+          <View className="flex-row items-center bg-[#E8E8EB] rounded-2xl px-4 py-3">
+            <FontAwesome6 name="magnifying-glass" size={16} color="#636E72" />
+            <TextInput
+              className="flex-1 ml-2 text-[#2D3436] text-base"
+              placeholder="搜索工单编号、工单名称、客户"
+              placeholderTextColor="#B2BEC3"
+              value={searchKeyword}
+              onChangeText={setSearchKeyword}
+            />
+          </View>
+        </View>
+
         {/* 筛选按钮 */}
         <View className="px-6 mb-4 flex-row gap-2">
           <TouchableOpacity
@@ -228,12 +315,7 @@ export default function WorkOrdersScreen() {
         {/* 工单列表 */}
         <View className="px-6">
           {filteredOrders.map((order) => (
-            <TouchableOpacity
-              key={order.id}
-              onPress={() => router.push('/work-order-detail', { id: order.id })}
-              className="mb-4"
-              activeOpacity={0.7}
-            >
+            <View key={order.id} className="mb-4">
               <View
                 className="rounded-3xl p-5 shadow-lg"
                 style={{
@@ -245,16 +327,14 @@ export default function WorkOrdersScreen() {
                   elevation: 6,
                 }}
               >
+                {/* 卡片头部 */}
                 <View className="flex-row justify-between items-start mb-3">
                   <View className="flex-1">
                     <Text className="text-base font-bold text-[#2D3436] mb-1">
-                      {order.customer_name}
+                      {order.description || '无描述'}
                     </Text>
-                    <Text className="text-sm text-[#636E72] mb-1">
-                      {order.device_name || '未指定设备'}
-                    </Text>
-                    <Text className="text-xs text-[#636E72]">
-                      {order.type} · {order.order_no}
+                    <Text className="text-xs text-[#636E72] mb-1">
+                      {order.order_no}
                     </Text>
                   </View>
                   <View
@@ -270,16 +350,50 @@ export default function WorkOrdersScreen() {
                   </View>
                 </View>
 
-                {order.description && (
-                  <Text className="text-sm text-[#636E72] mb-3" numberOfLines={2}>
-                    {order.description}
-                  </Text>
-                )}
+                {/* 卡片信息 */}
+                <View className="mb-3">
+                  <View className="flex-row items-center mb-2">
+                    <FontAwesome6 name="building" size={14} color="#636E72" />
+                    <Text className="text-sm text-[#636E72] ml-2">
+                      {order.customer_name || '未指定客户'}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center mb-2">
+                    <FontAwesome6 name="user" size={14} color="#636E72" />
+                    <Text className="text-sm text-[#636E72] ml-2">
+                      {order.creator_name || order.assignee_name || '系统'}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <FontAwesome6 name="calendar" size={14} color="#636E72" />
+                    <Text className="text-sm text-[#636E72] ml-2">
+                      {order.created_at?.split('T')[0] || ''}
+                    </Text>
+                  </View>
+                </View>
 
+                {/* 操作按钮 */}
                 <View className="flex-row justify-between items-center">
-                  <Text className="text-xs text-[#B2BEC3]">
-                    {order.created_at?.split('T')[0] || ''}
-                  </Text>
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleEdit(order);
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-[#F39C12]"
+                    >
+                      <Text className="text-xs text-white font-medium">修改</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleDelete(order);
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-[#E74C3C]"
+                    >
+                      <Text className="text-xs text-white font-medium">删除</Text>
+                    </TouchableOpacity>
+                  </View>
                   <View className="flex-row gap-2">
                     <View
                       className="px-2 py-1 rounded"
@@ -292,26 +406,18 @@ export default function WorkOrdersScreen() {
                         {order.priority === 'high' ? '高' : order.priority === 'medium' ? '中' : '低'}优先级
                       </Text>
                     </View>
-                    {order.status === 'pending' && (
-                      <TouchableOpacity
-                        onPress={() => handleStatusChange(order.id, 'processing')}
-                        className="px-3 py-1 rounded-full bg-[#6C63FF]"
-                      >
-                        <Text className="text-xs text-white font-medium">开始处理</Text>
-                      </TouchableOpacity>
-                    )}
-                    {order.status === 'processing' && (
-                      <TouchableOpacity
-                        onPress={() => handleStatusChange(order.id, 'completed')}
-                        className="px-3 py-1 rounded-full bg-[#00B894]"
-                      >
-                        <Text className="text-xs text-white font-medium">完成</Text>
-                      </TouchableOpacity>
-                    )}
                   </View>
                 </View>
               </View>
-            </TouchableOpacity>
+
+              {/* 详情跳转 */}
+              <TouchableOpacity
+                onPress={() => router.push('/work-order-detail', { id: order.id })}
+                className="mt-2"
+              >
+                <Text className="text-xs text-[#6C63FF] text-center">查看详情 →</Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
       </ScrollView>
@@ -350,7 +456,7 @@ export default function WorkOrdersScreen() {
                 style={{ backgroundColor: '#F0F0F3' }}
               >
                 <Text className="text-xl font-bold text-[#2D3436] mb-6">
-                  新建工单
+                  {editingOrder ? '编辑工单' : '新建工单'}
                 </Text>
 
                 <View className="mb-4">
@@ -494,7 +600,9 @@ export default function WorkOrdersScreen() {
                     className="flex-1 py-4 rounded-full items-center"
                     style={{ backgroundColor: '#6C63FF' }}
                   >
-                    <Text className="text-white font-semibold text-base">创建</Text>
+                    <Text className="text-white font-semibold text-base">
+                      {editingOrder ? '保存' : '创建'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>

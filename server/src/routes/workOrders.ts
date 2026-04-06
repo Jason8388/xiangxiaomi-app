@@ -7,11 +7,13 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT wo.*, cu.name as customer_name, d.device_name, u.name as assignee_name
+      `SELECT wo.*, cu.name as customer_name, d.device_name,
+              u.name as assignee_name, creator.name as creator_name
        FROM work_orders wo
        LEFT JOIN customers cu ON wo.customer_id = cu.id
        LEFT JOIN devices d ON wo.device_id = d.id
        LEFT JOIN users u ON wo.assignee_id = u.id
+       LEFT JOIN users creator ON wo.created_by = creator.id
        ORDER BY wo.id DESC`
     );
     res.json(result.rows);
@@ -26,11 +28,13 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT wo.*, cu.name as customer_name, d.device_name, u.name as assignee_name
+      `SELECT wo.*, cu.name as customer_name, d.device_name,
+              u.name as assignee_name, creator.name as creator_name
        FROM work_orders wo
        LEFT JOIN customers cu ON wo.customer_id = cu.id
        LEFT JOIN devices d ON wo.device_id = d.id
        LEFT JOIN users u ON wo.assignee_id = u.id
+       LEFT JOIN users creator ON wo.created_by = creator.id
        WHERE wo.id = $1`,
       [id]
     );
@@ -49,15 +53,15 @@ router.get('/:id', async (req, res) => {
 // 创建工单
 router.post('/', async (req, res) => {
   try {
-    const { customer_id, device_id, contract_id, order_no, type, priority, status, description, assignee_id } = req.body;
+    const { customer_id, device_id, contract_id, order_no, type, priority, status, description, assignee_id, created_by } = req.body;
 
     if (!customer_id || !type || !order_no) {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
     const result = await pool.query(
-      'INSERT INTO work_orders (customer_id, device_id, contract_id, order_no, type, priority, status, description, assignee_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [customer_id, device_id, contract_id, order_no, type, priority || 'normal', status || 'pending', description, assignee_id]
+      'INSERT INTO work_orders (customer_id, device_id, contract_id, order_no, type, priority, status, description, assignee_id, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [customer_id, device_id, contract_id, order_no, type, priority || 'normal', status || 'pending', description, assignee_id, created_by]
     );
 
     res.json(result.rows[0]);
