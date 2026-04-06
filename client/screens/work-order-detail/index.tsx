@@ -14,6 +14,13 @@ import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
+interface ContactPerson {
+  id: string;
+  name: string;
+  role: string;
+  phone: string;
+}
+
 interface WorkOrderDetail {
   id: number;
   name?: string;
@@ -32,6 +39,7 @@ interface WorkOrderDetail {
   description?: string;
   created_at?: string;
   updated_at?: string;
+  contacts?: ContactPerson[];
 }
 
 export default function WorkOrderDetailScreen() {
@@ -43,6 +51,9 @@ export default function WorkOrderDetailScreen() {
   const [selectModalVisible, setSelectModalVisible] = useState(false);
   const [selectOptions, setSelectOptions] = useState<string[]>([]);
   const [selectTitle, setSelectTitle] = useState('');
+  const [contactModalVisible, setContactModalVisible] = useState(false);
+  const [editingContact, setEditingContact] = useState<ContactPerson | null>(null);
+  const [contactForm, setContactForm] = useState({ name: '', role: '', phone: '' });
 
   const router = useSafeRouter();
   const { id } = useSafeSearchParams<{ id: string }>();
@@ -211,6 +222,96 @@ export default function WorkOrderDetailScreen() {
     return `${year}-${month}-${day}`;
   };
 
+  const handleAddContact = () => {
+    setEditingContact(null);
+    setContactForm({ name: '', role: '', phone: '' });
+    setContactModalVisible(true);
+  };
+
+  const handleEditContact = (contact: ContactPerson) => {
+    setEditingContact(contact);
+    setContactForm({ name: contact.name, role: contact.role, phone: contact.phone });
+    setContactModalVisible(true);
+  };
+
+  const handleDeleteContact = (contactId: string) => {
+    Alert.alert('确认删除', '确定要删除该联系人吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          if (!order) return;
+          const newContacts = (order.contacts || []).filter(c => c.id !== contactId);
+          try {
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+              {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contacts: newContacts }),
+              }
+            );
+            if (response.ok) {
+              setOrder({ ...order, contacts: newContacts });
+              Alert.alert('成功', '删除成功');
+            } else {
+              throw new Error('删除失败');
+            }
+          } catch (error: any) {
+            Alert.alert('错误', error.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleSaveContact = async () => {
+    if (!order) return;
+    if (!contactForm.name) {
+      Alert.alert('提示', '请输入联系人姓名');
+      return;
+    }
+    if (!contactForm.phone) {
+      Alert.alert('提示', '请输入联系电话');
+      return;
+    }
+
+    try {
+      let newContacts: ContactPerson[];
+      if (editingContact) {
+        newContacts = (order.contacts || []).map(c =>
+          c.id === editingContact.id ? { ...c, ...contactForm } : c
+        );
+      } else {
+        const newContact: ContactPerson = {
+          id: Date.now().toString(),
+          ...contactForm,
+        };
+        newContacts = [...(order.contacts || []), newContact];
+      }
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contacts: newContacts }),
+        }
+      );
+
+      if (response.ok) {
+        setOrder({ ...order, contacts: newContacts });
+        setContactModalVisible(false);
+        Alert.alert('成功', editingContact ? '修改成功' : '添加成功');
+      } else {
+        throw new Error('保存失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
   const renderInfoRow = (label: string, value: string | number, field?: string, isEditable = false) => (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -313,6 +414,67 @@ export default function WorkOrderDetailScreen() {
               order.payment_period ? `${order.payment_period} 天` : '',
               'payment_period',
               true
+            )}
+          </View>
+        </View>
+
+        {/* 栏3：客户联系信息 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="address-book" size={20} color="#E74C3C" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>客户联系信息</Text>
+            <TouchableOpacity
+              onPress={handleAddContact}
+              style={styles.addButton}
+            >
+              <FontAwesome6 name="plus" size={14} color="#6C63FF" />
+              <Text style={styles.addButtonText}>添加联系人</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.sectionContent}>
+            {order.contacts && order.contacts.length > 0 ? (
+              order.contacts.map((contact) => (
+                <View key={contact.id} style={styles.contactCard}>
+                  <View style={styles.contactInfo}>
+                    <View style={styles.contactRow}>
+                      <Text style={styles.contactLabel}>联系人：</Text>
+                      <Text style={styles.contactValue}>{contact.name}</Text>
+                    </View>
+                    {contact.role && (
+                      <View style={styles.contactRow}>
+                        <Text style={styles.contactLabel}>角色/职务：</Text>
+                        <Text style={styles.contactValue}>{contact.role}</Text>
+                      </View>
+                    )}
+                    <View style={styles.contactRow}>
+                      <Text style={styles.contactLabel}>联系电话：</Text>
+                      <Text style={styles.contactValue}>{contact.phone}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.contactActions}>
+                    <TouchableOpacity
+                      onPress={() => handleEditContact(contact)}
+                      style={styles.contactActionButton}
+                    >
+                      <FontAwesome6 name="edit" size={14} color="#F39C12" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteContact(contact.id)}
+                      style={styles.contactActionButton}
+                    >
+                      <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyContacts}>
+                <FontAwesome6 name="user-slash" size={32} color="#B2BEC3" />
+                <Text style={styles.emptyContactsText}>暂无联系人</Text>
+                <TouchableOpacity onPress={handleAddContact} style={styles.addContactHint}>
+                  <Text style={styles.addContactHintText}>点击添加联系人</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         </View>
@@ -424,6 +586,66 @@ export default function WorkOrderDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* 联系人编辑 Modal */}
+      <Modal
+        visible={contactModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setContactModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setContactModalVisible(false)}>
+                  <Text style={styles.modalCancelButton}>取消</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>
+                  {editingContact ? '编辑联系人' : '添加联系人'}
+                </Text>
+                <TouchableOpacity onPress={handleSaveContact}>
+                  <Text style={styles.modalSaveButton}>保存</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>联系人姓名 *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={contactForm.name}
+                    onChangeText={(text) => setContactForm({ ...contactForm, name: text })}
+                    placeholder="请输入联系人姓名"
+                    autoFocus
+                  />
+                </View>
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>角色/职务</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={contactForm.role}
+                    onChangeText={(text) => setContactForm({ ...contactForm, role: text })}
+                    placeholder="请输入角色或职务"
+                  />
+                </View>
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>联系电话 *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={contactForm.phone}
+                    onChangeText={(text) => setContactForm({ ...contactForm, phone: text })}
+                    placeholder="请输入联系电话"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </Screen>
   );
 }
@@ -503,6 +725,88 @@ const styles = {
     fontSize: 14,
     color: '#2D3436',
     lineHeight: 22,
+  },
+  addButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginLeft: 'auto',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(108, 99, 255, 0.1)',
+  },
+  addButtonText: {
+    fontSize: 12,
+    color: '#6C63FF',
+    fontWeight: '500' as const,
+    marginLeft: 4,
+  },
+  contactCard: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactRow: {
+    flexDirection: 'row' as const,
+    marginBottom: 4,
+  },
+  contactLabel: {
+    fontSize: 12,
+    color: '#636E72',
+    width: 80,
+  },
+  contactValue: {
+    fontSize: 12,
+    color: '#2D3436',
+    flex: 1,
+  },
+  contactActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  contactActionButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  emptyContacts: {
+    alignItems: 'center' as const,
+    paddingVertical: 24,
+  },
+  emptyContactsText: {
+    fontSize: 14,
+    color: '#B2BEC3',
+    marginTop: 8,
+  },
+  addContactHint: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(108, 99, 255, 0.1)',
+  },
+  addContactHintText: {
+    fontSize: 12,
+    color: '#6C63FF',
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  formLabel: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 8,
   },
   modalContainer: {
     flex: 1,
