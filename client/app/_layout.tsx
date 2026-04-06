@@ -55,6 +55,7 @@ function RootLayoutInner() {
         <Stack.Screen name="gallery" options={{ title: "" }} />
         <Stack.Screen name="media-detail" options={{ title: "" }} />
         <Stack.Screen name="employee-management" options={{ title: "" }} />
+        <Stack.Screen name="department-management" options={{ title: "" }} />
         <Stack.Screen name="version-management" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}

@@ -97,11 +97,23 @@ export default function EmployeeManagement() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/departments/list`);
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`);
       const data = await response.json();
 
       if (response.ok) {
-        setDepartments(data);
+        // 扁平化部门列表（提取所有层级）
+        const flattenDepts = (depts: any[]): Department[] => {
+          const result: Department[] = [];
+          depts.forEach(dept => {
+            result.push({ id: dept.id, name: dept.name, code: dept.code });
+            if (dept.children && dept.children.length > 0) {
+              result.push(...flattenDepts(dept.children));
+            }
+          });
+          return result;
+        };
+
+        setDepartments(flattenDepts(data));
       }
     } catch (error) {
       console.error('Fetch departments error:', error);

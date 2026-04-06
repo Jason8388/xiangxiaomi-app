@@ -53,6 +53,13 @@ export default function ProfileScreen() {
         onPress: () => router.push('/employee-management'),
       },
       {
+        icon: 'sitemap',
+        title: '部门管理',
+        subtitle: '管理组织架构和部门',
+        color: '#3498DB',
+        onPress: () => router.push('/department-management'),
+      },
+      {
         icon: 'code-branch',
         title: '版本管理',
         subtitle: '管理版本发布和回退',
