@@ -53,7 +53,12 @@ export default function EmployeeManagement() {
     password: '',
     position: '',
     department_id: null as number | null,
+    department_name: '',
   });
+
+  // 部门选择状态
+  const [departmentSelectorVisible, setDepartmentSelectorVisible] = useState(false);
+  const [flatDepartments, setFlatDepartments] = useState<{ id: number; name: string; level: number }[]>([]);
 
   // 编辑状态
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -104,6 +109,24 @@ export default function EmployeeManagement() {
       const data = await response.json();
 
       if (response.ok) {
+        // 将部门树扁平化用于选择
+        const flattenDepts = (depts: Department[], level: number = 0): { id: number; name: string; level: number }[] => {
+          let result: { id: number; name: string; level: number }[] = [];
+          depts.forEach((dept) => {
+            result.push({
+              id: dept.id,
+              name: dept.name,
+              level,
+            });
+            if (dept.children && dept.children.length > 0) {
+              result = result.concat(flattenDepts(dept.children, level + 1));
+            }
+          });
+          return result;
+        };
+
+        setFlatDepartments(flattenDepts(data));
+
         // 将用户分配到部门，构建树形结构
         const assignUsersToDepts = (depts: Department[]): DepartmentWithUsers[] => {
           return depts.map((dept) => {
@@ -135,8 +158,18 @@ export default function EmployeeManagement() {
       password: '',
       position: '',
       department_id: null,
+      department_name: '',
     });
     setAddModalVisible(true);
+  };
+
+  const handleSelectDepartment = (dept: { id: number; name: string }) => {
+    setNewEmployee({
+      ...newEmployee,
+      department_id: dept.id,
+      department_name: dept.name,
+    });
+    setDepartmentSelectorVisible(false);
   };
 
   const handleSaveNewEmployee = async () => {
@@ -455,6 +488,19 @@ export default function EmployeeManagement() {
               />
             </View>
 
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>归属部门</Text>
+              <TouchableOpacity
+                style={styles.departmentSelector}
+                onPress={() => setDepartmentSelectorVisible(true)}
+              >
+                <Text style={newEmployee.department_name ? styles.departmentSelectorText : styles.departmentSelectorPlaceholder}>
+                  {newEmployee.department_name || '请选择部门'}
+                </Text>
+                <FontAwesome6 name="chevron-down" size={14} color="#95A5A6" />
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
@@ -540,6 +586,57 @@ export default function EmployeeManagement() {
                 onPress={() => selectedUser && executeDisableUser(selectedUser, true, disableReason)}
               >
                 <Text style={styles.modalButtonTextDanger}>确认禁用</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 部门选择 Modal */}
+      <Modal visible={departmentSelectorVisible} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>选择部门</Text>
+
+            <ScrollView style={styles.departmentList}>
+              {flatDepartments.length === 0 ? (
+                <View style={styles.centerContainer}>
+                  <Text style={styles.emptyText}>暂无部门数据</Text>
+                </View>
+              ) : (
+                flatDepartments.map((dept) => (
+                  <TouchableOpacity
+                    key={dept.id}
+                    style={[
+                      styles.departmentSelectorItem,
+                      newEmployee.department_id === dept.id && styles.departmentSelectorItemSelected,
+                    ]}
+                    onPress={() => handleSelectDepartment(dept)}
+                  >
+                    <View style={{ marginLeft: dept.level * 16 }}>
+                      <Text
+                        style={[
+                          styles.departmentSelectorItemText,
+                          newEmployee.department_id === dept.id && styles.departmentSelectorItemTextSelected,
+                        ]}
+                      >
+                        {dept.name}
+                      </Text>
+                    </View>
+                    {newEmployee.department_id === dept.id && (
+                      <FontAwesome6 name="check-circle" size={20} color="#2ECC71" />
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setDepartmentSelectorVisible(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>取消</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -756,5 +853,48 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  departmentSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  departmentSelectorText: {
+    fontSize: 14,
+    color: '#2C3E50',
+  },
+  departmentSelectorPlaceholder: {
+    fontSize: 14,
+    color: '#95A5A6',
+  },
+  departmentList: {
+    maxHeight: 400,
+    marginBottom: 16,
+  },
+  departmentSelectorItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  departmentSelectorItemSelected: {
+    backgroundColor: '#EBF5FF',
+  },
+  departmentSelectorItemText: {
+    fontSize: 15,
+    color: '#2C3E50',
+  },
+  departmentSelectorItemTextSelected: {
+    color: '#1E88E5',
+    fontWeight: '500',
   },
 });
