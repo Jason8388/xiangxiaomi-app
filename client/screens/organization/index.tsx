@@ -7,10 +7,13 @@ import {
   StyleSheet,
   RefreshControl,
   Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 
 interface Employee {
   id: number;
@@ -21,6 +24,7 @@ interface Employee {
   email?: string;
   phone?: string;
   department_name?: string;
+  department_id?: number;
 }
 
 interface Department {
@@ -49,6 +53,16 @@ export default function OrganizationScreen() {
   const [employeeModalVisible, setEmployeeModalVisible] = useState(false);
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [deptModalVisible, setDeptModalVisible] = useState(false);
+  const [addDeptModalVisible, setAddDeptModalVisible] = useState(false);
+  const [editDeptModalVisible, setEditDeptModalVisible] = useState(false);
+  const [deptForm, setDeptForm] = useState({
+    name: '',
+    code: '',
+    description: '',
+    parent_id: null as number | null,
+  });
+  const [editingDeptId, setEditingDeptId] = useState<number | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   const fetchOrganization = async () => {
     try {
@@ -56,7 +70,6 @@ export default function OrganizationScreen() {
       if (res.ok) {
         const data = await res.json();
         setOrgData(data);
-        // 默认展开所有顶级部门
         const topLevelIds = new Set(data.tree.map((d: Department) => d.id));
         setExpandedDepts(topLevelIds);
       }
@@ -67,9 +80,21 @@ export default function OrganizationScreen() {
     }
   };
 
+  const fetchUser = async () => {
+    try {
+      const userData = await SecureStore.getItemAsync('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (error) {
+      console.error('Fetch user error:', error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchOrganization();
+      fetchUser();
     }, [])
   );
 
@@ -95,6 +120,109 @@ export default function OrganizationScreen() {
     setDeptModalVisible(true);
   };
 
+  // 打开新增部门弹窗
+  const handleAddDepartment = (parentId: number | null = null) => {
+    setDeptForm({
+      name: '',
+      code: '',
+      description: '',
+      parent_id: parentId,
+    });
+    setEditingDeptId(null);
+    setAddDeptModalVisible(true);
+  };
+
+  // 打开编辑部门弹窗
+  const handleEditDepartment = (dept: Department) => {
+    setDeptForm({
+      name: dept.name,
+      code: dept.code,
+      description: dept.description || '',
+      parent_id: dept.parent_id,
+    });
+    setEditingDeptId(dept.id);
+    setEditDeptModalVisible(true);
+    setDeptModalVisible(false);
+  };
+
+  // 保存部门（新增或编辑）
+  const handleSaveDepartment = async () => {
+    if (!deptForm.name.trim() || !deptForm.code.trim()) {
+      Alert.alert('提示', '部门名称和编码不能为空');
+      return;
+    }
+
+    try {
+      const isEdit = editingDeptId !== null;
+      const url = isEdit
+        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments/${editingDeptId}`
+        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deptForm),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        Alert.alert('成功', isEdit ? '部门修改成功' : '部门新增成功');
+        setAddDeptModalVisible(false);
+        setEditDeptModalVisible(false);
+        fetchOrganization();
+      } else {
+        throw new Error(data.error || '操作失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 删除部门
+  const handleDeleteDepartment = (dept: Department) => {
+    if (dept.employees && dept.employees.length > 0) {
+      Alert.alert('提示', '该部门下有员工，无法删除');
+      return;
+    }
+    if (dept.children && dept.children.length > 0) {
+      Alert.alert('提示', '该部门下有子部门，无法删除');
+      return;
+    }
+
+    Alert.alert(
+      '确认删除',
+      `确定要删除部门"${dept.name}"吗？`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await fetch(
+                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments/${dept.id}`,
+                { method: 'DELETE' }
+              );
+
+              if (res.ok) {
+                Alert.alert('成功', '部门删除成功');
+                setDeptModalVisible(false);
+                fetchOrganization();
+              } else {
+                const data = await res.json();
+                throw new Error(data.error || '删除失败');
+              }
+            } catch (error: any) {
+              Alert.alert('错误', error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderEmployee = (employee: Employee, isNested = false) => (
     <TouchableOpacity
       key={employee.id}
@@ -114,35 +242,37 @@ export default function OrganizationScreen() {
     </TouchableOpacity>
   );
 
-  const renderDepartment = (dept: Department, level = 0) => {
+  const renderDepartment = (dept: Department, level = 0, parentId: number | null = null) => {
     const isExpanded = expandedDepts.has(dept.id);
     const hasChildren = dept.children && dept.children.length > 0;
     const hasEmployees = dept.employees && dept.employees.length > 0;
 
     return (
       <View key={dept.id} style={styles.deptContainer}>
-        <TouchableOpacity
+        <View
           style={[
             styles.deptCard,
             level > 0 && styles.deptCardNested,
             { marginLeft: level * 16 },
           ]}
-          onPress={() => handleDepartmentPress(dept)}
         >
-          <View style={[styles.deptIcon, { backgroundColor: getDeptColor(dept.id) }]}>
-            <FontAwesome6 name="building" size={14} color="#FFF" />
-          </View>
-          <View style={styles.deptInfo}>
-            <Text style={styles.deptName}>{dept.name}</Text>
-            <Text style={styles.deptCode}>{dept.code}</Text>
-          </View>
-          <View style={styles.deptStats}>
-            {hasEmployees && (
-              <View style={styles.statBadge}>
-                <Text style={styles.statBadgeText}>{dept.employees.length}人</Text>
-              </View>
-            )}
-            {hasChildren && (
+          <TouchableOpacity
+            style={styles.deptMainContent}
+            onPress={() => handleDepartmentPress(dept)}
+          >
+            <View style={[styles.deptIcon, { backgroundColor: getDeptColor(dept.id) }]}>
+              <FontAwesome6 name="building" size={14} color="#FFF" />
+            </View>
+            <View style={styles.deptInfo}>
+              <Text style={styles.deptName}>{dept.name}</Text>
+              <Text style={styles.deptCode}>{dept.code}</Text>
+            </View>
+            <View style={styles.deptStats}>
+              {hasEmployees && (
+                <View style={styles.statBadge}>
+                  <Text style={styles.statBadgeText}>{dept.employees.length}人</Text>
+                </View>
+              )}
               <TouchableOpacity
                 onPress={() => toggleDepartment(dept.id)}
                 style={styles.expandButton}
@@ -153,9 +283,38 @@ export default function OrganizationScreen() {
                   color="#636E72"
                 />
               </TouchableOpacity>
-            )}
-          </View>
-        </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+
+          {/* 修改和删除按钮 */}
+          {user?.role === 'admin' && (
+            <View style={styles.deptActions}>
+              <TouchableOpacity
+                style={styles.deptActionBtn}
+                onPress={() => handleEditDepartment(dept)}
+              >
+                <FontAwesome6 name="edit" size={14} color="#1E88E5" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deptActionBtn}
+                onPress={() => handleDeleteDepartment(dept)}
+              >
+                <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* 子部门新增按钮 */}
+        {user?.role === 'admin' && isExpanded && (
+          <TouchableOpacity
+            style={[styles.addSubDeptBtn, { marginLeft: (level + 1) * 16 + 8 }]}
+            onPress={() => handleAddDepartment(dept.id)}
+          >
+            <FontAwesome6 name="plus" size={12} color="#1E88E5" />
+            <Text style={styles.addSubDeptText}>添加子部门</Text>
+          </TouchableOpacity>
+        )}
 
         {/* 部门员工 */}
         {isExpanded && hasEmployees && (
@@ -167,7 +326,7 @@ export default function OrganizationScreen() {
         {/* 子部门 */}
         {isExpanded && hasChildren && (
           <View style={styles.childrenContainer}>
-            {dept.children.map(childDept => renderDepartment(childDept, level + 1))}
+            {dept.children.map(childDept => renderDepartment(childDept, level + 1, dept.id))}
           </View>
         )}
       </View>
@@ -179,11 +338,24 @@ export default function OrganizationScreen() {
     return colors[id % colors.length];
   };
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <Screen>
       {/* 头部统计 */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>组织结构</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>组织结构</Text>
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => handleAddDepartment(null)}
+            >
+              <FontAwesome6 name="plus" size={18} color="#FFF" />
+              <Text style={styles.addButtonText}>新增部门</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.headerStats}>
           <View style={styles.statItem}>
             <FontAwesome6 name="building" size={16} color="#1E88E5" />
@@ -322,7 +494,7 @@ export default function OrganizationScreen() {
                   </View>
 
                   <View style={styles.infoItem}>
-                    <FontAwesome6 name="-barcode" size={16} color="#636E72" />
+                    <FontAwesome6 name="barcode" size={16} color="#636E72" />
                     <Text style={styles.infoLabel}>部门编码</Text>
                     <Text style={styles.infoValue}>{selectedDept.code}</Text>
                   </View>
@@ -336,7 +508,7 @@ export default function OrganizationScreen() {
                   )}
 
                   <View style={styles.infoItem}>
-                    <FontAwesome6 name="-users" size={16} color="#636E72" />
+                    <FontAwesome6 name="users" size={16} color="#636E72" />
                     <Text style={styles.infoLabel}>员工数量</Text>
                     <Text style={styles.infoValue}>{selectedDept.employees?.length || 0} 人</Text>
                   </View>
@@ -347,8 +519,156 @@ export default function OrganizationScreen() {
                     <Text style={styles.infoValue}>{selectedDept.children?.length || 0} 个</Text>
                   </View>
                 </View>
+
+                {/* 操作按钮 */}
+                {isAdmin && (
+                  <View style={styles.deptOperateBtns}>
+                    <TouchableOpacity
+                      style={[styles.operateBtn, styles.editBtn]}
+                      onPress={() => handleEditDepartment(selectedDept)}
+                    >
+                      <FontAwesome6 name="edit" size={16} color="#1E88E5" />
+                      <Text style={styles.editBtnText}>修改部门</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.operateBtn, styles.deleteBtn]}
+                      onPress={() => handleDeleteDepartment(selectedDept)}
+                    >
+                      <FontAwesome6 name="trash" size={16} color="#E74C3C" />
+                      <Text style={styles.deleteBtnText}>删除部门</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </ScrollView>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* 新增部门弹窗 */}
+      <Modal visible={addDeptModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.formModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {deptForm.parent_id ? '添加子部门' : '新增部门'}
+              </Text>
+              <TouchableOpacity onPress={() => setAddDeptModalVisible(false)}>
+                <FontAwesome6 name="times" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.formModalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>部门名称 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入部门名称"
+                  value={deptForm.name}
+                  onChangeText={(text) => setDeptForm({ ...deptForm, name: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>部门编码 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入部门编码"
+                  value={deptForm.code}
+                  onChangeText={(text) => setDeptForm({ ...deptForm, code: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>部门描述</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea]}
+                  placeholder="请输入部门描述（选填）"
+                  value={deptForm.description}
+                  onChangeText={(text) => setDeptForm({ ...deptForm, description: text })}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.formModalFooter}>
+              <TouchableOpacity
+                style={[styles.formBtn, styles.formCancelBtn]}
+                onPress={() => setAddDeptModalVisible(false)}
+              >
+                <Text style={styles.formCancelBtnText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.formBtn, styles.formSaveBtn]}
+                onPress={handleSaveDepartment}
+              >
+                <Text style={styles.formSaveBtnText}>保存</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 编辑部门弹窗 */}
+      <Modal visible={editDeptModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.formModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>修改部门</Text>
+              <TouchableOpacity onPress={() => setEditDeptModalVisible(false)}>
+                <FontAwesome6 name="times" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.formModalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>部门名称 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入部门名称"
+                  value={deptForm.name}
+                  onChangeText={(text) => setDeptForm({ ...deptForm, name: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>部门编码 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入部门编码"
+                  value={deptForm.code}
+                  onChangeText={(text) => setDeptForm({ ...deptForm, code: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>部门描述</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea]}
+                  placeholder="请输入部门描述（选填）"
+                  value={deptForm.description}
+                  onChangeText={(text) => setDeptForm({ ...deptForm, description: text })}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.formModalFooter}>
+              <TouchableOpacity
+                style={[styles.formBtn, styles.formCancelBtn]}
+                onPress={() => setEditDeptModalVisible(false)}
+              >
+                <Text style={styles.formCancelBtnText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.formBtn, styles.formSaveBtn]}
+                onPress={handleSaveDepartment}
+              >
+                <Text style={styles.formSaveBtnText}>保存</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -363,11 +683,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F3F4',
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#2D3436',
-    marginBottom: 12,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1E88E5',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   headerStats: {
     flexDirection: 'row',
@@ -407,7 +746,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     marginHorizontal: 16,
     marginTop: 12,
-    padding: 14,
+    paddingRight: 8,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -420,6 +759,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginLeft: 8,
     marginRight: 16,
+  },
+  deptMainContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
   },
   deptIcon: {
     width: 36,
@@ -459,6 +804,31 @@ const styles = StyleSheet.create({
   },
   expandButton: {
     padding: 4,
+  },
+  deptActions: {
+    flexDirection: 'row',
+    gap: 4,
+    paddingRight: 4,
+  },
+  deptActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F5F7FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addSubDeptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  addSubDeptText: {
+    fontSize: 13,
+    color: '#1E88E5',
   },
   employeesContainer: {
     marginTop: 4,
@@ -543,6 +913,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '85%',
   },
+  formModalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -558,6 +934,58 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: 16,
+  },
+  formModalBody: {
+    padding: 16,
+    maxHeight: 400,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  formLabel: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 8,
+  },
+  formInput: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#2D3436',
+  },
+  formTextArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  formModalFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F3F4',
+  },
+  formBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  formCancelBtn: {
+    backgroundColor: '#F5F7FA',
+  },
+  formCancelBtnText: {
+    fontSize: 16,
+    color: '#636E72',
+  },
+  formSaveBtn: {
+    backgroundColor: '#1E88E5',
+  },
+  formSaveBtnText: {
+    fontSize: 16,
+    color: '#FFF',
+    fontWeight: '600',
   },
   profileSection: {
     alignItems: 'center',
@@ -601,7 +1029,7 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 14,
     color: '#636E72',
-    width: 60,
+    width: 70,
   },
   infoValue: {
     flex: 1,
@@ -629,5 +1057,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#636E72',
     marginTop: 4,
+  },
+  deptOperateBtns: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  operateBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  editBtn: {
+    backgroundColor: 'rgba(30, 136, 229, 0.1)',
+    borderColor: '#1E88E5',
+  },
+  editBtnText: {
+    fontSize: 15,
+    color: '#1E88E5',
+    fontWeight: '500',
+  },
+  deleteBtn: {
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    borderColor: '#E74C3C',
+  },
+  deleteBtnText: {
+    fontSize: 15,
+    color: '#E74C3C',
+    fontWeight: '500',
   },
 });
