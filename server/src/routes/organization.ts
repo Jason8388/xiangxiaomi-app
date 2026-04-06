@@ -3,16 +3,30 @@ import pool from '../database/db';
 
 const router = express.Router();
 
+// 带重试机制的数据库查询
+async function queryWithRetry(sql: string, params: any[] = [], retries = 3): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(sql, params);
+    } catch (error: any) {
+      console.error(`Query attempt ${i + 1} failed:`, error.message);
+      if (i === retries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+  throw new Error('Query failed after retries');
+}
+
 // 获取完整的组织结构（部门树 + 员工）
 router.get('/', async (req, res) => {
   try {
     // 获取所有部门
-    const deptResult = await pool.query(
+    const deptResult = await queryWithRetry(
       `SELECT * FROM departments WHERE is_disabled = false ORDER BY sort_order ASC, id ASC`
     );
 
     // 获取所有员工（带有部门信息）
-    const userResult = await pool.query(
+    const userResult = await queryWithRetry(
       `SELECT u.id, u.username, u.name, u.role, u.position, u.email, u.phone, u.department_id,
               d.name as department_name, d.code as department_code
        FROM users u
@@ -31,6 +45,7 @@ router.get('/', async (req, res) => {
           );
           return {
             ...dept,
+            employeeCount: employees.length,
             employees,
             children: buildTree(dept.id),
           };
@@ -50,9 +65,9 @@ router.get('/', async (req, res) => {
       totalDepartments: deptResult.rows.length,
       totalEmployees: userResult.rows.length,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get organization error:', error);
-    res.status(500).json({ error: '获取组织结构失败' });
+    res.status(500).json({ error: '获取组织结构失败: ' + error.message });
   }
 });
 
@@ -61,7 +76,7 @@ router.get('/:id/employees', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await queryWithRetry(
       `SELECT u.id, u.username, u.name, u.role, u.position, u.email, u.phone,
               d.name as department_name
        FROM users u
@@ -72,9 +87,9 @@ router.get('/:id/employees', async (req, res) => {
     );
 
     res.json(result.rows);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get department employees error:', error);
-    res.status(500).json({ error: '获取部门员工失败' });
+    res.status(500).json({ error: '获取部门员工失败: ' + error.message });
   }
 });
 
@@ -83,7 +98,7 @@ router.get('/employees/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await queryWithRetry(
       `SELECT u.id, u.username, u.name, u.role, u.position, u.email, u.phone, u.department_id,
               d.name as department_name, d.code as department_code
        FROM users u
@@ -99,30 +114,29 @@ router.get('/employees/:id', async (req, res) => {
     // 获取该员工所属部门的层级路径
     const getDepartmentPath = async (deptId: number | null): Promise<string[]> => {
       if (!deptId) return [];
-      const deptResult = await pool.query(
-        `WITH RECURSIVE dept_path AS (
-          SELECT id, name, parent_id, 1 as level
-          FROM departments WHERE id = $1
-          UNION ALL
-          SELECT d.id, d.name, d.parent_id, dp.level + 1
-          FROM departments d
-          JOIN dept_path dp ON d.id = dp.parent_id
-        )
-        SELECT name FROM dept_path ORDER BY level DESC`,
+      
+      const deptResult = await queryWithRetry(
+        `SELECT id, name, parent_id FROM departments WHERE id = $1`,
         [deptId]
       );
-      return deptResult.rows.map(r => r.name);
+      
+      if (deptResult.rows.length === 0) return [];
+      
+      const dept = deptResult.rows[0];
+      const parentPath = await getDepartmentPath(dept.parent_id);
+      return [...parentPath, dept.name];
     };
 
-    const deptPath = await getDepartmentPath(result.rows[0].department_id);
+    const employee = result.rows[0];
+    const departmentPath = await getDepartmentPath(employee.department_id);
 
     res.json({
-      ...result.rows[0],
-      department_path: deptPath,
+      ...employee,
+      departmentPath,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get employee error:', error);
-    res.status(500).json({ error: '获取员工详情失败' });
+    res.status(500).json({ error: '获取员工详情失败: ' + error.message });
   }
 });
 

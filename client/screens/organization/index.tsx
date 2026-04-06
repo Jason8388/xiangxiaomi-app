@@ -48,6 +48,7 @@ interface OrgData {
 export default function OrganizationScreen() {
   const [orgData, setOrgData] = useState<OrgData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedDepts, setExpandedDepts] = useState<Set<number>>(new Set());
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [employeeModalVisible, setEmployeeModalVisible] = useState(false);
@@ -65,16 +66,21 @@ export default function OrganizationScreen() {
   const [user, setUser] = useState<any>(null);
 
   const fetchOrganization = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/organization`);
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setOrgData(data);
         const topLevelIds = new Set<number>(data.tree.map((d: Department) => d.id));
         setExpandedDepts(topLevelIds);
+      } else {
+        setError(data.error || '获取组织结构失败');
       }
-    } catch (error) {
-      console.error('Fetch organization error:', error);
+    } catch (err: any) {
+      console.error('Fetch organization error:', err);
+      setError('网络连接失败，请检查网络后重试');
     } finally {
       setLoading(false);
     }
@@ -377,8 +383,26 @@ export default function OrganizationScreen() {
           <RefreshControl refreshing={loading} onRefresh={fetchOrganization} />
         }
       >
+        {/* 错误提示 */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <FontAwesome6 name="exclamation-circle" size={32} color="#E74C3C" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchOrganization}>
+              <Text style={styles.retryButtonText}>重试</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 加载中 */}
+        {loading && !orgData && (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>加载中...</Text>
+          </View>
+        )}
+
         {/* 部门树 */}
-        {orgData?.tree?.map(dept => renderDepartment(dept))}
+        {!error && orgData?.tree?.map(dept => renderDepartment(dept))}
 
         {/* 未分配部门员工 */}
         {orgData?.unassignedEmployees && orgData.unassignedEmployees.length > 0 && (
@@ -1090,5 +1114,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#E74C3C',
     fontWeight: '500',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#636E72',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#6C63FF',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#636E72',
   },
 });
