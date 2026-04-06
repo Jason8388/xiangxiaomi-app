@@ -38,18 +38,27 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '首页',
+          title: '工作台',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="house" size={22} color={color} />
+            <FontAwesome6 name="desktop" size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="customers"
+        name="work-orders"
         options={{
-          title: '客户',
+          title: '工单',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="users" size={22} color={color} />
+            <FontAwesome6 name="clipboard-list" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="query"
+        options={{
+          title: '查询',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome6 name="search" size={22} color={color} />
           ),
         }}
       />

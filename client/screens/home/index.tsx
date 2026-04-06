@@ -105,7 +105,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View className="px-6 pt-8 pb-6">
           <Text className="text-3xl font-bold text-[#2D3436] mb-1">
-            项小秘售后助手
+            工作台
           </Text>
           <Text className="text-sm text-[#636E72]">
             高效管理售后服务业务
@@ -129,7 +129,7 @@ export default function HomeScreen() {
               <Text className="text-lg font-bold text-[#2D3436]">
                 工单统计
               </Text>
-              <TouchableOpacity onPress={() => router.push('/work-orders')}>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
                 <Text className="text-sm text-[#6C63FF] font-medium">
                   查看全部
                 </Text>
@@ -193,35 +193,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               className="w-[47%] mb-4"
               style={{ marginHorizontal: '1.5%' }}
-              onPress={() => router.push('/work-orders/create')}
-            >
-              <View
-                className="rounded-3xl p-5 shadow-lg items-center"
-                style={{
-                  backgroundColor: '#F0F0F3',
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 6, height: 6 },
-                  shadowOpacity: 0.7,
-                  shadowRadius: 8,
-                  elevation: 6,
-                }}
-              >
-                <View
-                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
-                  style={{ backgroundColor: 'rgba(108, 99, 255, 0.12)' }}
-                >
-                  <FontAwesome6 name="plus" size={22} color="#6C63FF" />
-                </View>
-                <Text className="text-sm font-semibold text-[#2D3436]">
-                  新建工单
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="w-[47%] mb-4"
-              style={{ marginHorizontal: '1.5%' }}
-              onPress={() => router.push('/customers')}
+              onPress={() => router.push('/(tabs)/work-orders')}
             >
               <View
                 className="rounded-3xl p-5 shadow-lg items-center"
@@ -241,15 +213,15 @@ export default function HomeScreen() {
                   <FontAwesome6 name="user-plus" size={22} color="#FF6584" />
                 </View>
                 <Text className="text-sm font-semibold text-[#2D3436]">
-                  新增客户
+                  新建工单
                 </Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="w-[47%]"
+              className="w-[47%] mb-4"
               style={{ marginHorizontal: '1.5%' }}
-              onPress={() => router.push('/warehouses')}
+              onPress={() => router.push('/(tabs)/query')}
             >
               <View
                 className="rounded-3xl p-5 shadow-lg items-center"
@@ -266,38 +238,10 @@ export default function HomeScreen() {
                   className="w-12 h-12 rounded-full items-center justify-center mb-3"
                   style={{ backgroundColor: 'rgba(0, 184, 148, 0.12)' }}
                 >
-                  <FontAwesome6 name="warehouse" size={22} color="#00B894" />
+                  <FontAwesome6 name="search" size={22} color="#00B894" />
                 </View>
                 <Text className="text-sm font-semibold text-[#2D3436]">
-                  仓库管理
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="w-[47%]"
-              style={{ marginHorizontal: '1.5%' }}
-              onPress={() => router.push('/(tabs)/knowledge')}
-            >
-              <View
-                className="rounded-3xl p-5 shadow-lg items-center"
-                style={{
-                  backgroundColor: '#F0F0F3',
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 6, height: 6 },
-                  shadowOpacity: 0.7,
-                  shadowRadius: 8,
-                  elevation: 6,
-                }}
-              >
-                <View
-                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
-                  style={{ backgroundColor: 'rgba(253, 203, 110, 0.12)' }}
-                >
-                  <FontAwesome6 name="book" size={22} color="#FDCB6E" />
-                </View>
-                <Text className="text-sm font-semibold text-[#2D3436]">
-                  知识库
+                  信息查询
                 </Text>
               </View>
             </TouchableOpacity>
@@ -310,7 +254,7 @@ export default function HomeScreen() {
             <Text className="text-lg font-bold text-[#2D3436]">
               最近工单
             </Text>
-            <TouchableOpacity onPress={() => router.push('/work-orders')}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
               <Text className="text-sm text-[#6C63FF] font-medium">
                 查看全部
               </Text>
@@ -320,7 +264,7 @@ export default function HomeScreen() {
           {recentOrders.map((order: any) => (
             <TouchableOpacity
               key={order.id}
-              onPress={() => router.push(`/work-orders/${order.id}`)}
+              onPress={() => router.push('/(tabs)/work-orders')}
               className="mb-4"
             >
               <View

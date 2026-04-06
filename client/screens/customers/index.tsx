@@ -150,9 +150,8 @@ export default function CustomersScreen() {
         {/* 客户列表 */}
         <View className="px-6">
           {filteredCustomers.map((customer) => (
-            <TouchableOpacity
+            <View
               key={customer.id}
-              onPress={() => router.push(`/customers/${customer.id}`)}
               className="mb-4"
             >
               <View
@@ -211,7 +210,7 @@ export default function CustomersScreen() {
                   </View>
                 )}
               </View>
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
       </ScrollView>
