@@ -10,19 +10,19 @@ export default function ProfileScreen() {
   const router = useSafeRouter();
 
   useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        const userStr = await SecureStore.getItemAsync('user');
+        if (userStr) {
+          setUser(JSON.parse(userStr));
+        }
+      } catch (error) {
+        console.error('Load user error:', error);
+      }
+    };
+
     loadUserInfo();
   }, []);
-
-  const loadUserInfo = async () => {
-    try {
-      const userStr = await SecureStore.getItemAsync('user');
-      if (userStr) {
-        setUser(JSON.parse(userStr));
-      }
-    } catch (error) {
-      console.error('Load user error:', error);
-    }
-  };
 
   const handleLogout = () => {
     Alert.alert('确认', '确定要退出登录吗？', [

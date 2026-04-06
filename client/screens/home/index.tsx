@@ -15,41 +15,41 @@ export default function HomeScreen() {
   const router = useSafeRouter();
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // 获取工单统计
+        const ordersRes = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`);
+        const ordersData = await ordersRes.json();
+
+        if (Array.isArray(ordersData)) {
+          const pending = ordersData.filter((o: any) => o.status === 'pending').length;
+          const processing = ordersData.filter((o: any) => o.status === 'processing').length;
+          const completed = ordersData.filter((o: any) => o.status === 'completed').length;
+
+          setStats({
+            pending,
+            processing,
+            completed,
+            total: ordersData.length,
+          });
+
+          // 获取最近5条工单
+          setRecentOrders(ordersData.slice(0, 5));
+        }
+      } catch (error) {
+        console.error('Fetch data error:', error);
+      }
+    };
+
     fetchData();
   }, []);
-
-  const fetchData = async () => {
-    try {
-      // 获取工单统计
-      const ordersRes = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`);
-      const ordersData = await ordersRes.json();
-
-      if (Array.isArray(ordersData)) {
-        const pending = ordersData.filter((o: any) => o.status === 'pending').length;
-        const processing = ordersData.filter((o: any) => o.status === 'processing').length;
-        const completed = ordersData.filter((o: any) => o.status === 'completed').length;
-
-        setStats({
-          pending,
-          processing,
-          completed,
-          total: ordersData.length,
-        });
-
-        // 获取最近5条工单
-        setRecentOrders(ordersData.slice(0, 5));
-      }
-    } catch (error) {
-      console.error('Fetch data error:', error);
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
         return '#FDCB6E';
       case 'processing':
-        return '#6C63FF';
+        return '#1E88E5';
       case 'completed':
         return '#00B894';
       default:
@@ -96,152 +96,242 @@ export default function HomeScreen() {
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   return (
     <Screen>
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* Header */}
-        <View className="px-6 pt-8 pb-6">
-          <Text className="text-3xl font-bold text-[#2D3436] mb-1">
+        <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 }}>
+          <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#2D3436', marginBottom: 4 }}>
             工作台
           </Text>
-          <Text className="text-sm text-[#636E72]">
+          <Text style={{ fontSize: 14, color: '#636E72' }}>
             高效管理售后服务业务
           </Text>
         </View>
 
         {/* 统计卡片 */}
-        <View className="px-6 mb-6">
+        <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
           <View
-            className="rounded-3xl p-6 shadow-lg"
             style={{
-              backgroundColor: '#F0F0F3',
-              shadowColor: '#D1D9E6',
-              shadowOffset: { width: 6, height: 6 },
-              shadowOpacity: 0.7,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 16,
+              padding: 24,
+              shadowColor: '#000000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
               shadowRadius: 8,
-              elevation: 6,
+              elevation: 4,
             }}
           >
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-lg font-bold text-[#2D3436]">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
                 工单统计
               </Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
-                <Text className="text-sm text-[#6C63FF] font-medium">
+                <Text style={{ fontSize: 14, color: '#1E88E5', fontWeight: '600' }}>
                   查看全部
                 </Text>
               </TouchableOpacity>
             </View>
-            <View className="flex-row justify-between">
-              <View className="items-center">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ alignItems: 'center' }}>
                 <View
-                  className="w-16 h-16 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: 'rgba(253, 203, 110, 0.2)' }}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                    backgroundColor: 'rgba(253, 203, 110, 0.15)',
+                  }}
                 >
-                  <Text className="text-2xl font-bold" style={{ color: '#FDCB6E' }}>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FDCB6E' }}>
                     {stats.pending}
                   </Text>
                 </View>
-                <Text className="text-xs text-[#636E72]">待处理</Text>
+                <Text style={{ fontSize: 12, color: '#636E72' }}>待处理</Text>
               </View>
-              <View className="items-center">
+              <View style={{ alignItems: 'center' }}>
                 <View
-                  className="w-16 h-16 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: 'rgba(108, 99, 255, 0.2)' }}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                    backgroundColor: 'rgba(30, 136, 229, 0.15)',
+                  }}
                 >
-                  <Text className="text-2xl font-bold" style={{ color: '#6C63FF' }}>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1E88E5' }}>
                     {stats.processing}
                   </Text>
                 </View>
-                <Text className="text-xs text-[#636E72]">处理中</Text>
+                <Text style={{ fontSize: 12, color: '#636E72' }}>处理中</Text>
               </View>
-              <View className="items-center">
+              <View style={{ alignItems: 'center' }}>
                 <View
-                  className="w-16 h-16 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: 'rgba(0, 184, 148, 0.2)' }}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                    backgroundColor: 'rgba(0, 184, 148, 0.15)',
+                  }}
                 >
-                  <Text className="text-2xl font-bold" style={{ color: '#00B894' }}>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#00B894' }}>
                     {stats.completed}
                   </Text>
                 </View>
-                <Text className="text-xs text-[#636E72]">已完成</Text>
+                <Text style={{ fontSize: 12, color: '#636E72' }}>已完成</Text>
               </View>
-              <View className="items-center">
+              <View style={{ alignItems: 'center' }}>
                 <View
-                  className="w-16 h-16 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: 'rgba(108, 99, 255, 0.2)' }}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                    backgroundColor: 'rgba(30, 136, 229, 0.15)',
+                  }}
                 >
-                  <Text className="text-2xl font-bold" style={{ color: '#6C63FF' }}>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1E88E5' }}>
                     {stats.total}
                   </Text>
                 </View>
-                <Text className="text-xs text-[#636E72]">总计</Text>
+                <Text style={{ fontSize: 12, color: '#636E72' }}>总计</Text>
               </View>
             </View>
           </View>
         </View>
 
         {/* 快速入口 */}
-        <View className="px-6 mb-6">
-          <Text className="text-lg font-bold text-[#2D3436] mb-4">
+        <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436', marginBottom: 16 }}>
             快速入口
           </Text>
-          <View className="flex-row flex-wrap justify-between">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
             <TouchableOpacity
-              className="w-[47%] mb-4"
-              style={{ marginHorizontal: '1.5%' }}
+              style={{ width: '48%', marginBottom: 16, marginHorizontal: '1%' }}
               onPress={() => router.push('/(tabs)/work-orders')}
             >
               <View
-                className="rounded-3xl p-5 shadow-lg items-center"
                 style={{
-                  backgroundColor: '#F0F0F3',
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 6, height: 6 },
-                  shadowOpacity: 0.7,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: 'center',
+                  shadowColor: '#000000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
                   shadowRadius: 8,
-                  elevation: 6,
+                  elevation: 4,
                 }}
               >
                 <View
-                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
-                  style={{ backgroundColor: 'rgba(255, 101, 132, 0.12)' }}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 12,
+                    backgroundColor: 'rgba(30, 136, 229, 0.1)',
+                  }}
                 >
-                  <FontAwesome6 name="user-plus" size={22} color="#FF6584" />
+                  <FontAwesome6 name="plus" size={22} color="#1E88E5" />
                 </View>
-                <Text className="text-sm font-semibold text-[#2D3436]">
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436' }}>
                   新建工单
                 </Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="w-[47%] mb-4"
-              style={{ marginHorizontal: '1.5%' }}
+              style={{ width: '48%', marginBottom: 16, marginHorizontal: '1%' }}
               onPress={() => router.push('/(tabs)/query')}
             >
               <View
-                className="rounded-3xl p-5 shadow-lg items-center"
                 style={{
-                  backgroundColor: '#F0F0F3',
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 6, height: 6 },
-                  shadowOpacity: 0.7,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: 'center',
+                  shadowColor: '#000000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
                   shadowRadius: 8,
-                  elevation: 6,
+                  elevation: 4,
                 }}
               >
                 <View
-                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
-                  style={{ backgroundColor: 'rgba(0, 184, 148, 0.12)' }}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 12,
+                    backgroundColor: 'rgba(0, 184, 148, 0.1)',
+                  }}
                 >
-                  <FontAwesome6 name="search" size={22} color="#00B894" />
+                  <FontAwesome6 name="magnifying-glass" size={22} color="#00B894" />
                 </View>
-                <Text className="text-sm font-semibold text-[#2D3436]">
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436' }}>
                   信息查询
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ width: '48%', marginHorizontal: '1%' }}
+              onPress={() => router.push('/(tabs)/knowledge')}
+            >
+              <View
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: 'center',
+                  shadowColor: '#000000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+              >
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 12,
+                    backgroundColor: 'rgba(253, 203, 110, 0.1)',
+                  }}
+                >
+                  <FontAwesome6 name="book" size={22} color="#FDCB6E" />
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436' }}>
+                  知识库
                 </Text>
               </View>
             </TouchableOpacity>
@@ -249,13 +339,13 @@ export default function HomeScreen() {
         </View>
 
         {/* 最近工单 */}
-        <View className="px-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-bold text-[#2D3436]">
+        <View style={{ paddingHorizontal: 24 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
               最近工单
             </Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
-              <Text className="text-sm text-[#6C63FF] font-medium">
+              <Text style={{ fontSize: 14, color: '#1E88E5', fontWeight: '600' }}>
                 查看全部
               </Text>
             </TouchableOpacity>
@@ -265,51 +355,58 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={order.id}
               onPress={() => router.push('/(tabs)/work-orders')}
-              className="mb-4"
+              style={{ marginBottom: 16 }}
             >
               <View
-                className="rounded-3xl p-5 shadow-lg"
                 style={{
-                  backgroundColor: '#F0F0F3',
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 6, height: 6 },
-                  shadowOpacity: 0.7,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 20,
+                  shadowColor: '#000000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
                   shadowRadius: 8,
-                  elevation: 6,
+                  elevation: 4,
                 }}
               >
-                <View className="flex-row justify-between items-start mb-3">
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-[#2D3436] mb-1">
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3436', marginBottom: 4 }}>
                       {order.customer_name}
                     </Text>
-                    <Text className="text-sm text-[#636E72]">
+                    <Text style={{ fontSize: 14, color: '#636E72' }}>
                       {order.device_name}
                     </Text>
                   </View>
                   <View
-                    className="px-3 py-1 rounded-full"
-                    style={{ backgroundColor: `${getStatusColor(order.status)}33` }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      backgroundColor: `${getStatusColor(order.status)}20`,
+                    }}
                   >
                     <Text
-                      className="text-xs font-semibold"
-                      style={{ color: getStatusColor(order.status) }}
+                      style={{ fontSize: 12, fontWeight: '600', color: getStatusColor(order.status) }}
                     >
                       {getStatusText(order.status)}
                     </Text>
                   </View>
                 </View>
-                <View className="flex-row justify-between items-center">
-                  <Text className="text-xs text-[#B2BEC3]">
-                    {order.created_at?.split('T')[0] || ''}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, color: '#B2BEC3' }}>
+                    {formatDate(order.created_at)}
                   </Text>
                   <View
-                    className="px-2 py-1 rounded"
-                    style={{ backgroundColor: `${getPriorityColor(order.priority)}33` }}
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                      backgroundColor: `${getPriorityColor(order.priority)}20`,
+                    }}
                   >
                     <Text
-                      className="text-xs font-medium"
-                      style={{ color: getPriorityColor(order.priority) }}
+                      style={{ fontSize: 12, fontWeight: '600', color: getPriorityColor(order.priority) }}
                     >
                       {getPriorityText(order.priority)}优先级
                     </Text>

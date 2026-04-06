@@ -364,23 +364,25 @@ export default function WorkOrdersScreen() {
                       editable={false}
                     />
                   </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="mt-2"
-                  >
-                    {customers.map((customer) => (
-                      <TouchableOpacity
-                        key={customer.id}
-                        onPress={() => setFormData({ ...formData, customer_id: customer.id.toString() })}
-                        className={`px-4 py-2 rounded-full mr-2 ${formData.customer_id === customer.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
-                      >
-                        <Text className={`text-sm ${formData.customer_id === customer.id.toString() ? 'text-white' : 'text-[#636E72]'}`}>
-                          {customer.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  <View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      className="mt-2"
+                    >
+                      {customers.map((customer) => (
+                        <TouchableOpacity
+                          key={customer.id}
+                          onPress={() => setFormData({ ...formData, customer_id: customer.id.toString() })}
+                          className={`px-4 py-2 rounded-full mr-2 ${formData.customer_id === customer.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
+                        >
+                          <Text className={`text-sm ${formData.customer_id === customer.id.toString() ? 'text-white' : 'text-[#636E72]'}`}>
+                            {customer.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
                 </View>
 
                 <View className="mb-4">
@@ -396,25 +398,27 @@ export default function WorkOrdersScreen() {
                       editable={false}
                     />
                   </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="mt-2"
-                  >
-                    {devices
-                      .filter(d => !formData.customer_id || d.customer_id === parseInt(formData.customer_id))
-                      .map((device) => (
-                        <TouchableOpacity
-                          key={device.id}
-                          onPress={() => setFormData({ ...formData, device_id: device.id.toString() })}
-                          className={`px-4 py-2 rounded-full mr-2 ${formData.device_id === device.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
-                        >
-                          <Text className={`text-sm ${formData.device_id === device.id.toString() ? 'text-white' : 'text-[#636E72]'}`}>
-                            {device.device_name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                  </ScrollView>
+                  <View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      className="mt-2"
+                    >
+                      {devices
+                        .filter(d => !formData.customer_id || d.customer_id === parseInt(formData.customer_id))
+                        .map((device) => (
+                          <TouchableOpacity
+                            key={device.id}
+                            onPress={() => setFormData({ ...formData, device_id: device.id.toString() })}
+                            className={`px-4 py-2 rounded-full mr-2 ${formData.device_id === device.id.toString() ? 'bg-[#6C63FF]' : 'bg-[#E8E8EB]'}`}
+                          >
+                            <Text className={`text-sm ${formData.device_id === device.id.toString() ? 'text-white' : 'text-[#636E72]'}`}>
+                              {device.device_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                  </View>
                 </View>
 
                 <View className="mb-4">

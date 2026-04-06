@@ -24,7 +24,7 @@
   :root {
     @variant light {
       /* Base Colors */
-      --background: #fafafa;
+      --background: #F5F7FA; /* 辅助色 */
       --foreground: var(--eclipse);
 
       /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */
@@ -40,7 +40,7 @@
       --default: oklch(94% 0.001 286.375);
       --default-foreground: var(--eclipse);
 
-      --accent: oklch(0.6204 0.195 253.83);
+      --accent: #1E88E5; /* 主色调：蓝色 */
       --accent-foreground: var(--snow);
 
       /* Form Fields */

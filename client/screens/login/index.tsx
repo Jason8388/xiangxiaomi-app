@@ -53,22 +53,32 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <View className="flex-1 justify-center items-center px-8">
-          <View className="mb-12">
-            <Text className="text-4xl font-bold text-[#6C63FF] text-center mb-2">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+          <View style={{ marginBottom: 32 }}>
+            <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#1E88E5', textAlign: 'center', marginBottom: 8 }}>
               项小秘
             </Text>
-            <Text className="text-xl text-[#636E72] text-center">
+            <Text style={{ fontSize: 18, color: '#636E72', textAlign: 'center' }}>
               售后助手
             </Text>
           </View>
 
-          <View className="w-full mb-4">
-            <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">
+          <View style={{ width: '100%', marginBottom: 16 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#636E72', marginBottom: 8, marginLeft: 4 }}>
               用户名
             </Text>
             <TextInput
-              className="w-full bg-[#E8E8EB] rounded-2xl px-4 py-4 text-[#2D3436] text-base"
+              style={{
+                width: '100%',
+                backgroundColor: '#F5F7FA',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 14,
+                color: '#2D3436',
+                borderWidth: 1,
+                borderColor: '#DFE6E9',
+              }}
               placeholder="请输入用户名"
               placeholderTextColor="#B2BEC3"
               value={username}
@@ -77,12 +87,22 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View className="w-full mb-8">
-            <Text className="text-sm font-medium text-[#636E72] mb-2 ml-1">
+          <View style={{ width: '100%', marginBottom: 32 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#636E72', marginBottom: 8, marginLeft: 4 }}>
               密码
             </Text>
             <TextInput
-              className="w-full bg-[#E8E8EB] rounded-2xl px-4 py-4 text-[#2D3436] text-base"
+              style={{
+                width: '100%',
+                backgroundColor: '#F5F7FA',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 14,
+                color: '#2D3436',
+                borderWidth: 1,
+                borderColor: '#DFE6E9',
+              }}
               placeholder="请输入密码"
               placeholderTextColor="#B2BEC3"
               value={password}
@@ -95,22 +115,26 @@ export default function LoginScreen() {
             onPress={handleLogin}
             disabled={loading}
             activeOpacity={0.8}
-            className="w-full bg-[#6C63FF] rounded-full py-4 items-center shadow-lg"
             style={{
-              shadowColor: '#6C63FF',
+              width: '100%',
+              backgroundColor: '#1E88E5',
+              borderRadius: 25,
+              paddingVertical: 16,
+              alignItems: 'center',
+              shadowColor: '#1E88E5',
               shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.35,
+              shadowOpacity: 0.3,
               shadowRadius: 8,
-              elevation: 8,
+              elevation: 4,
             }}
           >
-            <Text className="text-white font-bold text-base">
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
               {loading ? '登录中...' : '登录'}
             </Text>
           </TouchableOpacity>
 
-          <View className="mt-8">
-            <Text className="text-[#B2BEC3] text-sm">
+          <View style={{ marginTop: 32 }}>
+            <Text style={{ fontSize: 12, color: '#B2BEC3', textAlign: 'center' }}>
               测试账号：admin / admin123
             </Text>
           </View>

@@ -308,7 +308,7 @@ export default function QueryScreen() {
             className="bg-[#E8E8EB] rounded-2xl px-4 py-3 flex-row items-center"
             style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' }}
           >
-            <FontAwesome6 name="search" size={18} color="#B2BEC3" />
+            <FontAwesome6 name="magnifying-glass" size={18} color="#B2BEC3" />
             <TextInput
               className="flex-1 ml-3 text-[#2D3436] text-base"
               placeholder={
