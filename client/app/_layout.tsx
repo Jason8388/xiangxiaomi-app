@@ -72,6 +72,10 @@ function RootLayoutInner() {
         <Stack.Screen name="material-notifications" options={{ title: "" }} />
         <Stack.Screen name="after-sales" options={{ title: "" }} />
         <Stack.Screen name="after-sales-detail" options={{ title: "" }} />
+        <Stack.Screen name="knowledge-base" options={{ title: "" }} />
+        <Stack.Screen name="knowledge-detail" options={{ title: "" }} />
+        <Stack.Screen name="knowledge-create" options={{ title: "" }} />
+        <Stack.Screen name="knowledge-edit" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}
       <Toast />
