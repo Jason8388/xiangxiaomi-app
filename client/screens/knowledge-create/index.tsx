@@ -311,6 +311,25 @@ export default function KnowledgeCreate() {
             </View>
           </View>
 
+          {/* 创建日期 */}
+          <View style={styles.formSection}>
+            <View style={styles.labelContainer}>
+              <FontAwesome6 name="calendar" size={16} color="#1E88E5" />
+              <Text style={styles.label}>
+                创建日期
+              </Text>
+            </View>
+            <View style={styles.dateInfo}>
+              <Text style={styles.dateText}>
+                {new Date().toLocaleDateString('zh-CN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                })}
+              </Text>
+            </View>
+          </View>
+
           {/* 附件信息 */}
           <View style={styles.formSection}>
             <View style={styles.labelContainer}>
@@ -672,6 +691,18 @@ const styles = StyleSheet.create({
   creatorPosition: {
     fontSize: 13,
     color: '#7F8C8D',
+  },
+  dateInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#2D3436',
   },
   attachmentsContainer: {
     gap: 8,
