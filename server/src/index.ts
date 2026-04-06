@@ -11,6 +11,7 @@ import materialRoutes from "./routes/materials";
 import fileRoutes from "./routes/files";
 import mediaRoutes from "./routes/media";
 import appVersionRoutes from "./routes/app-version";
+import sessionRoutes from "./routes/sessions";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -32,6 +33,7 @@ app.use('/api/v1/materials', materialRoutes);
 app.use('/api/v1/files', fileRoutes);
 app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/app-version', appVersionRoutes);
+app.use('/api/v1/sessions', sessionRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');

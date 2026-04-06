@@ -1,5 +1,5 @@
 import express from 'express';
-import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import pool from '../database/db';
 
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 // 登录
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, device_id, device_info, ip_address } = req.body;
     const result = await pool.query(
       'SELECT * FROM users WHERE username = $1',
       [username]
@@ -32,9 +32,48 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: '用户名或密码错误' });
     }
 
+    // 生成会话ID
+    const sessionId = randomUUID();
+    const deviceId = device_id || randomUUID();
+
+    // 检查该用户的活跃会话数量（最多2个）
+    const activeSessionsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM sessions WHERE user_id = $1 AND is_active = TRUE',
+      [user.id]
+    );
+    const activeCount = parseInt(activeSessionsResult.rows[0].count);
+
+    // 如果已达到最大活跃会话数，删除最早的会话
+    if (activeCount >= 2) {
+      await pool.query(
+        `UPDATE sessions
+         SET is_active = FALSE,
+             logout_time = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id IN (
+           SELECT id FROM sessions
+           WHERE user_id = $1 AND is_active = TRUE
+           ORDER BY login_time ASC
+           LIMIT 1
+         )`,
+        [user.id]
+      );
+    }
+
+    // 创建新会话
+    const sessionResult = await pool.query(
+      `INSERT INTO sessions (user_id, session_id, device_id, device_info, ip_address, login_time, last_active_time, is_active)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, TRUE)
+       RETURNING id, session_id, device_id, login_time`,
+      [user.id, sessionId, deviceId, device_info, ip_address]
+    );
+
     // 不返回密码
     const { password: _, ...userWithoutPassword } = user;
-    res.json({ user: userWithoutPassword });
+    res.json({
+      user: userWithoutPassword,
+      session: sessionResult.rows[0],
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: '服务器错误' });

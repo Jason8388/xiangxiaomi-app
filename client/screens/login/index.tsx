@@ -3,12 +3,23 @@ import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform
 import { Screen } from '@/components/Screen';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import Constants from 'expo-constants';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useSafeRouter();
+
+  // 获取设备信息
+  const getDeviceInfo = () => {
+    return JSON.stringify({
+      platform: Platform.OS,
+      version: Platform.Version,
+      model: Constants.deviceName,
+      deviceId: Constants.deviceId,
+    });
+  };
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -21,7 +32,12 @@ export default function LoginScreen() {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          device_id: Constants.deviceId,
+          device_info: getDeviceInfo(),
+        }),
       });
 
       const data = await response.json();
@@ -32,6 +48,7 @@ export default function LoginScreen() {
 
       // 保存用户信息
       await SecureStore.setItemAsync('user', JSON.stringify(data.user));
+      await SecureStore.setItemAsync('session_id', data.session.session_id);
       await SecureStore.setItemAsync('token', 'mock_token');
 
       Alert.alert('成功', '登录成功', [
