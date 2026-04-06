@@ -6,15 +6,20 @@ const router = express.Router();
 // 获取部门列表（树形结构）
 router.get('/', async (req, res) => {
   try {
-    const { include_disabled = false } = req.query;
+    const { include_disabled = 'false' } = req.query;
+    const includeDisabled = include_disabled === 'true';
 
     // 获取所有部门
-    const result = await pool.query(
-      `SELECT * FROM departments
-       WHERE $1 = true OR is_disabled = false
-       ORDER BY sort_order ASC, id ASC`,
-      [include_disabled === 'true']
-    );
+    let result;
+    if (includeDisabled) {
+      result = await pool.query(
+        `SELECT * FROM departments ORDER BY sort_order ASC, id ASC`
+      );
+    } else {
+      result = await pool.query(
+        `SELECT * FROM departments WHERE is_disabled = false ORDER BY sort_order ASC, id ASC`
+      );
+    }
 
     // 构建树形结构
     const buildTree = (parentId: number | null = null) => {
