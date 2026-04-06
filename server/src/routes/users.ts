@@ -8,6 +8,22 @@ const router = express.Router();
 // 使用内存存储（用于演示，数据库连接超时）
 const USE_MEMORY_STORAGE = true;
 
+// 带重试的查询函数
+async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
+}
+
 // 登录
 router.post('/login', async (req, res) => {
   try {
@@ -139,7 +155,7 @@ router.get('/', async (req, res) => {
 
     query += ' ORDER BY u.id';
 
-    const result = await pool.query(query, values);
+    const result = await queryWithRetry(query, values);
     res.json(result.rows);
   } catch (error) {
     console.error('Get users error:', error);
@@ -156,7 +172,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
-    const result = await pool.query(
+    const result = await queryWithRetry(
       'INSERT INTO users (username, password, name, role, position, department_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, name, role, position, department_id, created_at',
       [username, password, name, role || 'staff', position || null, department_id || null]
     );

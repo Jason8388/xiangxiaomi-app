@@ -13,6 +13,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface User {
   id: number;
@@ -43,6 +44,7 @@ export default function EmployeeManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<DepartmentWithUsers[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
   // 新增员工状态
@@ -71,8 +73,10 @@ export default function EmployeeManagement() {
 
   useEffect(() => {
     loadUserData();
-    fetchUsers();
-    fetchDepartments();
+    Promise.all([
+      cachedFetch('users-list', fetchUsers, 'medium'),
+      cachedFetch('departments-list', fetchDepartments, 'medium'),
+    ]);
   }, []);
 
   const loadUserData = async () => {
@@ -86,24 +90,31 @@ export default function EmployeeManagement() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (): Promise<User[]> => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
       const data = await response.json();
 
       if (response.ok) {
         setUsers(data);
+        return data;
+      } else {
+        setError(data.error || '获取员工列表失败');
+        Alert.alert('错误', data.error || '获取员工列表失败');
+        return [];
       }
     } catch (error) {
       console.error('Fetch users error:', error);
-      Alert.alert('错误', '获取员工列表失败');
+      setError('网络连接失败，请检查网络后重试');
+      return [];
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = async (): Promise<Department[]> => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`);
       const data = await response.json();
@@ -204,6 +215,7 @@ export default function EmployeeManagement() {
 
       Alert.alert('成功', '员工创建成功');
       setAddModalVisible(false);
+      clearCache('users-list');
       fetchUsers();
     } catch (error: any) {
       Alert.alert('错误', error.message);
@@ -238,6 +250,7 @@ export default function EmployeeManagement() {
 
       Alert.alert('成功', '更新成功');
       setEditModalVisible(false);
+      clearCache('users-list');
       fetchUsers();
     } catch (error: any) {
       Alert.alert('错误', error.message);
@@ -289,6 +302,7 @@ export default function EmployeeManagement() {
 
       Alert.alert('成功', disable ? '账号已禁用' : '账号已启用');
       setDisableModalVisible(false);
+      clearCache('users-list');
       fetchUsers();
     } catch (error: any) {
       Alert.alert('错误', error.message);
@@ -312,6 +326,7 @@ export default function EmployeeManagement() {
 
             if (response.ok) {
               Alert.alert('成功', '删除成功');
+              clearCache('users-list');
               fetchUsers();
             } else {
               const data = await response.json();
@@ -413,7 +428,17 @@ export default function EmployeeManagement() {
           <View style={styles.centerContainer}>
             <Text>加载中...</Text>
           </View>
-        ) : departments.length === 0 ? (
+        ) : error ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => cachedFetch('users-list', fetchUsers, 'short')}
+            >
+              <Text style={styles.retryButtonText}>重新加载</Text>
+            </TouchableOpacity>
+          </View>
+        ) : departments.length === 0 && users.length === 0 ? (
           <View style={styles.centerContainer}>
             <Text style={styles.emptyText}>暂无数据</Text>
           </View>
@@ -681,6 +706,23 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#95A5A6',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#E74C3C',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#6C63FF',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   departmentItem: {
     marginBottom: 16,

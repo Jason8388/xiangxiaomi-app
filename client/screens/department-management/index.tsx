@@ -4,6 +4,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface Department {
   id: number;
@@ -31,19 +32,22 @@ export default function DepartmentManagement() {
   });
 
   useEffect(() => {
-    fetchDepartments();
+    cachedFetch('departments-list', fetchDepartments, 'medium');
   }, []);
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = async (): Promise<Department[]> => {
     try {
       setLoading(true);
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`);
       const data = await response.json();
       if (response.ok) {
         setDepartments(data);
+        return data;
       }
+      return [];
     } catch (error) {
       console.error('Fetch departments error:', error);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -100,6 +104,7 @@ export default function DepartmentManagement() {
       if (response.ok) {
         Alert.alert('成功', editingDept ? '修改成功' : '创建成功');
         setModalVisible(false);
+        clearCache('departments-list');
         fetchDepartments();
       } else {
         throw new Error(data.error || '操作失败');
@@ -126,6 +131,7 @@ export default function DepartmentManagement() {
             const data = await response.json();
             if (response.ok) {
               Alert.alert('成功', '删除成功');
+              clearCache('departments-list');
               fetchDepartments();
             } else {
               throw new Error(data.error || '删除失败');
@@ -148,6 +154,7 @@ export default function DepartmentManagement() {
       );
       const data = await response.json();
       if (response.ok) {
+        clearCache('departments-list');
         fetchDepartments();
       } else {
         throw new Error(data.error || '操作失败');
