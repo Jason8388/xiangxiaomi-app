@@ -30,6 +30,14 @@ interface Contract {
   work_order_count: number;
 }
 
+interface Customer {
+  id: number;
+  name: string;
+  contact?: string;
+  phone?: string;
+  address?: string;
+}
+
 export default function ContractManagement() {
   const router = useSafeRouter();
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -38,6 +46,8 @@ export default function ContractManagement() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [customerSelectorVisible, setCustomerSelectorVisible] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [formData, setFormData] = useState({
     contract_number: '',
     contract_name: '',
@@ -54,6 +64,7 @@ export default function ContractManagement() {
 
   useEffect(() => {
     fetchContracts();
+    fetchCustomers();
   }, []);
 
   useEffect(() => {
@@ -87,6 +98,18 @@ export default function ContractManagement() {
       console.error('Fetch contracts error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+      const data = await response.json();
+      if (response.ok) {
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Fetch customers error:', error);
     }
   };
 
@@ -374,14 +397,15 @@ export default function ContractManagement() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>客户名称 *</Text>
-                <TextInput
+                <TouchableOpacity
                   style={styles.formInput}
-                  placeholder="请输入客户名称"
-                  value={formData.customer_name}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, customer_name: text })
-                  }
-                />
+                  onPress={() => setCustomerSelectorVisible(true)}
+                >
+                  <Text style={formData.customer_name ? styles.formInputText : styles.formInputPlaceholder}>
+                    {formData.customer_name || '请选择客户'}
+                  </Text>
+                  <FontAwesome6 name="chevron-down" size={14} color="#95A5A6" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.formGroup}>
@@ -505,6 +529,72 @@ export default function ContractManagement() {
                 onPress={handleSave}
               >
                 <Text style={styles.saveButtonText}>保存</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 客户选择 Modal */}
+      <Modal
+        visible={customerSelectorVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCustomerSelectorVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>选择客户</Text>
+              <TouchableOpacity onPress={() => setCustomerSelectorVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {customers.length === 0 ? (
+                <View style={styles.centerContainer}>
+                  <Text style={styles.emptyText}>暂无客户数据</Text>
+                </View>
+              ) : (
+                customers.map((customer) => (
+                  <TouchableOpacity
+                    key={customer.id}
+                    style={styles.customerItem}
+                    onPress={() => {
+                      setFormData({ ...formData, customer_name: customer.name });
+                      setCustomerSelectorVisible(false);
+                    }}
+                  >
+                    <View style={styles.customerItemContent}>
+                      <FontAwesome6 name="building" size={18} color="#3498DB" />
+                      <View style={styles.customerInfo}>
+                        <Text style={styles.customerName}>{customer.name}</Text>
+                        {customer.contact && (
+                          <Text style={styles.customerContact}>联系人: {customer.contact}</Text>
+                        )}
+                        {customer.phone && (
+                          <Text style={styles.customerContact}>电话: {customer.phone}</Text>
+                        )}
+                        {customer.address && (
+                          <Text style={styles.customerContact}>地址: {customer.address}</Text>
+                        )}
+                      </View>
+                    </View>
+                    {formData.customer_name === customer.name && (
+                      <FontAwesome6 name="check-circle" size={20} color="#2ECC71" />
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setCustomerSelectorVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -773,5 +863,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  customerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  customerItemContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    flex: 1,
+  },
+  customerInfo: {
+    flex: 1,
+  },
+  customerName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#2C3E50',
+    marginBottom: 4,
+  },
+  customerContact: {
+    fontSize: 13,
+    color: '#7F8C8D',
+    marginBottom: 2,
+  },
+  formInputText: {
+    fontSize: 14,
+    color: '#2C3E50',
+    flex: 1,
+  },
+  formInputPlaceholder: {
+    fontSize: 14,
+    color: '#95A5A6',
+    flex: 1,
   },
 });
