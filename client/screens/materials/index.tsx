@@ -8,7 +8,12 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  Image,
+  Platform,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -36,6 +41,9 @@ export default function MaterialManagement() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [qrCodeModalVisible, setQrCodeModalVisible] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [formData, setFormData] = useState({
     material_number: '',
     material_name: '',
@@ -203,16 +211,128 @@ export default function MaterialManagement() {
     ]);
   };
 
-  const handleBatchImport = () => {
-    Alert.alert('提示', '批量导入功能开发中');
+  const handleBatchImport = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const file = result.assets[0];
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || 'application/octet-stream',
+      } as any);
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/batch-import`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('成功', `成功导入 ${data.imported_count} 条物料记录`);
+        setLoading(true);
+        const loadResponse = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+        );
+        const loadData = await loadResponse.json();
+        if (loadResponse.ok) {
+          setMaterials(loadData);
+        }
+        setLoading(false);
+      } else {
+        throw new Error(data.error || '导入失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
   };
 
-  const handleBatchExport = () => {
-    Alert.alert('提示', '批量导出功能开发中');
+  const handleBatchExport = async () => {
+    try {
+      Alert.alert('提示', '正在生成导出文件，请稍候...');
+
+      if (Platform.OS === 'web') {
+        // Web 端实现
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/batch-export`,
+          {
+            method: 'GET',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('导出失败');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `物料清单_${new Date().getTime()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Alert.alert('成功', '导出成功');
+      } else {
+        // 移动端实现
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/batch-export`
+        );
+        const data = await response.text();
+
+        if (!response.ok) {
+          throw new Error(data || '导出失败');
+        }
+
+        const fileUri = `${(FileSystem as any).documentDirectory}物料清单_${Date.now()}.xlsx`;
+        await (FileSystem as any).writeAsStringAsync(fileUri, data, {
+          encoding: (FileSystem as any).EncodingType.Base64,
+        });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri);
+          Alert.alert('成功', '导出成功');
+        } else {
+          Alert.alert('成功', `文件已保存到: ${fileUri}`);
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
   };
 
-  const handleGenerateQRCode = (material: Material) => {
-    Alert.alert('提示', `生成物料"${material.material_name}"二维码功能开发中`);
+  const handleGenerateQRCode = async (material: Material) => {
+    try {
+      setSelectedMaterial(material);
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/${material.id}/qrcode`,
+        {
+          method: 'POST',
+        }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        setQrCodeUrl(data.qr_code_url);
+        setQrCodeModalVisible(true);
+      } else {
+        throw new Error(data.error || '生成失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
   };
 
   return (
@@ -522,6 +642,53 @@ export default function MaterialManagement() {
           </View>
         </View>
       </Modal>
+
+      {/* 二维码展示 Modal */}
+      <Modal
+        visible={qrCodeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setQrCodeModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>物料二维码</Text>
+              <TouchableOpacity onPress={() => setQrCodeModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.qrCodeInfo}>
+                <Text style={styles.qrCodeLabel}>物料名称:</Text>
+                <Text style={styles.qrCodeValue}>{selectedMaterial?.material_name}</Text>
+              </View>
+              <View style={styles.qrCodeInfo}>
+                <Text style={styles.qrCodeLabel}>物料编号:</Text>
+                <Text style={styles.qrCodeValue}>{selectedMaterial?.material_number}</Text>
+              </View>
+
+              <View style={styles.qrCodeImageContainer}>
+                {qrCodeUrl ? (
+                  <Image source={{ uri: qrCodeUrl }} style={styles.qrCodeImage} />
+                ) : (
+                  <Text style={styles.loadingText}>加载中...</Text>
+                )}
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setQrCodeModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>关闭</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -817,5 +984,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  qrCodeInfo: {
+    marginBottom: 16,
+  },
+  qrCodeLabel: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 4,
+  },
+  qrCodeValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  qrCodeImageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    minHeight: 300,
+  },
+  qrCodeImage: {
+    width: 280,
+    height: 280,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#636E72',
   },
 });

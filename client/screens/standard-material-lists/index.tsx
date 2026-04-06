@@ -8,7 +8,10 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -164,8 +167,60 @@ export default function StandardMaterialList() {
     Alert.alert('提示', '添加物料功能开发中');
   };
 
-  const handleDownload = (list: StandardMaterialList) => {
-    Alert.alert('提示', `下载"${list.name}"功能开发中`);
+  const handleDownload = async (list: StandardMaterialList) => {
+    try {
+      Alert.alert('提示', '正在生成下载文件，请稍候...');
+
+      if (Platform.OS === 'web') {
+        // Web 端实现
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${list.id}/download`,
+          {
+            method: 'GET',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('下载失败');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `标准物料单_${list.name}_${new Date().getTime()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Alert.alert('成功', '下载成功');
+      } else {
+        // 移动端实现
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${list.id}/download`
+        );
+        const data = await response.text();
+
+        if (!response.ok) {
+          throw new Error(data || '下载失败');
+        }
+
+        const fileUri = `${(FileSystem as any).documentDirectory}标准物料单_${list.name}_${Date.now()}.xlsx`;
+        await (FileSystem as any).writeAsStringAsync(fileUri, data, {
+          encoding: (FileSystem as any).EncodingType.Base64,
+        });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri);
+          Alert.alert('成功', '下载成功');
+        } else {
+          Alert.alert('成功', `文件已保存到: ${fileUri}`);
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
   };
 
   return (

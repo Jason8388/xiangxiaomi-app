@@ -8,7 +8,10 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -44,6 +47,9 @@ export default function MaterialRequirements() {
   const [materialModalVisible, setMaterialModalVisible] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [availableMaterials, setAvailableMaterials] = useState<any[]>([]);
+  const [quantityModalVisible, setQuantityModalVisible] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [quantity, setQuantity] = useState('');
 
   useEffect(() => {
     loadRequirements();
@@ -160,12 +166,105 @@ export default function MaterialRequirements() {
     setDetailModalVisible(true);
   };
 
-  const handleAddMaterial = (materialId: number) => {
-    Alert.alert('提示', '添加物料功能开发中');
+  const handleAddMaterial = (material: any) => {
+    setSelectedMaterial(material);
+    setQuantity('');
+    setQuantityModalVisible(true);
   };
 
-  const handleDownload = (requirement: MaterialRequirement) => {
-    Alert.alert('提示', `下载"${requirement.title}"功能开发中`);
+  const handleConfirmAddMaterial = async () => {
+    if (!selectedRequirement) {
+      Alert.alert('提示', '请先选择物料需求单');
+      return;
+    }
+
+    if (!quantity || Number(quantity) <= 0) {
+      Alert.alert('提示', '请输入有效的需求数量');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${selectedRequirement.id}/materials`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            material_id: selectedMaterial.id,
+            quantity: Number(quantity),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('成功', '添加成功');
+        setQuantityModalVisible(false);
+        loadRequirements();
+        setSelectedRequirement(data);
+      } else {
+        throw new Error(data.error || '添加失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  const handleDownload = async (requirement: MaterialRequirement) => {
+    try {
+      Alert.alert('提示', '正在生成下载文件，请稍候...');
+
+      if (Platform.OS === 'web') {
+        // Web 端实现
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${requirement.id}/download`,
+          {
+            method: 'GET',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('下载失败');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `物料需求单_${requirement.title}_${new Date().getTime()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Alert.alert('成功', '下载成功');
+      } else {
+        // 移动端实现
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${requirement.id}/download`
+        );
+        const data = await response.text();
+
+        if (!response.ok) {
+          throw new Error(data || '下载失败');
+        }
+
+        const fileUri = `${(FileSystem as any).documentDirectory}物料需求单_${requirement.title}_${Date.now()}.xlsx`;
+        await (FileSystem as any).writeAsStringAsync(fileUri, data, {
+          encoding: (FileSystem as any).EncodingType.Base64,
+        });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri);
+          Alert.alert('成功', '下载成功');
+        } else {
+          Alert.alert('成功', `文件已保存到: ${fileUri}`);
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
   };
 
   return (
@@ -432,7 +531,7 @@ export default function MaterialRequirements() {
                     key={material.id}
                     style={styles.materialSelectorItem}
                     onPress={() => {
-                      handleAddMaterial(material.id);
+                      handleAddMaterial(material);
                     }}
                   >
                     <Text style={styles.materialSelectorName}>{material.material_name}</Text>
@@ -450,6 +549,61 @@ export default function MaterialRequirements() {
                 onPress={() => setMaterialModalVisible(false)}
               >
                 <Text style={styles.cancelButtonText}>取消</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 物料数量输入 Modal */}
+      <Modal
+        visible={quantityModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setQuantityModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>输入需求数量</Text>
+              <TouchableOpacity onPress={() => setQuantityModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>物料名称</Text>
+                <Text style={styles.formValue}>{selectedMaterial?.material_name}</Text>
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>物料编号</Text>
+                <Text style={styles.formValue}>{selectedMaterial?.material_number}</Text>
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>需求数量 *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入需求数量"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setQuantityModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleConfirmAddMaterial}
+              >
+                <Text style={styles.saveButtonText}>确认</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -633,6 +787,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#2D3436',
     marginBottom: 8,
+  },
+  formValue: {
+    fontSize: 14,
+    color: '#636E72',
+    paddingVertical: 8,
   },
   formInput: {
     borderWidth: 1,
