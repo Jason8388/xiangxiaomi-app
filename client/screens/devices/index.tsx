@@ -433,82 +433,47 @@ export default function DeviceManagement() {
           </View>
         ) : (
           filteredDevices.map((device) => (
-            <TouchableOpacity
-              key={device.id}
-              style={styles.card}
-              onPress={() => router.push('/device-detail', { id: device.id })}
-              activeOpacity={0.7}
-            >
+            <View key={device.id} style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <FontAwesome6 name="microchip" size={18} color="#2ECC71" />
                   <Text style={styles.cardTitle}>{device.device_name}</Text>
                 </View>
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleEdit(device);
-                    }}
-                  >
-                    <FontAwesome6 name="pen" size={16} color="#F39C12" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleDelete(device);
-                    }}
-                  >
-                    <FontAwesome6 name="trash" size={16} color="#E74C3C" />
-                  </TouchableOpacity>
+              </View>
+
+              {device.service_number && (
+                <View style={styles.cardInfo}>
+                  <Text style={styles.infoLabel}>服务编号:</Text>
+                  <Text style={styles.infoValue}>{device.service_number}</Text>
                 </View>
-              </View>
+              )}
 
-              <View style={styles.cardInfo}>
-                <Text style={styles.infoLabel}>型号:</Text>
-                <Text style={styles.infoValue}>{device.device_model}</Text>
-              </View>
+              <View style={styles.cardActionsRow}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleEdit(device)}
+                >
+                  <FontAwesome6 name="pen" size={16} color="#F39C12" />
+                  <Text style={styles.actionButtonText}>修改</Text>
+                </TouchableOpacity>
 
-              <View style={styles.cardInfo}>
-                <Text style={styles.infoLabel}>客户:</Text>
-                <Text style={styles.infoValue}>{device.customer_name}</Text>
-              </View>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => router.push('/device-history', { deviceId: device.id, deviceName: device.device_name })}
+                >
+                  <FontAwesome6 name="clipboard-list" size={16} color="#3498DB" />
+                  <Text style={styles.actionButtonText}>履历表</Text>
+                </TouchableOpacity>
 
-              <View style={styles.cardInfo}>
-                <Text style={styles.infoLabel}>类型:</Text>
-                <View style={styles.typeBadge}>
-                  <Text style={styles.typeText}>{device.device_type}</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleDelete(device)}
+                >
+                  <FontAwesome6 name="trash" size={16} color="#E74C3C" />
+                  <Text style={styles.actionButtonText}>删除</Text>
+                </TouchableOpacity>
               </View>
-
-              <View style={styles.cardInfo}>
-                <FontAwesome6 name="calendar" size={14} color="#636E72" />
-                <Text style={styles.infoValue}>进厂日期: {formatDate(device.factory_date)}</Text>
-              </View>
-
-              <View style={styles.cardFooter}>
-                <View style={styles.statusContainer}>
-                  <View
-                    style={[
-                      styles.statusDot,
-                      {
-                        backgroundColor:
-                          device.status === '正常' ? '#2ECC71' : '#E74C3C',
-                      },
-                    ]}
-                  />
-                  <Text style={styles.statusText}>{device.status}</Text>
-                </View>
-                {device.qr_code_id && (
-                  <View style={styles.qrContainer}>
-                    <FontAwesome6 name="qrcode" size={14} color="#636E72" />
-                    <Text style={styles.qrText}>{device.qr_code_id}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+            </View>
           ))
         )}
       </ScrollView>
@@ -1187,5 +1152,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    color: '#636E72',
   },
 });

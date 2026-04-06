@@ -301,4 +301,58 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// 获取设备履历表列表
+router.get('/:deviceId/history', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const result = await pool.query(
+      'SELECT * FROM device_history WHERE device_id = $1 ORDER BY event_date DESC, created_at DESC',
+      [deviceId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get device history error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 创建设备履历记录
+router.post('/:deviceId/history', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { event_type, event_date, description } = req.body;
+
+    if (!event_type || !event_date) {
+      return res.status(400).json({ error: '缺少必填字段' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO device_history (device_id, event_type, event_date, description, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING *`,
+      [deviceId, event_type, event_date, description]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Create device history error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 删除设备履历记录
+router.delete('/:deviceId/history/:historyId', async (req, res) => {
+  try {
+    const { deviceId, historyId } = req.params;
+    await pool.query(
+      'DELETE FROM device_history WHERE id = $1 AND device_id = $2',
+      [historyId, deviceId]
+    );
+    res.json({ message: '删除成功' });
+  } catch (error) {
+    console.error('Delete device history error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
 export default router;
