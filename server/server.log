@@ -31,6 +31,48 @@ Server 端口：9091
 [SERVER]       at Object.onceWrapper (node:events:638:28)
 [SERVER]       at Connection.emit (node:events:524:28)
 [SERVER]       at Socket.<anonymous> (/workspace/projects/node_modules/.pnpm/pg@8.17.2/node_modules/pg/lib/connection.js:61:12)
-[SERVER]       at Socket.emit (node:events:524:28)
-[SERVER]       at TCP.<anonymous> (node:net:343:12)
+[SERVER][SERVER] 3:17:37 PM [tsx] change in ./src/index.ts Rerunning...
+[SERVER] cnode:events:502
+[SERVER]       throw er; // Unhandled 'error' event
+[SERVER]       ^
+[SERVER] 
+[SERVER] Error: listen EADDRINUSE: address already in use :::9091
+[SERVER]     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+[SERVER]     at listenInCluster (node:net:1965:12)
+[SERVER]     at Server.listen (node:net:2067:7)
+[SERVER]     at Function.listen (/workspace/projects/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/application.js:635:24)
+[SERVER]     at <anonymous> (/workspace/projects/server/src/index.ts:39:5)
+[SERVER]     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+[SERVER]     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+[SERVER]     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+[SERVER] Emitted 'error' event on Server instance at:
+[SERVER]     at emitErrorNT (node:net:1944:8)
+[SERVER]     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+[SERVER]   code: 'EADDRINUSE',
+[SERVER]   errno: -98,
+[SERVER]   syscall: 'listen',
+[SERVER]  [SERVER] 3:17:46 PM [tsx] change in ./src/index.ts Restarting...
+[SERVER] cnode:events:502
+[SERVER]       throw er; // Unhandled 'error' event
+[SERV[SERVER] cn[SERVER] 
+[SERV[SERVER]       throw er; // Unhandled 'error' event
+[SERVER] [SERVER][SERVER] 
+[SERVER] Error: listen EADDRINUSE: address already in use :::9091
+[SERVER]     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+[SERVER]     at listenInCluster (node:net:1965:12)
+[SERVER]     at Server.listen (node:net:2067:7)
+[SERVER]     at Function.listen (/workspace/projects/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/application.js:635:24)
+[SERVER]     at <anonymous> (/workspace/projects/server/src/index.ts:40:5)
+[SERVER]     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+[SERVER]     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+[SERVER]     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+[SERVER] Emitted 'error' event on Server instance at:
+[SERVER]     at emitErrorNT (node:net:1944:8)
+[SERVER]     at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+[SERVER]   code: 'EADDRINU[SERV[SERVER]   errno:[SERVE[SERV[SERVER] 
+[SERVER] Node.js v20.20.0
+address: '::',
+[SERVER]   port: 9091
 [SERVER] }
+[SERVER] 
+[SERVER] Node.js v20.20.0

@@ -9,6 +9,7 @@ import workOrderRoutes from "./routes/workOrders";
 import knowledgeRoutes from "./routes/knowledge";
 import materialRoutes from "./routes/materials";
 import fileRoutes from "./routes/files";
+import mediaRoutes from "./routes/media";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -28,6 +29,7 @@ app.use('/api/v1/work-orders', workOrderRoutes);
 app.use('/api/v1/knowledge', knowledgeRoutes);
 app.use('/api/v1/materials', materialRoutes);
 app.use('/api/v1/files', fileRoutes);
+app.use('/api/v1/media', mediaRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');

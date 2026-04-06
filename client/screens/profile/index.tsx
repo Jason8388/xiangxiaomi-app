@@ -73,6 +73,13 @@ export default function ProfileScreen() {
       onPress: () => router.push('/files'),
     },
     {
+      icon: 'images',
+      title: '相册',
+      subtitle: '管理照片和视频',
+      color: '#FDCB6E',
+      onPress: () => router.push('/gallery'),
+    },
+    {
       icon: 'cog',
       title: '系统设置',
       subtitle: '应用配置',

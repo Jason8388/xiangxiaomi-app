@@ -28,6 +28,8 @@ export default function RootLayout() {
         <Stack.Screen name="work-order-detail" options={{ title: "" }} />
         <Stack.Screen name="files" options={{ title: "" }} />
         <Stack.Screen name="file-detail" options={{ title: "" }} />
+        <Stack.Screen name="gallery" options={{ title: "" }} />
+        <Stack.Screen name="media-detail" options={{ title: "" }} />
       </Stack>
       <Toast />
     </Provider>
