@@ -1,0 +1,36 @@
+
+> server@ dev /workspace/projects/server
+> bash ../.cozeproj/scripts/server_dev_run.sh
+
+==================== Server Dev Run ====================
+Server 目录：/workspace/projects/server
+Server 端口：9091
+日志文件：/app/work/logs/bypass/server.log
+正在关闭旧的 server 进程：13082
+启动 server 服务...
+[SERVER] Server listening at http://localhost:9091/
+[SERVER] Health check success
+[SERVER] Get tags error: Error: Connection terminated due to connection timeout
+[SERVER]     at /workspace/projects/node_modules/.pnpm/pg-pool@3.11.0_pg@8.17.2/node_modules/pg-pool/index.js:45:11
+[SERVER]     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[SERVER]     at async <anonymous> (/workspace/projects/server/src/routes/files.ts:318:20) {
+[SERVER]   [cause]: Error: Connection terminated unexpectedly
+[SERVER]       at Connection.<anonymous> (/workspace/projects/node_modules/.pnpm/pg@8.17.2/node_modules/pg/lib/client.js:177:73)
+[SERVER]       at Object.onceWrapper (node:events:638:28)
+[SERVER]       at Connection.emit (node:events:524:28)
+[SERVER]       at Socket.<anonymous> (/workspace/projects/node_modules/.pnpm/pg@8.17.2/node_modules/pg/lib/connection.js:61:12)
+[SERVER]       at Socket.emit (node:events:524:28)
+[SERVER]       at TCP.<anonymous> (node:net:343:12)
+[SERVER] }
+[SERVER] Get users error: Error: Connection terminated due to connection timeout
+[SERVER]     at /workspace/projects/node_modules/.pnpm/pg-pool@3.11.0_pg@8.17.2/node_modules/pg-pool/index.js:45:11
+[SERVER]     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[SERVER]     at async <anonymous> (/workspace/projects/server/src/routes/users.ts:39:20) {
+[SERVER]   [cause]: Error: Connection terminated unexpectedly
+[SERVER]       at Connection.<anonymous> (/workspace/projects/node_modules/.pnpm/pg@8.17.2/node_modules/pg/lib/client.js:177:73)
+[SERVER]       at Object.onceWrapper (node:events:638:28)
+[SERVER]       at Connection.emit (node:events:524:28)
+[SERVER]       at Socket.<anonymous> (/workspace/projects/node_modules/.pnpm/pg@8.17.2/node_modules/pg/lib/connection.js:61:12)
+[SERVER]       at Socket.emit (node:events:524:28)
+[SERVER]       at TCP.<anonymous> (node:net:343:12)
+[SERVER] }

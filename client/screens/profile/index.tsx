@@ -66,6 +66,13 @@ export default function ProfileScreen() {
       onPress: () => router.push('/(tabs)/query'),
     },
     {
+      icon: 'folder-open',
+      title: '文件库',
+      subtitle: '管理文档和附件',
+      color: '#1E88E5',
+      onPress: () => router.push('/files'),
+    },
+    {
       icon: 'cog',
       title: '系统设置',
       subtitle: '应用配置',
