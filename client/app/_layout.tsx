@@ -57,6 +57,10 @@ function RootLayoutInner() {
         <Stack.Screen name="employee-management" options={{ title: "" }} />
         <Stack.Screen name="department-management" options={{ title: "" }} />
         <Stack.Screen name="version-management" options={{ title: "" }} />
+        <Stack.Screen name="customers" options={{ title: "" }} />
+        <Stack.Screen name="customer-ledger" options={{ title: "" }} />
+        <Stack.Screen name="contract-detail" options={{ title: "" }} />
+        <Stack.Screen name="device-detail" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}
       <Toast />
