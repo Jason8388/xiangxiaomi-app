@@ -1,7 +1,12 @@
 import express from 'express';
+import multer from 'multer';
 import pool from '../database/db';
 
 const router = express.Router();
+
+// 配置文件上传
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // 获取知识库列表
 router.get('/', async (req, res) => {
@@ -56,17 +61,42 @@ router.get('/search/:keyword', async (req, res) => {
 });
 
 // 创建知识
-router.post('/', async (req, res) => {
+router.post('/', upload.fields([
+  { name: 'attachment_0', maxCount: 1 },
+  { name: 'attachment_1', maxCount: 1 },
+  { name: 'attachment_2', maxCount: 1 },
+  { name: 'attachment_3', maxCount: 1 },
+  { name: 'attachment_4', maxCount: 1 },
+  { name: 'attachment_5', maxCount: 1 },
+  { name: 'attachment_6', maxCount: 1 },
+  { name: 'attachment_7', maxCount: 1 },
+  { name: 'attachment_8', maxCount: 1 },
+  { name: 'attachment_9', maxCount: 1 },
+]), async (req, res) => {
   try {
-    const { title, category, content, tags, author_id } = req.body;
+    const files = req.files as any;
+    const { title, content, tags, creator_name, creator_id } = req.body;
 
-    if (!title || !content || !author_id) {
+    if (!title || !content) {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
+    // 处理附件
+    const attachments: string[] = [];
+    if (files) {
+      Object.keys(files).forEach((key) => {
+        if (files[key] && files[key][0]) {
+          const fileBuffer = files[key][0].buffer;
+          attachments.push(`data:${files[key][0].mimetype};base64,${fileBuffer.toString('base64')}`);
+        }
+      });
+    }
+
+    const tagsArray = tags ? JSON.parse(tags) : [];
+
     const result = await pool.query(
-      'INSERT INTO knowledge (title, category, content, tags, author_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [title, category, content, tags, author_id]
+      'INSERT INTO knowledge (title, content, tags, author_id, author_name, attachments) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [title, content, tagsArray, creator_id || null, creator_name || null, JSON.stringify(attachments)]
     );
 
     res.json(result.rows[0]);
@@ -77,14 +107,39 @@ router.post('/', async (req, res) => {
 });
 
 // 更新知识
-router.put('/:id', async (req, res) => {
+router.put('/:id', upload.fields([
+  { name: 'attachment_0', maxCount: 1 },
+  { name: 'attachment_1', maxCount: 1 },
+  { name: 'attachment_2', maxCount: 1 },
+  { name: 'attachment_3', maxCount: 1 },
+  { name: 'attachment_4', maxCount: 1 },
+  { name: 'attachment_5', maxCount: 1 },
+  { name: 'attachment_6', maxCount: 1 },
+  { name: 'attachment_7', maxCount: 1 },
+  { name: 'attachment_8', maxCount: 1 },
+  { name: 'attachment_9', maxCount: 1 },
+]), async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, category, content, tags } = req.body;
+    const files = req.files as any;
+    const { title, content, tags, creator_name, creator_id } = req.body;
+
+    // 处理附件
+    const attachments: string[] = [];
+    if (files) {
+      Object.keys(files).forEach((key) => {
+        if (files[key] && files[key][0]) {
+          const fileBuffer = files[key][0].buffer;
+          attachments.push(`data:${files[key][0].mimetype};base64,${fileBuffer.toString('base64')}`);
+        }
+      });
+    }
+
+    const tagsArray = tags ? JSON.parse(tags) : [];
 
     const result = await pool.query(
-      'UPDATE knowledge SET title = $1, category = $2, content = $3, tags = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [title, category, content, tags, id]
+      'UPDATE knowledge SET title = $1, content = $2, tags = $3, author_id = $4, author_name = $5, attachments = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
+      [title, content, tagsArray, creator_id || null, creator_name || null, JSON.stringify(attachments), id]
     );
 
     if (result.rows.length === 0) {

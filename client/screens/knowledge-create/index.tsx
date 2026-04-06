@@ -9,16 +9,27 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
+interface Attachment {
+  uri: string;
+  name: string;
+  type: string;
+  size?: number;
+}
+
 interface FormData {
   title: string;
   content: string;
   tags: string[];
+  attachments: string[];
 }
 
 const DEFAULT_TAGS = [
@@ -36,6 +47,7 @@ const DEFAULT_TAGS = [
   '系统配置',
   '安全规范',
   '案例分析',
+  '制度文件',
 ];
 
 export default function KnowledgeCreate() {
@@ -43,18 +55,33 @@ export default function KnowledgeCreate() {
   const { id } = useSafeSearchParams<{ id?: string }>();
   const [isEdit, setIsEdit] = useState(!!id);
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [formData, setFormData] = useState<FormData>({
     title: '',
     content: '',
     tags: [],
+    attachments: [],
   });
   const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
+    loadCurrentUser();
     if (id) {
       loadKnowledgeCard();
     }
   }, [id]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const userStr = await SecureStore.getItemAsync('user');
+      if (userStr) {
+        setCurrentUser(JSON.parse(userStr));
+      }
+    } catch (error) {
+      console.error('Load user error:', error);
+    }
+  };
 
   const loadKnowledgeCard = async () => {
     try {
@@ -67,7 +94,17 @@ export default function KnowledgeCreate() {
           title: data.title,
           content: data.content,
           tags: data.tags || [],
+          attachments: data.attachments || [],
         });
+        // 加载附件信息
+        if (data.attachments && Array.isArray(data.attachments)) {
+          const attachmentList: Attachment[] = data.attachments.map((url: string, index: number) => ({
+            uri: url,
+            name: `附件${index + 1}`,
+            type: 'file',
+          }));
+          setAttachments(attachmentList);
+        }
       }
     } catch (error) {
       console.error('Load knowledge card error:', error);
@@ -111,6 +148,39 @@ export default function KnowledgeCreate() {
     }));
   };
 
+  const handlePickAttachment = async () => {
+    if (attachments.length >= 10) {
+      Alert.alert('提示', '最多只能上传10个附件');
+      return;
+    }
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('提示', '需要相册权限才能上传附件');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const newAttachment: Attachment = {
+        uri: result.assets[0].uri,
+        name: result.assets[0].fileName || `附件${attachments.length + 1}`,
+        type: result.assets[0].type || 'image/jpeg',
+        size: result.assets[0].fileSize,
+      };
+      setAttachments([...attachments, newAttachment]);
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
       Alert.alert('提示', '请输入知识标题');
@@ -127,10 +197,26 @@ export default function KnowledgeCreate() {
         ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/cards/${id}`
         : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/cards`;
 
+      // 使用FormData上传附件
+      const formDataObj = new FormData();
+      formDataObj.append('title', formData.title);
+      formDataObj.append('content', formData.content);
+      formDataObj.append('tags', JSON.stringify(formData.tags));
+      formDataObj.append('creator_name', currentUser?.name || '未知用户');
+      formDataObj.append('creator_id', currentUser?.id?.toString() || '0');
+
+      // 添加附件
+      attachments.forEach((attachment, index) => {
+        formDataObj.append(`attachment_${index}`, {
+          uri: attachment.uri,
+          type: attachment.type || 'image/jpeg',
+          name: attachment.name,
+        } as any);
+      });
+
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: formDataObj,
       });
 
       if (response.ok) {
@@ -204,6 +290,72 @@ export default function KnowledgeCreate() {
               numberOfLines={10}
               textAlignVertical="top"
             />
+          </View>
+
+          {/* 创建人信息 */}
+          <View style={styles.formSection}>
+            <View style={styles.labelContainer}>
+              <FontAwesome6 name="user" size={16} color="#1E88E5" />
+              <Text style={styles.label}>
+                创建人
+              </Text>
+            </View>
+            <View style={styles.creatorInfo}>
+              <FontAwesome6 name="circle-user" size={20} color="#3498DB" />
+              <Text style={styles.creatorName}>
+                {currentUser?.name || '未知用户'}
+              </Text>
+              {currentUser?.position && (
+                <Text style={styles.creatorPosition}> - {currentUser.position}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* 附件信息 */}
+          <View style={styles.formSection}>
+            <View style={styles.labelContainer}>
+              <FontAwesome6 name="paperclip" size={16} color="#1E88E5" />
+              <Text style={styles.label}>
+                附件信息 <Text style={styles.hint}>(最多10个)</Text>
+              </Text>
+            </View>
+
+            {/* 已上传附件 */}
+            {attachments.length > 0 && (
+              <View style={styles.attachmentsContainer}>
+                {attachments.map((attachment, index) => (
+                  <View key={index} style={styles.attachmentItem}>
+                    {attachment.type?.startsWith('image') ? (
+                      <Image source={{ uri: attachment.uri }} style={styles.attachmentImage} />
+                    ) : (
+                      <FontAwesome6 name="file" size={40} color="#95A5A6" style={styles.attachmentIcon} />
+                    )}
+                    <View style={styles.attachmentInfo}>
+                      <Text style={styles.attachmentName} numberOfLines={1}>
+                        {attachment.name}
+                      </Text>
+                      <Text style={styles.attachmentSize}>
+                        {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '未知大小'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.removeAttachmentButton}
+                      onPress={() => handleRemoveAttachment(index)}
+                    >
+                      <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* 添加附件按钮 */}
+            {attachments.length < 10 && (
+              <TouchableOpacity style={styles.addAttachmentButton} onPress={handlePickAttachment}>
+                <FontAwesome6 name="plus" size={16} color="#1E88E5" />
+                <Text style={styles.addAttachmentText}>添加附件</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* 知识标签 */}
@@ -502,5 +654,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#F39C12',
     flex: 1,
+  },
+  creatorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  creatorName: {
+    fontSize: 14,
+    color: '#2D3436',
+    fontWeight: '500',
+  },
+  creatorPosition: {
+    fontSize: 13,
+    color: '#7F8C8D',
+  },
+  attachmentsContainer: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  attachmentImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+  },
+  attachmentIcon: {
+    width: 40,
+    height: 40,
+  },
+  attachmentInfo: {
+    flex: 1,
+  },
+  attachmentName: {
+    fontSize: 14,
+    color: '#2D3436',
+    marginBottom: 2,
+  },
+  attachmentSize: {
+    fontSize: 12,
+    color: '#95A5A6',
+  },
+  removeAttachmentButton: {
+    padding: 6,
+  },
+  addAttachmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EBF5FF',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#1E88E5',
+  },
+  addAttachmentText: {
+    fontSize: 14,
+    color: '#1E88E5',
+    fontWeight: '500',
   },
 });
