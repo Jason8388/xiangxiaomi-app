@@ -127,13 +127,6 @@ const adminNavItems: NavigationItem[] = [
 export default function HomeScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    pending: 0,
-    processing: 0,
-    completed: 0,
-    total: 0,
-  });
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const router = useSafeRouter();
 
   useEffect(() => {
@@ -151,36 +144,6 @@ export default function HomeScreen() {
       console.error('Load user error:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchWorkOrderStats();
-    }
-  }, [user]);
-
-  const fetchWorkOrderStats = async () => {
-    try {
-      const ordersRes = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`);
-      const ordersData = await ordersRes.json();
-
-      if (Array.isArray(ordersData)) {
-        const pending = ordersData.filter((o: any) => o.status === 'pending').length;
-        const processing = ordersData.filter((o: any) => o.status === 'processing').length;
-        const completed = ordersData.filter((o: any) => o.status === 'completed').length;
-
-        setStats({
-          pending,
-          processing,
-          completed,
-          total: ordersData.length,
-        });
-
-        setRecentOrders(ordersData.slice(0, 5));
-      }
-    } catch (error) {
-      console.error('Fetch stats error:', error);
     }
   };
 
@@ -218,35 +181,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 工单统计 */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>工单统计</Text>
-              <TouchableOpacity onPress={() => router.push('/work-orders')}>
-                <Text style={styles.sectionAction}>查看全部</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.statsGrid}>
-              <View style={[styles.statCard, styles.statPending]}>
-                <Text style={styles.statValue}>{stats.pending}</Text>
-                <Text style={styles.statLabel}>待处理</Text>
-              </View>
-              <View style={[styles.statCard, styles.statProcessing]}>
-                <Text style={styles.statValue}>{stats.processing}</Text>
-                <Text style={styles.statLabel}>处理中</Text>
-              </View>
-              <View style={[styles.statCard, styles.statCompleted]}>
-                <Text style={styles.statValue}>{stats.completed}</Text>
-                <Text style={styles.statLabel}>已完成</Text>
-              </View>
-              <View style={[styles.statCard, styles.statTotal]}>
-                <Text style={styles.statValue}>{stats.total}</Text>
-                <Text style={styles.statLabel}>总计</Text>
-              </View>
-            </View>
-          </View>
-
           {/* 功能导航 */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>功能导航</Text>
@@ -266,110 +200,10 @@ export default function HomeScreen() {
               ))}
             </View>
           </View>
-
-          {/* 最近工单 */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>最近工单</Text>
-              <TouchableOpacity onPress={() => router.push('/work-orders')}>
-                <Text style={styles.sectionAction}>查看全部</Text>
-              </TouchableOpacity>
-            </View>
-
-            {recentOrders.map((order: any) => (
-              <TouchableOpacity
-                key={order.id}
-                onPress={() => router.push('/work-order-detail', { id: order.id })}
-                style={styles.orderCard}
-                activeOpacity={0.7}
-              >
-                <View style={styles.orderHeader}>
-                  <View style={styles.orderInfo}>
-                    <Text style={styles.orderTitle}>{order.customer_name}</Text>
-                    <Text style={styles.orderDevice}>{order.device_name}</Text>
-                  </View>
-                  <View style={[styles.orderStatus, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
-                    <Text style={[styles.orderStatusText, { color: getStatusColor(order.status) }]}>
-                      {getStatusText(order.status)}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.orderFooter}>
-                  <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
-                  <View style={[styles.priorityBadge, { backgroundColor: `${getPriorityColor(order.priority)}20` }]}>
-                    <Text style={[styles.priorityText, { color: getPriorityColor(order.priority) }]}>
-                      {getPriorityText(order.priority)}优先级
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
         </ScrollView>
       </Screen>
     );
   }
-
-// 辅助函数
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return '#FDCB6E';
-    case 'processing':
-      return '#1E88E5';
-    case 'completed':
-      return '#00B894';
-    default:
-      return '#B2BEC3';
-  }
-};
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return '待处理';
-    case 'processing':
-      return '处理中';
-    case 'completed':
-      return '已完成';
-    default:
-      return status;
-  }
-};
-
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case 'high':
-      return '#FF6B6B';
-    case 'medium':
-      return '#FDCB6E';
-    case 'low':
-      return '#00B894';
-    default:
-      return '#B2BEC3';
-  }
-};
-
-const getPriorityText = (priority: string) => {
-  switch (priority) {
-    case 'high':
-      return '高';
-    case 'medium':
-      return '中';
-    case 'low':
-      return '低';
-    default:
-      return priority;
-  }
-};
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 };
 
 const styles = StyleSheet.create({
@@ -417,66 +251,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginBottom: 24,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2D3436',
-  },
-  sectionAction: {
-    fontSize: 14,
-    color: '#1E88E5',
-    fontWeight: '600',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statCard: {
-    width: '48%',
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  statPending: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#FDCB6E',
-  },
-  statProcessing: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#1E88E5',
-  },
-  statCompleted: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#00B894',
-  },
-  statTotal: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#1E88E5',
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#2D3436',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#636E72',
-  },
   navGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -500,62 +274,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#2D3436',
     textAlign: 'center',
-  },
-  orderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  orderInfo: {
-    flex: 1,
-  },
-  orderTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#2D3436',
-    marginBottom: 4,
-  },
-  orderDevice: {
-    fontSize: 13,
-    color: '#636E72',
-  },
-  orderStatus: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  orderStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  orderFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  orderDate: {
-    fontSize: 11,
-    color: '#B2BEC3',
-  },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  priorityText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-});
