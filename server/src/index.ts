@@ -12,6 +12,9 @@ import fileRoutes from "./routes/files";
 import mediaRoutes from "./routes/media";
 import appVersionRoutes from "./routes/app-version";
 import sessionRoutes from "./routes/sessions";
+import dbBackupRoutes from "./routes/db-backup";
+import versionReleaseRoutes from "./routes/version-release";
+import versionRollbackRoutes from "./routes/version-rollback";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -34,6 +37,9 @@ app.use('/api/v1/files', fileRoutes);
 app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/app-version', appVersionRoutes);
 app.use('/api/v1/sessions', sessionRoutes);
+app.use('/api/v1/db-backup', dbBackupRoutes);
+app.use('/api/v1/version-release', versionReleaseRoutes);
+app.use('/api/v1/version-rollback', versionRollbackRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');

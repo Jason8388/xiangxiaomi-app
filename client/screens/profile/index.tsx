@@ -52,6 +52,13 @@ export default function ProfileScreen() {
         color: '#9B59B6',
         onPress: () => router.push('/employee-management'),
       },
+      {
+        icon: 'code-branch',
+        title: '版本管理',
+        subtitle: '管理版本发布和回退',
+        color: '#E74C3C',
+        onPress: () => router.push('/version-management'),
+      },
     ] : []),
     {
       icon: 'users',
