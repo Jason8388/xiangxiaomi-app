@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { storage } from '@/utils/storage';
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<any>(null);
@@ -12,7 +12,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     const loadUserInfo = async () => {
       try {
-        const userStr = await SecureStore.getItemAsync('user');
+        const userStr = await storage.getItem('user');
         if (userStr) {
           setUser(JSON.parse(userStr));
         }
@@ -32,8 +32,9 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await SecureStore.deleteItemAsync('user');
-            await SecureStore.deleteItemAsync('token');
+            await storage.removeItem('user');
+            await storage.removeItem('token');
+            await storage.removeItem('session_id');
             router.replace('/login');
           } catch (error) {
             console.error('Logout error:', error);

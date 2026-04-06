@@ -4,6 +4,7 @@ import { Screen } from '@/components/Screen';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import Constants from 'expo-constants';
+import { storage } from '@/utils/storage';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -47,9 +48,9 @@ export default function LoginScreen() {
       }
 
       // 保存用户信息
-      await SecureStore.setItemAsync('user', JSON.stringify(data.user));
-      await SecureStore.setItemAsync('session_id', data.session.session_id);
-      await SecureStore.setItemAsync('token', 'mock_token');
+      await storage.setItem('user', JSON.stringify(data.user));
+      await storage.setItem('session_id', data.session.session_id);
+      await storage.setItem('token', 'mock_token');
 
       Alert.alert('成功', '登录成功', [
         {

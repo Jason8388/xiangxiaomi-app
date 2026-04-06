@@ -3,8 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { storage } from '@/utils/storage';
 
 interface User {
   id: number;
@@ -107,7 +107,7 @@ export default function HomeScreen() {
 
   const loadUserInfo = async () => {
     try {
-      const userStr = await AsyncStorage.getItem('user');
+      const userStr = await storage.getItem('user');
       if (userStr) {
         const userData = JSON.parse(userStr);
         setUser(userData);
