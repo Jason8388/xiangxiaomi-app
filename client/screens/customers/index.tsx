@@ -28,6 +28,11 @@ interface Customer {
   remarks?: string;
 }
 
+interface AddressItem {
+  id: string;
+  value: string;
+}
+
 export default function CustomerManagement() {
   const router = useSafeRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -36,9 +41,9 @@ export default function CustomerManagement() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [formData, setFormData] = useState({
     name: '',
-    address: '',
     industry: '',
     contact_person: '',
     contact_phone: '',
@@ -85,13 +90,13 @@ export default function CustomerManagement() {
     setEditingCustomer(null);
     setFormData({
       name: '',
-      address: '',
       industry: '',
       contact_person: '',
       contact_phone: '',
       business_manager: '',
       remarks: '',
     });
+    setAddresses([{ id: Date.now().toString(), value: '' }]);
     setModalVisible(true);
   };
 
@@ -99,13 +104,37 @@ export default function CustomerManagement() {
     setEditingCustomer(customer);
     setFormData({
       name: customer.name,
-      address: customer.address || '',
       industry: customer.industry || '',
       contact_person: customer.contact_person || '',
       contact_phone: customer.contact_phone || '',
       business_manager: customer.business_manager || '',
       remarks: customer.remarks || '',
     });
+
+    // 解析地址数组
+    let addressItems: AddressItem[] = [];
+    if (customer.address) {
+      try {
+        const parsed = JSON.parse(customer.address);
+        if (Array.isArray(parsed)) {
+          addressItems = parsed.map((addr, index) => ({
+            id: Date.now().toString() + index,
+            value: addr,
+          }));
+        } else {
+          // 兼容旧的单地址格式
+          addressItems = [{ id: Date.now().toString(), value: customer.address || '' }];
+        }
+      } catch (e) {
+        // 解析失败，当作单地址处理
+        addressItems = [{ id: Date.now().toString(), value: customer.address || '' }];
+      }
+    } else {
+      // 没有地址时，创建一个空地址
+      addressItems = [{ id: Date.now().toString(), value: '' }];
+    }
+    setAddresses(addressItems);
+
     setModalVisible(true);
   };
 
@@ -115,6 +144,9 @@ export default function CustomerManagement() {
       return;
     }
 
+    // 过滤空地址
+    const validAddresses = addresses.filter((addr) => addr.value.trim());
+
     try {
       const response = editingCustomer
         ? await fetch(
@@ -122,13 +154,19 @@ export default function CustomerManagement() {
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(formData),
+              body: JSON.stringify({
+                ...formData,
+                address: JSON.stringify(validAddresses.map((a) => a.value)),
+              }),
             }
           )
         : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData),
+            body: JSON.stringify({
+              ...formData,
+              address: JSON.stringify(validAddresses.map((a) => a.value)),
+            }),
           });
 
       const data = await response.json();
@@ -270,7 +308,17 @@ export default function CustomerManagement() {
                 <View style={styles.cardInfo}>
                   <FontAwesome6 name="location-dot" size={14} color="#636E72" />
                   <Text style={styles.cardInfoText} numberOfLines={1}>
-                    {customer.address}
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(customer.address);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                          return parsed[0];
+                        }
+                        return customer.address;
+                      } catch (e) {
+                        return customer.address;
+                      }
+                    })()}
                   </Text>
                 </View>
               )}
@@ -365,17 +413,46 @@ export default function CustomerManagement() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>客户地址</Text>
-                <TextInput
-                  style={[styles.formInput, styles.formTextArea]}
-                  placeholder="请输入客户地址"
-                  value={formData.address}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, address: text })
-                  }
-                  multiline
-                  numberOfLines={3}
-                />
+                <View style={styles.formLabelRow}>
+                  <Text style={styles.formLabel}>客户地址</Text>
+                  <TouchableOpacity
+                    style={styles.addAddressButton}
+                    onPress={() =>
+                      setAddresses([...addresses, { id: Date.now().toString(), value: '' }])
+                    }
+                  >
+                    <FontAwesome6 name="plus" size={12} color="#1E88E5" />
+                    <Text style={styles.addAddressButtonText}>添加地址</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {addresses.map((addr, index) => (
+                  <View key={addr.id} style={styles.addressInputContainer}>
+                    <TextInput
+                      style={[styles.formInput, styles.addressInput]}
+                      placeholder={`请输入地址 ${index + 1}`}
+                      value={addr.value}
+                      onChangeText={(text) => {
+                        const newAddresses = [...addresses];
+                        newAddresses[index].value = text;
+                        setAddresses(newAddresses);
+                      }}
+                      multiline
+                      numberOfLines={2}
+                    />
+                    {addresses.length > 1 && (
+                      <TouchableOpacity
+                        style={styles.removeAddressButton}
+                        onPress={() => {
+                          const newAddresses = addresses.filter((_, i) => i !== index);
+                          setAddresses(newAddresses);
+                        }}
+                      >
+                        <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
               </View>
 
               <View style={styles.formGroup}>
@@ -578,6 +655,46 @@ const styles = StyleSheet.create({
   formTextArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  formLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(30, 136, 229, 0.1)',
+  },
+  addAddressButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1E88E5',
+  },
+  addressInputContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  addressInput: {
+    paddingRight: 40,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  removeAddressButton: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFF5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalFooter: {
     flexDirection: 'row',
