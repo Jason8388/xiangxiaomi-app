@@ -92,8 +92,12 @@ export default function ContractManagement() {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
       const data = await response.json();
       if (response.ok && Array.isArray(data)) {
-        setContracts(data);
-        return data;
+        // 按签订日期降序排序
+        const sorted = data.sort((a: Contract, b: Contract) =>
+          new Date(b.sign_date).getTime() - new Date(a.sign_date).getTime()
+        );
+        setContracts(sorted);
+        return sorted;
       }
       return [];
     } catch (error) {
@@ -116,18 +120,6 @@ export default function ContractManagement() {
     } catch (error) {
       console.error('Fetch customers error:', error);
       return [];
-    }
-  };
-        // 按签订日期降序排序
-        const sorted = data.sort((a: Contract, b: Contract) =>
-          new Date(b.sign_date).getTime() - new Date(a.sign_date).getTime()
-        );
-        setContracts(sorted);
-      }
-    } catch (error) {
-      console.error('Fetch contracts error:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
