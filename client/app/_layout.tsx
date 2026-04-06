@@ -89,6 +89,10 @@ function RootLayoutInner() {
         <Stack.Screen name="query-contract" options={{ title: "" }} />
         <Stack.Screen name="query-material" options={{ title: "" }} />
         <Stack.Screen name="query-after-sales" options={{ title: "" }} />
+        <Stack.Screen name="reports" options={{ title: "" }} />
+        <Stack.Screen name="report-customer" options={{ title: "" }} />
+        <Stack.Screen name="report-device" options={{ title: "" }} />
+        <Stack.Screen name="report-after-sales" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}
       <Toast />
