@@ -73,6 +73,13 @@ interface WorkOrderDetail {
   service_quote_docs?: ServiceDocument[];
   customer_consensus_docs?: ServiceDocument[];
   customer_consensus_date?: string;
+  // 服务实施
+  implementer?: string;
+  implementation_complete_date?: string;
+  actual_hours?: number;
+  work_order_docs?: ServiceDocument[];
+  site_completion_docs?: ServiceDocument[];
+  work_order_signer?: string;
 }
 
 export default function WorkOrderDetailScreen() {
@@ -92,6 +99,8 @@ export default function WorkOrderDetailScreen() {
   const [mediaPickerVisible, setMediaPickerVisible] = useState(false);
   const [documentPickerVisible, setDocumentPickerVisible] = useState(false);
   const [documentPickerType, setDocumentPickerType] = useState<'quote' | 'consensus'>('quote');
+  const [implementationDocPickerVisible, setImplementationDocPickerVisible] = useState(false);
+  const [implementationDocPickerType, setImplementationDocPickerType] = useState<'work_order' | 'site'>('work_order');
 
   // 质保期状态选项
   const warrantyStatusOptions = ['质保期内', '质保期外'];
@@ -673,6 +682,97 @@ export default function WorkOrderDetailScreen() {
     setDocumentPickerVisible(true);
   };
 
+  // 上传服务实施相关文档（派工单照片、现场完成照片）
+  const handleUploadImplementationDoc = async (type: 'work_order' | 'site') => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相册权限才能上传文件');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const newDoc: ServiceDocument = {
+          id: Date.now().toString(),
+          uri: asset.uri,
+          type: type,
+          name: asset.fileName || `doc_${Date.now()}.jpg`,
+        };
+
+        const fieldName = type === 'work_order' ? 'work_order_docs' : 'site_completion_docs';
+        const currentDocs = (order as any)[fieldName] || [];
+        const updatedDocs = [...currentDocs, newDoc];
+
+        const formData = new FormData();
+        formData.append(fieldName, JSON.stringify(updatedDocs));
+
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order?.id}`,
+          {
+            method: 'PUT',
+            body: formData,
+          }
+        );
+
+        if (response.ok) {
+          setOrder({ ...order!, [fieldName]: updatedDocs });
+          Alert.alert('成功', '上传成功');
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 删除服务实施相关文档
+  const deleteImplementationDoc = async (docId: string, type: 'work_order' | 'site') => {
+    Alert.alert('确认删除', '确定要删除此文件吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          if (!order) return;
+          const fieldName = type === 'work_order' ? 'work_order_docs' : 'site_completion_docs';
+          const currentDocs = (order as any)[fieldName] || [];
+          const updatedDocs = currentDocs.filter((d: ServiceDocument) => d.id !== docId);
+
+          const formData = new FormData();
+          formData.append(fieldName, JSON.stringify(updatedDocs));
+
+          try {
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+              {
+                method: 'PUT',
+                body: formData,
+              }
+            );
+
+            if (response.ok) {
+              setOrder({ ...order, [fieldName]: updatedDocs });
+              Alert.alert('成功', '删除成功');
+            }
+          } catch (error: any) {
+            Alert.alert('错误', error.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const openImplementationDocPicker = (type: 'work_order' | 'site') => {
+    setImplementationDocPickerType(type);
+    setImplementationDocPickerVisible(true);
+  };
+
   const renderInfoRow = (label: string, value: string | number, field?: string, isEditable = false) => (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -1035,6 +1135,94 @@ export default function WorkOrderDetailScreen() {
           </View>
         </View>
 
+        {/* 栏6：服务实施 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="tools" size={20} color="#E74C3C" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>服务实施</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            {/* 实施人 */}
+            {renderInfoRow('实施人', order.implementer || '', 'implementer', true)}
+
+            {/* 实施完成日期 */}
+            {renderInfoRow('实施完成日期', order.implementation_complete_date || '', 'implementation_complete_date', true)}
+
+            {/* 实际工时投入 */}
+            {renderInfoRow(
+              '实际工时投入',
+              order.actual_hours ? `${order.actual_hours} 小时` : '',
+              'actual_hours',
+              true
+            )}
+
+            {/* 派工单签字人 */}
+            {renderInfoRow('派工单签字人', order.work_order_signer || '', 'work_order_signer', true)}
+
+            {/* 派工单照片 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>派工单照片</Text>
+            </View>
+            <View style={styles.documentSection}>
+              <View style={styles.mediaGrid}>
+                {order.work_order_docs && order.work_order_docs.length > 0 && (
+                  order.work_order_docs.map((doc) => (
+                    <View key={doc.id} style={styles.mediaItem}>
+                      <View style={styles.mediaThumbnail}>
+                        <FontAwesome6 name="file-image" size={24} color="#636E72" />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.mediaDeleteButton}
+                        onPress={() => deleteImplementationDoc(doc.id, 'work_order')}
+                      >
+                        <FontAwesome6 name="times" size={10} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+                <TouchableOpacity
+                  style={styles.mediaAddButton}
+                  onPress={() => openImplementationDocPicker('work_order')}
+                >
+                  <FontAwesome6 name="plus" size={24} color="#6C63FF" />
+                  <Text style={styles.mediaAddText}>上传</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* 现场完成照片 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>现场完成照片</Text>
+            </View>
+            <View style={styles.documentSection}>
+              <View style={styles.mediaGrid}>
+                {order.site_completion_docs && order.site_completion_docs.length > 0 && (
+                  order.site_completion_docs.map((doc) => (
+                    <View key={doc.id} style={styles.mediaItem}>
+                      <View style={styles.mediaThumbnail}>
+                        <FontAwesome6 name="file-image" size={24} color="#636E72" />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.mediaDeleteButton}
+                        onPress={() => deleteImplementationDoc(doc.id, 'site')}
+                      >
+                        <FontAwesome6 name="times" size={10} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+                <TouchableOpacity
+                  style={styles.mediaAddButton}
+                  onPress={() => openImplementationDocPicker('site')}
+                >
+                  <FontAwesome6 name="plus" size={24} color="#6C63FF" />
+                  <Text style={styles.mediaAddText}>上传</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* 工单描述 */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -1305,6 +1493,43 @@ export default function WorkOrderDetailScreen() {
                 onPress={() => {
                   setDocumentPickerVisible(false);
                   handleUploadDocument(documentPickerType);
+                }}
+              >
+                <FontAwesome6 name="image" size={32} color="#6C63FF" />
+                <Text style={styles.mediaPickerText}>从相册选择</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 服务实施文档上传 Modal */}
+      <Modal
+        visible={implementationDocPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setImplementationDocPickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.selectModalContainer}
+          activeOpacity={1}
+          onPress={() => setImplementationDocPickerVisible(false)}
+        >
+          <View style={styles.selectModalContent}>
+            <View style={styles.selectModalHeader}>
+              <Text style={styles.selectModalTitle}>
+                {implementationDocPickerType === 'work_order' ? '上传派工单照片' : '上传现场完成照片'}
+              </Text>
+              <TouchableOpacity onPress={() => setImplementationDocPickerVisible(false)}>
+                <FontAwesome6 name="xmark" size={24} color="#2D3436" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.mediaPickerBody}>
+              <TouchableOpacity
+                style={styles.mediaPickerItem}
+                onPress={() => {
+                  setImplementationDocPickerVisible(false);
+                  handleUploadImplementationDoc(implementationDocPickerType);
                 }}
               >
                 <FontAwesome6 name="image" size={32} color="#6C63FF" />
