@@ -68,6 +68,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "recordAudioAndroid": true
         }
       ],
+      "@react-native-community/datetimepicker",
       "expo-secure-store"
     ],
     "experiments": {

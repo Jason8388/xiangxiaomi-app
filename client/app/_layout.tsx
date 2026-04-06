@@ -76,6 +76,10 @@ function RootLayoutInner() {
         <Stack.Screen name="knowledge-detail" options={{ title: "" }} />
         <Stack.Screen name="knowledge-create" options={{ title: "" }} />
         <Stack.Screen name="knowledge-edit" options={{ title: "" }} />
+        <Stack.Screen name="meeting-minutes" options={{ title: "" }} />
+        <Stack.Screen name="meeting-minute-detail" options={{ title: "" }} />
+        <Stack.Screen name="meeting-minute-create" options={{ title: "" }} />
+        <Stack.Screen name="meeting-minute-edit" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}
       <Toast />
