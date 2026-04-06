@@ -19,6 +19,7 @@ interface FileTag {
   id: number;
   name: string;
   color: string;
+  count?: number;
 }
 
 interface FileItem {
@@ -38,7 +39,7 @@ export default function FilesScreen() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [tags, setTags] = useState<FileTag[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = useState<number | null>(null);
   const [selectedFileType, setSelectedFileType] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -67,13 +68,13 @@ export default function FilesScreen() {
     }
   };
 
-  const fetchFiles = async (tagId?: string, fileType?: string) => {
+  const fetchFiles = async (tagId?: number, fileType?: string) => {
     setLoading(true);
     try {
       let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files`;
       const params = new URLSearchParams();
       if (searchText) params.append('search', searchText);
-      if (tagId) params.append('tag_id', tagId);
+      if (tagId) params.append('tag_id', tagId.toString());
       if (fileType) params.append('file_type', fileType);
       if (params.toString()) url += `?${params.toString()}`;
 
@@ -108,7 +109,7 @@ export default function FilesScreen() {
     fetchFiles(selectedTag || undefined);
   };
 
-  const handleTagFilter = (tagId: string) => {
+  const handleTagFilter = (tagId: number) => {
     if (selectedTag === tagId) {
       setSelectedTag(null);
       fetchFiles();
@@ -229,12 +230,13 @@ export default function FilesScreen() {
 
   // 文件类型筛选
   const handleFileTypeFilter = (type: string | null) => {
+    const tagId = selectedTag ?? undefined;
     if (selectedFileType === type) {
       setSelectedFileType(null);
-      fetchFiles(selectedTag || undefined, undefined);
+      fetchFiles(tagId, undefined);
     } else {
       setSelectedFileType(type);
-      fetchFiles(selectedTag || undefined, type);
+      fetchFiles(tagId, type ?? undefined);
     }
   };
 
@@ -477,7 +479,7 @@ export default function FilesScreen() {
         <View style={{ marginBottom: 24 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <TouchableOpacity
-              onPress={() => handleTagFilter('')}
+              onPress={() => { setSelectedTag(null); fetchFiles(); }}
               style={[styles.tagChip, !selectedTag && styles.tagChipActive]}
             >
               <Text style={[styles.tagChipText, !selectedTag && styles.tagChipTextActive]}>
@@ -891,7 +893,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '85%',
+    maxHeight: '85%' as const,
   },
   modalHeader: {
     flexDirection: 'row' as const,

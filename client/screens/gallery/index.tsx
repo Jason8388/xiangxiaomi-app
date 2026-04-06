@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Image, StyleSheet } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import * as SecureStore from 'expo-secure-store';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
+import { storage } from '@/utils/storage';
 
 interface MediaItem {
   id: number;
@@ -34,7 +32,7 @@ export default function GalleryScreen() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [uploaders, setUploaders] = useState<any[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = useState<number | null>(null);
   const [selectedUploader, setSelectedUploader] = useState<string | null>(null);
   const [selectedMediaType, setSelectedMediaType] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<number[]>([]);
@@ -59,7 +57,7 @@ export default function GalleryScreen() {
 
   const loadUserInfo = async () => {
     try {
-      const userStr = await SecureStore.getItemAsync('user');
+      const userStr = await storage.getItem('user');
       if (userStr) {
         setUser(JSON.parse(userStr));
       }
@@ -68,13 +66,13 @@ export default function GalleryScreen() {
     }
   };
 
-  const fetchMedia = async (tagId?: string, uploaderId?: string, mediaType?: string) => {
+  const fetchMedia = async (tagId?: number, uploaderId?: string, mediaType?: string) => {
     setLoading(true);
     try {
       let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media`;
       const params = new URLSearchParams();
       if (searchText) params.append('search', searchText);
-      if (tagId) params.append('tag_id', tagId);
+      if (tagId) params.append('tag_id', tagId.toString());
       if (uploaderId) params.append('uploader_id', uploaderId);
       if (mediaType) params.append('media_type', mediaType);
       if (startDate) params.append('start_date', startDate);
@@ -153,95 +151,6 @@ export default function GalleryScreen() {
     }
   };
 
-  const handlePickMedia = async () => {
-    // 请求权限
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('提示', '需要相册权限才能选择照片和视频');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsEditing: false,
-      quality: 0.8,
-      // Expo ImagePicker默认支持单文件选择
-    });
-
-    if (result.canceled) {
-      return;
-    }
-
-    if (!result.assets || result.assets.length === 0) {
-      return;
-    }
-
-    const asset = result.assets[0];
-
-    // 处理照片压缩
-    let processedAsset = asset;
-    if (asset.type === 'image') {
-      try {
-        const compressed = await ImageManipulator.manipulateAsync(
-          asset.uri,
-          [{ resize: { width: 1920 } }], // 限制最大宽度为1920
-          {
-            compress: 0.8,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: false,
-          }
-        );
-        processedAsset = {
-          ...asset,
-          uri: compressed.uri,
-        };
-      } catch (error) {
-        console.error('Image compression error:', error);
-      }
-    }
-
-    // 检查文件大小限制
-    // 注意：压缩后无法直接获取文件大小，需要依赖后端验证
-    const fileSize = asset.fileSize || 0;
-
-    if (asset.type === 'image' && fileSize > 20 * 1024 * 1024) {
-      Alert.alert('提示', `${asset.fileName || '照片'} 超过照片20MB限制，无法上传`);
-      return;
-    }
-
-    if (asset.type === 'video' && fileSize > 200 * 1024 * 1024) {
-      Alert.alert('提示', `${asset.fileName || '视频'} 超过视频200MB限制，无法上传`);
-      return;
-    }
-
-    // 构建FormData
-    const formData = new FormData();
-    formData.append('files', {
-      uri: processedAsset.uri,
-      name: processedAsset.fileName || 'media',
-      type: processedAsset.mimeType || (asset.type === 'image' ? 'image/jpeg' : 'video/mp4'),
-    } as any);
-    formData.append('uploader_id', user?.id || '1');
-
-    try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '上传失败');
-      }
-
-      Alert.alert('成功', data.message || '媒体上传成功');
-      fetchMedia(selectedTag || undefined, selectedUploader || undefined);
-    } catch (error: any) {
-      Alert.alert('错误', error.message);
-    }
-  };
-
   const handleBatchDelete = async () => {
     if (selectedMedia.length === 0) {
       Alert.alert('提示', '请选择要删除的媒体');
@@ -287,7 +196,6 @@ export default function GalleryScreen() {
     ]);
   };
 
-  // 打开标签编辑弹窗
   const handleEditTags = (media: MediaItem) => {
     setEditingMedia(media);
     setSelectedTagIds(media.tags?.map(t => t.id) || []);
@@ -295,99 +203,52 @@ export default function GalleryScreen() {
     setTagModalVisible(true);
   };
 
-  // 切换标签选中状态
   const toggleTagSelection = (tagId: number) => {
     if (selectedTagIds.includes(tagId)) {
       setSelectedTagIds(selectedTagIds.filter(id => id !== tagId));
     } else {
       if (selectedTagIds.length >= 5) {
-        Alert.alert('提示', '每个照片/视频最多只能添加5个标签');
+        Alert.alert('提示', '最多只能选择5个标签');
         return;
       }
       setSelectedTagIds([...selectedTagIds, tagId]);
     }
   };
 
-  // 创建新标签
-  const handleCreateTag = async () => {
-    if (!newTagName.trim()) {
-      Alert.alert('提示', '请输入标签名称');
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/tags`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newTagName.trim(),
-            color: getRandomColor(),
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert('成功', '标签创建成功');
-        fetchTags();
-        setNewTagName('');
-        // 自动选中新创建的标签
-        if (selectedTagIds.length < 5) {
-          setSelectedTagIds([...selectedTagIds, data.id]);
-        }
-      } else {
-        throw new Error(data.error || '创建失败');
-      }
-    } catch (error: any) {
-      Alert.alert('错误', error.message);
-    }
-  };
-
-  // 获取随机颜色
-  const getRandomColor = () => {
-    const colors = ['#1E88E5', '#00B894', '#F39C12', '#9B59B6', '#E74C3C', '#2ECC71', '#3498DB', '#FF6B9D'];
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
-
-  // 保存标签修改
   const handleSaveTags = async () => {
     if (!editingMedia) return;
 
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/${editingMedia.id}/tags`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tag_ids: selectedTagIds }),
-        }
-      );
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/tags/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          media_id: editingMedia.id,
+          tag_ids: selectedTagIds,
+        }),
+      });
 
       const data = await response.json();
 
-      if (response.ok) {
-        Alert.alert('成功', '标签更新成功');
-        setTagModalVisible(false);
-        fetchMedia(selectedTag || undefined, selectedUploader || undefined, selectedMediaType || undefined);
-      } else {
-        throw new Error(data.error || '更新失败');
+      if (!response.ok) {
+        throw new Error(data.error || '保存失败');
       }
+
+      Alert.alert('成功', '标签更新成功');
+      setTagModalVisible(false);
+      fetchMedia(selectedTag || undefined, selectedUploader || undefined, selectedMediaType || undefined);
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
   };
 
-  // 媒体类型筛选
   const handleMediaTypeFilter = (type: string | null) => {
     if (selectedMediaType === type) {
       setSelectedMediaType(null);
       fetchMedia(selectedTag || undefined, selectedUploader || undefined, undefined);
     } else {
       setSelectedMediaType(type);
-      fetchMedia(selectedTag || undefined, selectedUploader || undefined, type);
+      fetchMedia(selectedTag || undefined, selectedUploader || undefined, type || undefined);
     }
   };
 
@@ -423,13 +284,6 @@ export default function GalleryScreen() {
     return `${year}-${month}-${day}`;
   };
 
-  const formatDuration = (seconds: number) => {
-    if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <Screen>
       <PageHeader
@@ -444,9 +298,6 @@ export default function GalleryScreen() {
             <TouchableOpacity onPress={() => setIsSelectMode(!isSelectMode)} style={styles.iconButton}>
               <FontAwesome6 name={isSelectMode ? 'check' : 'check-double'} size={20} color="#1E88E5" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handlePickMedia} style={styles.iconButton}>
-              <FontAwesome6 name="camera" size={20} color="#00B894" />
-            </TouchableOpacity>
             <TouchableOpacity onPress={() => setFilterModalVisible(true)} style={styles.iconButton}>
               <FontAwesome6 name="filter" size={20} color="#6C63FF" />
             </TouchableOpacity>
@@ -454,10 +305,7 @@ export default function GalleryScreen() {
         }
       />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 24 }}
-      >
+      <ScrollView style={styles.container} contentContainerStyle={styles.containerContent}>
         {/* 搜索框 */}
         <View style={styles.searchContainer}>
           <FontAwesome6 name="magnifying-glass" size={18} color="#B2BEC3" style={{ marginRight: 8 }} />
@@ -477,58 +325,33 @@ export default function GalleryScreen() {
         {/* 媒体类型筛选 */}
         <View style={styles.mediaTypeFilter}>
           <TouchableOpacity
-            onPress={() => handleMediaTypeFilter('photo')}
-            style={[
-              styles.mediaTypeChip,
-              selectedMediaType === 'photo' && styles.mediaTypeChipActive,
-            ]}
+            style={[styles.typeButton, !selectedMediaType && styles.typeButtonActive]}
+            onPress={() => handleMediaTypeFilter(null)}
           >
-            <FontAwesome6
-              name="image"
-              size={16}
-              color={selectedMediaType === 'photo' ? '#FFF' : '#1E88E5'}
-            />
-            <Text
-              style={[
-                styles.mediaTypeText,
-                selectedMediaType === 'photo' && styles.mediaTypeTextActive,
-              ]}
-            >
-              照片
-            </Text>
+            <Text style={[styles.typeButtonText, !selectedMediaType && styles.typeButtonTextActive]}>全部</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleMediaTypeFilter('video')}
-            style={[
-              styles.mediaTypeChip,
-              selectedMediaType === 'video' && styles.mediaTypeChipActive,
-            ]}
+            style={[styles.typeButton, selectedMediaType === 'photo' && styles.typeButtonActive]}
+            onPress={() => handleMediaTypeFilter('photo')}
           >
-            <FontAwesome6
-              name="video"
-              size={16}
-              color={selectedMediaType === 'video' ? '#FFF' : '#9B59B6'}
-            />
-            <Text
-              style={[
-                styles.mediaTypeText,
-                selectedMediaType === 'video' && styles.mediaTypeTextActive,
-              ]}
-            >
-              视频
-            </Text>
+            <FontAwesome6 name="image" size={14} color={selectedMediaType === 'photo' ? '#FFFFFF' : '#636E72'} />
+            <Text style={[styles.typeButtonText, selectedMediaType === 'photo' && styles.typeButtonTextActive]}>照片</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.typeButton, selectedMediaType === 'video' && styles.typeButtonActive]}
+            onPress={() => handleMediaTypeFilter('video')}
+          >
+            <FontAwesome6 name="video" size={14} color={selectedMediaType === 'video' ? '#FFFFFF' : '#636E72'} />
+            <Text style={[styles.typeButtonText, selectedMediaType === 'video' && styles.typeButtonTextActive]}>视频</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 筛选标签显示 */}
-        {(selectedTag || selectedUploader || selectedMediaType || startDate || endDate) && (
+        {/* 已选中的筛选标签 */}
+        {(selectedMediaType || selectedTag || selectedUploader || startDate || endDate) && (
           <View style={styles.filterTagsContainer}>
             {selectedMediaType && (
               <TouchableOpacity
-                onPress={() => {
-                  setSelectedMediaType(null);
-                  fetchMedia(selectedTag || undefined, selectedUploader || undefined, undefined);
-                }}
+                onPress={() => handleMediaTypeFilter(null)}
                 style={styles.filterTag}
               >
                 <Text style={styles.filterTagText}>
@@ -541,7 +364,7 @@ export default function GalleryScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setSelectedTag(null);
-                  fetchMedia(null, selectedUploader || undefined, selectedMediaType || undefined);
+                  fetchMedia(undefined, selectedUploader || undefined, selectedMediaType || undefined);
                 }}
                 style={styles.filterTag}
               >
@@ -611,15 +434,13 @@ export default function GalleryScreen() {
 
         {/* 媒体网格 */}
         {loading ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <Text style={{ fontSize: 14, color: '#636E72' }}>加载中...</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>加载中...</Text>
           </View>
         ) : mediaList.length === 0 ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+          <View style={styles.emptyContainer}>
             <FontAwesome6 name="images" size={48} color="#DFE6E9" />
-            <Text style={{ fontSize: 14, color: '#636E72', marginTop: 16 }}>
-              暂无媒体
-            </Text>
+            <Text style={styles.emptyText}>暂无媒体</Text>
           </View>
         ) : (
           <View style={styles.gridContainer}>
@@ -646,17 +467,15 @@ export default function GalleryScreen() {
 
                 {/* 媒体预览 */}
                 <View style={styles.mediaPreview}>
-                  {media.media_type === 'video' ? (
-                    <>
-                      <FontAwesome6 name="circle-play" size={40} color="#FFFFFF" />
-                      {media.duration && (
-                        <View style={styles.durationBadge}>
-                          <Text style={styles.durationText}>{formatDuration(media.duration)}</Text>
-                        </View>
-                      )}
-                    </>
-                  ) : (
-                    <FontAwesome6 name="image" size={40} color="#FFFFFF" />
+                  <Image
+                    source={{ uri: media.thumbnail_url || media.file_url }}
+                    style={styles.mediaImage}
+                    resizeMode="cover"
+                  />
+                  {media.media_type === 'video' && (
+                    <View style={styles.playOverlay}>
+                      <FontAwesome6 name="circle-play" size={32} color="#FFFFFF" />
+                    </View>
                   )}
                 </View>
 
@@ -692,13 +511,13 @@ export default function GalleryScreen() {
                       onPress={() => handleEditTags(media)}
                       style={styles.tagEditButton}
                     >
-                      <FontAwesome6 name="tags" size={16} color="#FFFFFF" />
+                      <FontAwesome6 name="tags" size={14} color="#FFFFFF" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleDownload(media)}
                       style={styles.downloadButton}
                     >
-                      <FontAwesome6 name="download" size={18} color="#FFFFFF" />
+                      <FontAwesome6 name="download" size={14} color="#FFFFFF" />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -720,50 +539,37 @@ export default function GalleryScreen() {
             </View>
 
             <ScrollView style={styles.modalBody}>
-              <View style={{ marginBottom: 16 }}>
+              <View style={styles.filterSection}>
                 <Text style={styles.inputLabel}>上传者</Text>
                 <View style={styles.chipsContainer}>
                   <TouchableOpacity
                     onPress={() => setSelectedUploader(null)}
-                    style={[
-                      styles.chip,
-                      !selectedUploader && styles.chipActive,
-                    ]}
+                    style={[styles.chip, !selectedUploader && styles.chipActive]}
                   >
-                    <Text style={[styles.chipText, !selectedUploader && styles.chipTextActive]}>
-                      全部
-                    </Text>
+                    <Text style={[styles.chipText, !selectedUploader && styles.chipTextActive]}>全部</Text>
                   </TouchableOpacity>
                   {uploaders.map((uploader) => (
                     <TouchableOpacity
                       key={uploader.id}
                       onPress={() => setSelectedUploader(uploader.id.toString())}
-                      style={[
-                        styles.chip,
-                        selectedUploader === uploader.id.toString() && styles.chipActive,
-                      ]}
+                      style={[styles.chip, selectedUploader === uploader.id.toString() && styles.chipActive]}
                     >
                       <Text style={[styles.chipText, selectedUploader === uploader.id.toString() && styles.chipTextActive]}>
-                        {uploader.username} ({uploader.media_count})
+                        {uploader.username}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
 
-              <View style={{ marginBottom: 16 }}>
+              <View style={styles.filterSection}>
                 <Text style={styles.inputLabel}>标签</Text>
                 <View style={styles.chipsContainer}>
                   <TouchableOpacity
                     onPress={() => setSelectedTag(null)}
-                    style={[
-                      styles.chip,
-                      !selectedTag && styles.chipActive,
-                    ]}
+                    style={[styles.chip, !selectedTag && styles.chipActive]}
                   >
-                    <Text style={[styles.chipText, !selectedTag && styles.chipTextActive]}>
-                      全部
-                    </Text>
+                    <Text style={[styles.chipText, !selectedTag && styles.chipTextActive]}>全部</Text>
                   </TouchableOpacity>
                   {tags.map((tag) => (
                     <TouchableOpacity
@@ -776,14 +582,14 @@ export default function GalleryScreen() {
                       ]}
                     >
                       <Text style={[styles.chipText, selectedTag === tag.id && styles.chipTextActive]}>
-                        {tag.name} ({tag.count})
+                        {tag.name} ({tag.count || 0})
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
 
-              <View style={{ marginBottom: 16 }}>
+              <View style={styles.filterSection}>
                 <Text style={styles.inputLabel}>上传时间范围</Text>
                 <TextInput
                   style={styles.input}
@@ -860,44 +666,21 @@ export default function GalleryScreen() {
                     >
                       {tag.name}
                     </Text>
-                    {selectedTagIds.includes(tag.id) && (
-                      <FontAwesome6 name="check" size={14} color="#FFF" />
-                    )}
                   </TouchableOpacity>
                 ))}
-              </View>
-
-              {/* 创建新标签 */}
-              <View style={styles.createTagSection}>
-                <Text style={styles.createTagLabel}>创建新标签</Text>
-                <View style={styles.createTagRow}>
-                  <TextInput
-                    style={styles.createTagInput}
-                    placeholder="输入标签名称"
-                    value={newTagName}
-                    onChangeText={setNewTagName}
-                    maxLength={20}
-                  />
-                  <TouchableOpacity
-                    style={styles.createTagButton}
-                    onPress={handleCreateTag}
-                  >
-                    <FontAwesome6 name="plus" size={18} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
               </View>
             </ScrollView>
 
             <View style={styles.modalFooter}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setTagModalVisible(false)}
+                style={[styles.modalButton, styles.cancelButton]}
               >
                 <Text style={styles.cancelButtonText}>取消</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
                 onPress={handleSaveTags}
+                style={[styles.modalButton, styles.confirmButton]}
               >
                 <Text style={styles.confirmButtonText}>保存</Text>
               </TouchableOpacity>
@@ -909,221 +692,284 @@ export default function GalleryScreen() {
   );
 }
 
-const styles = {
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
     backgroundColor: '#F5F7FA',
   },
+  containerContent: {
+    padding: 16,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   searchContainer: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: '#F5F7FA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     marginBottom: 16,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: '#2D3436',
   },
   searchButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#1E88E5',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    borderRadius: 8,
+    backgroundColor: '#6C63FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaTypeFilter: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  typeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+  },
+  typeButtonActive: {
+    backgroundColor: '#6C63FF',
+  },
+  typeButtonText: {
+    fontSize: 13,
+    color: '#636E72',
+  },
+  typeButtonTextActive: {
+    color: '#FFFFFF',
   },
   filterTagsContainer: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
   },
   filterTag: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: '#1E88E5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    backgroundColor: '#6C63FF',
   },
   filterTagText: {
     fontSize: 12,
     color: '#FFFFFF',
-    marginRight: 6,
   },
   selectModeContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    backgroundColor: 'rgba(30, 136, 229, 0.1)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 14,
     marginBottom: 16,
   },
   selectAllButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   selectAllText: {
     fontSize: 14,
     color: '#1E88E5',
-    marginLeft: 8,
-    fontWeight: '600' as const,
   },
   selectedCountText: {
     fontSize: 14,
     color: '#636E72',
   },
   gridContainer: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   mediaCard: {
     width: '48%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    overflow: 'hidden' as const,
-    shadowColor: '#000000',
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 2,
   },
   selectCheckbox: {
-    position: 'absolute' as const,
+    position: 'absolute',
     top: 8,
     left: 8,
-    zIndex: 1,
+    zIndex: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mediaPreview: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: 'rgba(30, 136, 229, 0.1)',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    backgroundColor: '#F0F0F3',
   },
-  durationBadge: {
-    position: 'absolute' as const,
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  mediaImage: {
+    width: '100%',
+    height: '100%',
   },
-  durationText: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    fontWeight: '600' as const,
+  playOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   mediaInfo: {
-    padding: 12,
+    padding: 10,
   },
   mediaName: {
-    fontSize: 12,
-    fontWeight: '600' as const,
+    fontSize: 13,
+    fontWeight: '600',
     color: '#2D3436',
     marginBottom: 4,
   },
   mediaMeta: {
-    fontSize: 10,
-    color: '#B2BEC3',
-    marginBottom: 8,
+    fontSize: 11,
+    color: '#636E72',
+    marginBottom: 6,
   },
   mediaTags: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 4,
+    alignItems: 'center',
   },
   mediaTag: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   mediaTagText: {
-    fontSize: 8,
+    fontSize: 10,
     color: '#FFFFFF',
   },
   moreTagsText: {
-    fontSize: 8,
-    color: '#B2BEC3',
+    fontSize: 10,
+    color: '#636E72',
+  },
+  mediaActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  tagEditButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#F39C12',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   downloadButton: {
-    position: 'absolute' as const,
-    bottom: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1E88E5',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#00B894',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 12,
   },
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end' as const,
+    justifyContent: 'flex-end',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    paddingHorizontal: 24,
     paddingTop: 20,
-    maxHeight: '80%',
+    paddingBottom: 40,
+    maxHeight: '80%' as const,
   },
   modalHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DFE6E9',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold' as const,
+    fontWeight: 'bold',
     color: '#2D3436',
   },
   modalBody: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    marginBottom: 20,
+  },
+  filterSection: {
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: '#636E72',
-    marginBottom: 8,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 10,
   },
   chipsContainer: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
+    backgroundColor: '#F5F7FA',
     borderWidth: 1,
-    borderColor: '#DFE6E9',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8E8',
   },
   chipActive: {
-    backgroundColor: '#1E88E5',
-    borderColor: '#1E88E5',
+    backgroundColor: '#6C63FF',
+    borderColor: '#6C63FF',
   },
   chipText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#636E72',
   },
   chipTextActive: {
@@ -1134,144 +980,57 @@ const styles = {
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 14,
+    fontSize: 15,
     color: '#2D3436',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   modalFooter: {
-    flexDirection: 'row' as const,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#DFE6E9',
+    flexDirection: 'row',
+    gap: 12,
   },
   modalButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center' as const,
+    alignItems: 'center',
   },
   cancelButton: {
     backgroundColor: '#F5F7FA',
-    marginRight: 12,
   },
   cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 15,
+    fontWeight: '600',
     color: '#636E72',
   },
   confirmButton: {
-    backgroundColor: '#1E88E5',
-    marginLeft: 12,
+    backgroundColor: '#6C63FF',
   },
   confirmButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 15,
+    fontWeight: '600',
     color: '#FFFFFF',
-  },
-  mediaTypeFilter: {
-    flexDirection: 'row' as const,
-    gap: 12,
-    marginBottom: 16,
-  },
-  mediaTypeChip: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#F5F7FA',
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
-  },
-  mediaTypeChipActive: {
-    backgroundColor: '#1E88E5',
-    borderColor: '#1E88E5',
-  },
-  mediaTypeText: {
-    fontSize: 14,
-    color: '#636E72',
-    fontWeight: '500' as const,
-  },
-  mediaTypeTextActive: {
-    color: '#FFFFFF',
-  },
-  mediaActions: {
-    position: 'absolute' as const,
-    bottom: 12,
-    right: 12,
-    flexDirection: 'row' as const,
-    gap: 8,
-  },
-  tagEditButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#9B59B6',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end' as const,
   },
   tagCountText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#636E72',
     marginBottom: 16,
   },
   tagGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   tagOption: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   tagOptionText: {
-    fontSize: 14,
-    color: '#636E72',
-  },
-  createTagSection: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F3F4',
-  },
-  createTagLabel: {
-    fontSize: 14,
-    fontWeight: '500' as const,
-    color: '#636E72',
-    marginBottom: 12,
-  },
-  createTagRow: {
-    flexDirection: 'row' as const,
-    gap: 12,
-  },
-  createTagInput: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
+    fontSize: 13,
     color: '#2D3436',
   },
-  createTagButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#1E88E5',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-};
+});

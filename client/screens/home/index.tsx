@@ -245,6 +245,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginBottom: 24,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#636E72',
+    marginBottom: 16,
+  },
   navGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

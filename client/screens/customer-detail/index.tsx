@@ -42,26 +42,26 @@ export default function CustomerDetail() {
   const [modalType, setModalType] = useState<'address' | 'contact' | 'edit'>('address');
   const [formData, setFormData] = useState<any>({});
 
-  useEffect(() => {
-    const loadCustomerDetail = async () => {
-      if (!id) return;
+  const loadCustomerDetail = async () => {
+    if (!id) return;
 
-      try {
-        setLoading(true);
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${id}`
-        );
-        const data = await response.json();
-        if (response.ok) {
-          setCustomer(data);
-        }
-      } catch (error) {
-        console.error('Fetch customer detail error:', error);
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${id}`
+      );
+      const data = await response.json();
+      if (response.ok) {
+        setCustomer(data);
       }
-    };
+    } catch (error) {
+      console.error('Fetch customer detail error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadCustomerDetail();
   }, [id]);
 
@@ -104,7 +104,7 @@ export default function CustomerDetail() {
         const data = await response.json();
         if (response.ok) {
           setModalVisible(false);
-          fetchCustomerDetail();
+          loadCustomerDetail();
         } else {
           throw new Error(data.error || '添加地址失败');
         }
@@ -121,7 +121,7 @@ export default function CustomerDetail() {
         const data = await response.json();
         if (response.ok) {
           setModalVisible(false);
-          fetchCustomerDetail();
+          loadCustomerDetail();
         } else {
           throw new Error(data.error || '添加联系人失败');
         }
@@ -138,7 +138,7 @@ export default function CustomerDetail() {
         const data = await response.json();
         if (response.ok) {
           setModalVisible(false);
-          fetchCustomerDetail();
+          loadCustomerDetail();
         } else {
           throw new Error(data.error || '修改客户信息失败');
         }

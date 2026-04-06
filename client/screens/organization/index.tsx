@@ -70,7 +70,7 @@ export default function OrganizationScreen() {
       if (res.ok) {
         const data = await res.json();
         setOrgData(data);
-        const topLevelIds = new Set(data.tree.map((d: Department) => d.id));
+        const topLevelIds = new Set<number>(data.tree.map((d: Department) => d.id));
         setExpandedDepts(topLevelIds);
       }
     } catch (error) {

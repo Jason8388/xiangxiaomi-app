@@ -196,7 +196,7 @@ export default function MaterialManagement() {
     try {
       // 如果有图片，先上传获取URL
       let materialPhotoUrl = formData.material_photo;
-      if (tempPhotoUri && tempPhotoUri !== material?.material_photo && !tempPhotoUri.startsWith('http')) {
+      if (tempPhotoUri && tempPhotoUri !== editingMaterial?.material_photo && !tempPhotoUri.startsWith('http')) {
         try {
           const formDataPhoto = new FormData();
           formDataPhoto.append('file', {
