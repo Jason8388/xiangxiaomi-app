@@ -7,6 +7,7 @@ import deviceRoutes from "./routes/devices";
 import warehouseRoutes from "./routes/warehouses";
 import workOrderRoutes from "./routes/workOrders";
 import knowledgeRoutes from "./routes/knowledge";
+import materialRoutes from "./routes/materials";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -24,6 +25,7 @@ app.use('/api/v1/devices', deviceRoutes);
 app.use('/api/v1/warehouses', warehouseRoutes);
 app.use('/api/v1/work-orders', workOrderRoutes);
 app.use('/api/v1/knowledge', knowledgeRoutes);
+app.use('/api/v1/materials', materialRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');
