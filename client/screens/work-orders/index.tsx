@@ -7,6 +7,7 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 interface WorkOrder {
   id: number;
   order_no: string;
+  name?: string;
   description: string;
   customer_id: number;
   device_id?: number;
@@ -444,9 +445,13 @@ export default function WorkOrdersScreen() {
             {/* 工单列表 */}
             <View>
               {filteredOrders.map((order) => (
-                <View key={order.id} className="mb-3">
+                <TouchableOpacity
+                  key={order.id}
+                  onPress={() => router.push('/work-order-detail', { id: order.id.toString() })}
+                  activeOpacity={0.7}
+                >
                   <View
-                    className="rounded-2xl p-4"
+                    className="rounded-2xl p-4 mb-3"
                     style={{
                       backgroundColor: '#FFFFFF',
                       shadowColor: '#D1D9E6',
@@ -460,7 +465,7 @@ export default function WorkOrdersScreen() {
                     <View className="flex-row justify-between items-start mb-2">
                       <View className="flex-1">
                         <Text className="text-base font-bold text-[#2D3436] mb-1" numberOfLines={1}>
-                          {order.description || '无描述'}
+                          {order.name || order.description || '无描述'}
                         </Text>
                         <Text className="text-xs text-[#636E72]">
                           任务号: {order.order_no}
@@ -565,7 +570,7 @@ export default function WorkOrdersScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
 
               {filteredOrders.length === 0 && (
