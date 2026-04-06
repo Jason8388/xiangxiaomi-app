@@ -12,176 +12,126 @@ import {
   Modal,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as DocumentPicker from 'expo-document-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { storage } from '@/utils/storage';
 
 interface FormData {
   meeting_name: string;
-  meeting_type: string;
   meeting_date: string;
   meeting_location: string;
   attendees: string;
-  host: string;
   recorder: string;
-  topics: string;
   key_points: string;
   summary: string;
-  customer_id?: number;
-  project_id?: number;
-  viewable_users?: string;
   tags: string[];
 }
 
-const MEETING_TYPES = [
-  { value: 'department-morning', label: '部门晨会' },
-  { value: 'department-weekly', label: '部门周例会' },
-  { value: 'project-start', label: '项目启动会' },
-  { value: 'project-push', label: '项目推进会' },
-  { value: 'pm-meeting', label: 'PM会议' },
-  { value: 'customer-meeting', label: '客户会议' },
-  { value: 'other', label: '其它会议' },
+interface Tag {
+  id: number;
+  name: string;
+  color: string;
+}
+
+const TAG_COLORS = [
+  '#6C63FF', '#FF6B6B', '#00B894', '#F39C12', '#3498DB',
+  '#9B59B6', '#1ABC9C', '#E74C3C', '#2ECC71', '#E91E63',
 ];
-
-interface Customer {
-  id: number;
-  name: string;
-}
-
-interface Project {
-  id: number;
-  name: string;
-}
 
 export default function MeetingMinuteCreate() {
   const router = useSafeRouter();
   const { id } = useSafeSearchParams<{ id?: string }>();
   const [isEdit, setIsEdit] = useState(!!id);
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTypePicker, setShowTypePicker] = useState(false);
-  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
-  const [showProjectPicker, setShowProjectPicker] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     meeting_name: '',
-    meeting_type: 'other',
     meeting_date: new Date().toISOString(),
     meeting_location: '',
     attendees: '',
-    host: '',
     recorder: '',
-    topics: '',
     key_points: '',
     summary: '',
     tags: [],
   });
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [tagInput, setTagInput] = useState('');
+  const [tagModalVisible, setTagModalVisible] = useState(false);
+  const [existingTags, setExistingTags] = useState<Tag[]>([]);
+  const [newTagName, setNewTagName] = useState('');
+  const [selectedColor, setSelectedColor] = useState(TAG_COLORS[0]);
 
   useEffect(() => {
+    loadUserInfo();
+    fetchTags();
     if (id) {
       loadMeetingMinute();
     }
-    loadCustomers();
-    loadProjects();
   }, [id]);
+
+  const loadUserInfo = async () => {
+    try {
+      const userStr = await storage.getItem('user');
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        setUser(userData);
+        // 自动填充记录人
+        if (!id) {
+          setFormData(prev => ({ ...prev, recorder: userData.name || '' }));
+        }
+      }
+    } catch (error) {
+      console.error('Load user error:', error);
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/tags`
+      );
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setExistingTags(data);
+      }
+    } catch (error) {
+      console.error('Fetch tags error:', error);
+    }
+  };
 
   const loadMeetingMinute = async () => {
     try {
+      setLoading(true);
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${id}`
       );
       const data = await response.json();
       if (response.ok) {
         setFormData({
-          meeting_name: data.meeting_name,
-          meeting_type: data.meeting_type,
-          meeting_date: data.meeting_date,
-          meeting_location: data.meeting_location,
-          attendees: data.attendees,
-          host: data.host,
-          recorder: data.recorder,
-          topics: data.topics,
-          key_points: data.key_points,
-          summary: data.summary,
-          customer_id: data.customer_id,
-          project_id: data.project_id,
-          tags: data.tags ? data.tags.map((t: any) => t.tag) : [],
+          meeting_name: data.meeting_name || '',
+          meeting_date: data.meeting_date || new Date().toISOString(),
+          meeting_location: data.meeting_location || '',
+          attendees: data.attendees || '',
+          recorder: data.recorder || '',
+          key_points: data.key_points || '',
+          summary: data.summary || '',
+          tags: data.tags?.map((t: any) => t.name || t) || [],
         });
-        setSelectedDate(new Date(data.meeting_date));
-        setUploadedFile(data.file_url || null);
-        if (data.customer_id) {
-          setSelectedCustomer({ id: data.customer_id, name: data.customer_name });
-        }
-        if (data.project_id) {
-          setSelectedProject({ id: data.project_id, name: data.project_name });
+        if (data.meeting_date) {
+          setSelectedDate(new Date(data.meeting_date));
         }
       }
     } catch (error) {
       console.error('Load meeting minute error:', error);
-      Alert.alert('错误', '加载会议纪要失败');
-    }
-  };
-
-  const loadCustomers = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`
-      );
-      const data = await response.json();
-      if (response.ok) {
-        setCustomers(data);
-      }
-    } catch (error) {
-      console.error('Load customers error:', error);
-    }
-  };
-
-  const loadProjects = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/projects`
-      );
-      const data = await response.json();
-      if (response.ok) {
-        setProjects(data);
-      }
-    } catch (error) {
-      console.error('Load projects error:', error);
-    }
-  };
-
-  const handleDateChange = (event: any, date?: Date) => {
-    if (date) {
-      setSelectedDate(date);
-      setFormData({ ...formData, meeting_date: date.toISOString() });
-    }
-    setShowDatePicker(false);
-  };
-
-  const handleUploadFile = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf'],
-      });
-
-      if (result.canceled) return;
-
-      Alert.alert('提示', '文件上传功能待实现');
-      // setUploadedFile(result.uri);
-    } catch (error) {
-      Alert.alert('错误', '文件选择失败');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSubmit = async () => {
+    // 表单验证
     if (!formData.meeting_name.trim()) {
       Alert.alert('提示', '请输入会议名称');
       return;
@@ -190,24 +140,21 @@ export default function MeetingMinuteCreate() {
       Alert.alert('提示', '请输入会议地点');
       return;
     }
-    if (!formData.host.trim()) {
-      Alert.alert('提示', '请输入会议主持人');
+    if (!formData.attendees.trim()) {
+      Alert.alert('提示', '请输入参会人');
       return;
     }
     if (!formData.recorder.trim()) {
       Alert.alert('提示', '请输入会议记录人');
       return;
     }
+    if (!formData.key_points.trim()) {
+      Alert.alert('提示', '请输入会议要点');
+      return;
+    }
 
     try {
       setLoading(true);
-      const submitData = {
-        ...formData,
-        tags: formData.tags,
-        customer_id: formData.meeting_type === 'customer-meeting' ? selectedCustomer?.id : null,
-        project_id: formData.meeting_type === 'customer-meeting' ? selectedProject?.id : null,
-      };
-
       const url = isEdit
         ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${id}`
         : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes`;
@@ -215,21 +162,16 @@ export default function MeetingMinuteCreate() {
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitData),
+        body: JSON.stringify({
+          ...formData,
+          meeting_date: new Date(formData.meeting_date).toISOString(),
+          user_id: user?.id,
+        }),
       });
 
       if (response.ok) {
-        Alert.alert('成功', isEdit ? '会议纪要修改成功' : '会议纪要创建成功', [
-          {
-            text: '确定',
-            onPress: () => {
-              if (isEdit && id) {
-                router.push('/meeting-minute-detail', { id: parseInt(id) });
-              } else {
-                router.back();
-              }
-            },
-          },
+        Alert.alert('成功', isEdit ? '修改成功' : '创建成功', [
+          { text: '确定', onPress: () => router.back() },
         ]);
       } else {
         const error = await response.json();
@@ -242,483 +184,343 @@ export default function MeetingMinuteCreate() {
     }
   };
 
-  const getSelectedMeetingType = () => {
-    return MEETING_TYPES.find((t) => t.value === formData.meeting_type)?.label || '请选择';
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (date) {
+      setSelectedDate(date);
+      setFormData(prev => ({
+        ...prev,
+        meeting_date: date.toISOString(),
+      }));
+    }
   };
 
-  const handleAddTag = () => {
-    const trimmedTag = tagInput.trim();
-    if (!trimmedTag) return;
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const toggleTag = (tagName: string) => {
+    if (formData.tags.includes(tagName)) {
+      setFormData(prev => ({
+        ...prev,
+        tags: prev.tags.filter(t => t !== tagName),
+      }));
+    } else {
+      if (formData.tags.length >= 10) {
+        Alert.alert('提示', '最多只能添加10个标签');
+        return;
+      }
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagName],
+      }));
+    }
+  };
+
+  const handleCreateTag = () => {
+    if (!newTagName.trim()) {
+      Alert.alert('提示', '请输入标签名称');
+      return;
+    }
+
+    const tagName = newTagName.trim();
+    if (formData.tags.includes(tagName)) {
+      Alert.alert('提示', '该标签已存在');
+      return;
+    }
+
     if (formData.tags.length >= 10) {
       Alert.alert('提示', '最多只能添加10个标签');
       return;
     }
-    if (formData.tags.includes(trimmedTag)) {
-      Alert.alert('提示', '该标签已存在');
-      return;
-    }
-    setFormData({ ...formData, tags: [...formData.tags, trimmedTag] });
-    setTagInput('');
+
+    setFormData(prev => ({
+      ...prev,
+      tags: [...prev.tags, tagName],
+    }));
+    setNewTagName('');
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags.filter((tag) => tag !== tagToRemove),
-    });
+  const removeTag = (tagName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tagName),
+    }));
   };
 
   return (
     <Screen>
-      <PageHeader title={isEdit ? '编辑会议纪要' : '新建会议纪要'} />
+      <PageHeader
+        title={isEdit ? '修改会议纪要' : '新增会议纪要'}
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={100}
       >
-        <ScrollView style={styles.container}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.containerContent}>
           {/* 会议名称 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="heading" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                会议名称 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>
+              会议名称 <Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="请输入会议名称"
               value={formData.meeting_name}
-              onChangeText={(text) => setFormData({ ...formData, meeting_name: text })}
+              onChangeText={(text) =>
+                setFormData(prev => ({ ...prev, meeting_name: text }))
+              }
+              placeholder="请输入会议名称"
+              placeholderTextColor="#B2BEC3"
             />
           </View>
 
-          {/* 会议类型 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="list" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                会议类型 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
+          {/* 会议日期 */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>
+              会议日期 <Text style={styles.required}>*</Text>
+            </Text>
             <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowTypePicker(true)}
-            >
-              <Text
-                style={[
-                  styles.pickerText,
-                  formData.meeting_type === 'other' && styles.placeholder,
-                ]}
-              >
-                {getSelectedMeetingType()}
-              </Text>
-              <FontAwesome6 name="chevron-down" size={16} color="#636E72" />
-            </TouchableOpacity>
-          </View>
-
-          {/* 会议时间 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="calendar" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                会议时间 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.pickerButton}
+              style={styles.dateInput}
               onPress={() => setShowDatePicker(true)}
             >
-              <Text style={styles.pickerText}>
-                {selectedDate.toLocaleString('zh-CN')}
-              </Text>
-              <FontAwesome6 name="calendar-days" size={16} color="#636E72" />
+              <FontAwesome6 name="calendar" size={16} color="#636E72" />
+              <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
             </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
           </View>
 
           {/* 会议地点 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="location-dot" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                会议地点 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>
+              会议地点 <Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="请输入会议地点"
               value={formData.meeting_location}
-              onChangeText={(text) => setFormData({ ...formData, meeting_location: text })}
+              onChangeText={(text) =>
+                setFormData(prev => ({ ...prev, meeting_location: text }))
+              }
+              placeholder="请输入会议地点"
+              placeholderTextColor="#B2BEC3"
             />
           </View>
 
-          {/* 参会人员 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="users" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                参会人员 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
+          {/* 参会人 */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>
+              参会人 <Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="请输入参会人员（姓名之间用逗号分隔）"
               value={formData.attendees}
-              onChangeText={(text) => setFormData({ ...formData, attendees: text })}
+              onChangeText={(text) =>
+                setFormData(prev => ({ ...prev, attendees: text }))
+              }
+              placeholder="请输入参会人，多人以逗号分隔"
+              placeholderTextColor="#B2BEC3"
               multiline
-              numberOfLines={3}
+              numberOfLines={2}
               textAlignVertical="top"
-            />
-          </View>
-
-          {/* 会议主持人 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="user" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                主持人 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="请输入会议主持人"
-              value={formData.host}
-              onChangeText={(text) => setFormData({ ...formData, host: text })}
             />
           </View>
 
           {/* 会议记录人 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="pen-to-square" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                记录人 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>
+              会议记录人 <Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="请输入会议记录人"
               value={formData.recorder}
-              onChangeText={(text) => setFormData({ ...formData, recorder: text })}
+              onChangeText={(text) =>
+                setFormData(prev => ({ ...prev, recorder: text }))
+              }
+              placeholder="请输入会议记录人姓名"
+              placeholderTextColor="#B2BEC3"
             />
           </View>
 
-          {/* 关联客户（仅客户会议） */}
-          {formData.meeting_type === 'customer-meeting' && (
-            <>
-              <View style={styles.formSection}>
-                <View style={styles.labelContainer}>
-                  <FontAwesome6 name="building" size={16} color="#1E88E5" />
-                  <Text style={styles.label}>关联客户</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowCustomerPicker(true)}
-                >
-                  <Text
-                    style={[styles.pickerText, !selectedCustomer && styles.placeholder]}
-                  >
-                    {selectedCustomer?.name || '请选择关联客户'}
-                  </Text>
-                  <FontAwesome6 name="chevron-down" size={16} color="#636E72" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.formSection}>
-                <View style={styles.labelContainer}>
-                  <FontAwesome6 name="folder-open" size={16} color="#1E88E5" />
-                  <Text style={styles.label}>关联项目</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowProjectPicker(true)}
-                >
-                  <Text
-                    style={[styles.pickerText, !selectedProject && styles.placeholder]}
-                  >
-                    {selectedProject?.name || '请选择关联项目'}
-                  </Text>
-                  <FontAwesome6 name="chevron-down" size={16} color="#636E72" />
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-
-          {/* 会议议题 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="list" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                会议议题 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
+          {/* 会议要点 */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>
+              会议要点 <Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="请输入会议议题"
-              value={formData.topics}
-              onChangeText={(text) => setFormData({ ...formData, topics: text })}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* 内容要点 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="lightbulb" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                内容要点 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="请输入内容要点"
+              style={[styles.input, styles.textAreaLarge]}
               value={formData.key_points}
-              onChangeText={(text) => setFormData({ ...formData, key_points: text })}
+              onChangeText={(text) =>
+                setFormData(prev => ({ ...prev, key_points: text }))
+              }
+              placeholder="请输入会议要点"
+              placeholderTextColor="#B2BEC3"
               multiline
               numberOfLines={5}
               textAlignVertical="top"
             />
           </View>
 
-          {/* 会议总结 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="clipboard-check" size={16} color="#1E88E5" />
-              <Text style={styles.label}>
-                会议总结 <Text style={styles.required}>*</Text>
-              </Text>
-            </View>
+          {/* 会议结论 */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>会议结论</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="请输入会议总结"
+              style={[styles.input, styles.textAreaLarge]}
               value={formData.summary}
-              onChangeText={(text) => setFormData({ ...formData, summary: text })}
+              onChangeText={(text) =>
+                setFormData(prev => ({ ...prev, summary: text }))
+              }
+              placeholder="请输入会议结论"
+              placeholderTextColor="#B2BEC3"
               multiline
               numberOfLines={5}
               textAlignVertical="top"
             />
           </View>
 
-          {/* 上传附件 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="paperclip" size={16} color="#1E88E5" />
-              <Text style={styles.label}>上传附件</Text>
+          {/* 会议纪要标签 */}
+          <View style={styles.formGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>会议纪要标签</Text>
+              <Text style={styles.tagCount}>{formData.tags.length}/10</Text>
             </View>
-            {uploadedFile ? (
-              <View style={styles.fileContainer}>
-                <FontAwesome6 name="file-pdf" size={24} color="#E74C3C" />
-                <Text style={styles.fileName}>已上传文件</Text>
-                <TouchableOpacity
-                  style={styles.removeFileButton}
-                  onPress={() => setUploadedFile(null)}
-                >
-                  <FontAwesome6 name="xmark" size={14} color="#E74C3C" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.uploadButton} onPress={handleUploadFile}>
-                <FontAwesome6 name="cloud-arrow-up" size={20} color="#1E88E5" />
-                <Text style={styles.uploadButtonText}>点击上传文件（PDF）</Text>
-              </TouchableOpacity>
-            )}
-          </View>
 
-          {/* 标签 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="tags" size={16} color="#1E88E5" />
-              <Text style={styles.label}>标签 <Text style={styles.tagCountText}>({formData.tags.length}/10)</Text></Text>
-            </View>
-            <View style={styles.tagInputContainer}>
-              <TextInput
-                style={[styles.input, styles.tagInput]}
-                placeholder="输入标签后点击添加"
-                value={tagInput}
-                onChangeText={setTagInput}
-                onSubmitEditing={handleAddTag}
-                returnKeyType="done"
-              />
-              <TouchableOpacity
-                style={[styles.addTagButton, formData.tags.length >= 10 && styles.addTagButtonDisabled]}
-                onPress={handleAddTag}
-                disabled={formData.tags.length >= 10}
-              >
-                <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+            {/* 已选标签 */}
             {formData.tags.length > 0 && (
-              <View style={styles.tagList}>
+              <View style={styles.selectedTags}>
                 {formData.tags.map((tag, index) => (
-                  <View key={index} style={styles.tagItem}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                    <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
-                      <FontAwesome6 name="xmark" size={12} color="#E74C3C" />
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.selectedTag}
+                    onPress={() => removeTag(tag)}
+                  >
+                    <Text style={styles.selectedTagText}>{tag}</Text>
+                    <FontAwesome6 name="xmark" size={10} color="#FFFFFF" />
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
-          </View>
 
-          {/* 可查看人员范围 */}
-          <View style={styles.formSection}>
-            <View style={styles.labelContainer}>
-              <FontAwesome6 name="lock" size={16} color="#1E88E5" />
-              <Text style={styles.label}>可查看人员范围</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="留空表示所有人可见，或输入指定人员姓名（逗号分隔）"
-              value={formData.viewable_users}
-              onChangeText={(text) => setFormData({ ...formData, viewable_users: text })}
-            />
+            {/* 添加标签按钮 */}
+            <TouchableOpacity
+              style={styles.addTagButton}
+              onPress={() => setTagModalVisible(true)}
+            >
+              <FontAwesome6 name="plus" size={14} color="#6C63FF" />
+              <Text style={styles.addTagText}>添加标签</Text>
+            </TouchableOpacity>
           </View>
 
           {/* 提交按钮 */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.cancelButtonText}>取消</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.submitButton, loading && styles.buttonDisabled]}
-              onPress={handleSubmit}
-              disabled={loading}
-            >
-              <FontAwesome6 name="check" size={16} color="#FFFFFF" />
-              <Text style={styles.submitButtonText}>
-                {loading ? '保存中...' : '保存'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            <Text style={styles.submitButtonText}>
+              {loading ? '提交中...' : isEdit ? '保存修改' : '创建会议纪要'}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 日期选择器 */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="datetime"
-          onChange={handleDateChange}
-        />
-      )}
-
-      {/* 会议类型选择器 */}
-      <Modal visible={showTypePicker} transparent animationType="slide">
+      {/* 标签选择弹窗 */}
+      <Modal
+        visible={tagModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTagModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>选择会议类型</Text>
-              <TouchableOpacity onPress={() => setShowTypePicker(false)}>
+              <Text style={styles.modalTitle}>添加标签</Text>
+              <TouchableOpacity onPress={() => setTagModalVisible(false)}>
                 <FontAwesome6 name="xmark" size={20} color="#636E72" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalList}>
-              {MEETING_TYPES.map((type) => (
-                <TouchableOpacity
-                  key={type.value}
-                  style={styles.optionItem}
-                  onPress={() => {
-                    setFormData({ ...formData, meeting_type: type.value });
-                    setShowTypePicker(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      formData.meeting_type === type.value && styles.optionTextActive,
-                    ]}
-                  >
-                    {type.label}
-                  </Text>
-                  {formData.meeting_type === type.value && (
-                    <FontAwesome6 name="check" size={16} color="#1E88E5" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
-      {/* 客户选择器 */}
-      <Modal visible={showCustomerPicker} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>选择关联客户</Text>
-              <TouchableOpacity onPress={() => setShowCustomerPicker(false)}>
-                <FontAwesome6 name="xmark" size={20} color="#636E72" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalList}>
-              {customers.map((customer) => (
-                <TouchableOpacity
-                  key={customer.id}
-                  style={styles.optionItem}
-                  onPress={() => {
-                    setSelectedCustomer(customer);
-                    setShowCustomerPicker(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      selectedCustomer?.id === customer.id && styles.optionTextActive,
-                    ]}
+            <ScrollView style={styles.modalBody}>
+              {/* 新建标签 */}
+              <View style={styles.newTagSection}>
+                <Text style={styles.sectionLabel}>新建标签</Text>
+                <View style={styles.newTagInput}>
+                  <TextInput
+                    style={styles.tagInput}
+                    value={newTagName}
+                    onChangeText={setNewTagName}
+                    placeholder="输入标签名称"
+                    placeholderTextColor="#B2BEC3"
+                    maxLength={10}
+                  />
+                  <TouchableOpacity
+                    style={styles.colorPicker}
+                    onPress={() => {
+                      const currentIndex = TAG_COLORS.indexOf(selectedColor);
+                      const nextIndex = (currentIndex + 1) % TAG_COLORS.length;
+                      setSelectedColor(TAG_COLORS[nextIndex]);
+                    }}
                   >
-                    {customer.name}
-                  </Text>
-                  {selectedCustomer?.id === customer.id && (
-                    <FontAwesome6 name="check" size={16} color="#1E88E5" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+                    <View style={[styles.colorDot, { backgroundColor: selectedColor }]} />
+                    <FontAwesome6 name="chevron-down" size={12} color="#636E72" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.createTagButton}
+                    onPress={handleCreateTag}
+                  >
+                    <Text style={styles.createTagButtonText}>创建</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-      {/* 项目选择器 */}
-      <Modal visible={showProjectPicker} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>选择关联项目</Text>
-              <TouchableOpacity onPress={() => setShowProjectPicker(false)}>
-                <FontAwesome6 name="xmark" size={20} color="#636E72" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalList}>
-              {projects.map((project) => (
-                <TouchableOpacity
-                  key={project.id}
-                  style={styles.optionItem}
-                  onPress={() => {
-                    setSelectedProject(project);
-                    setShowProjectPicker(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      selectedProject?.id === project.id && styles.optionTextActive,
-                    ]}
-                  >
-                    {project.name}
-                  </Text>
-                  {selectedProject?.id === project.id && (
-                    <FontAwesome6 name="check" size={16} color="#1E88E5" />
-                  )}
-                </TouchableOpacity>
-              ))}
+              {/* 已有标签 */}
+              {existingTags.length > 0 && (
+                <View style={styles.existingTagSection}>
+                  <Text style={styles.sectionLabel}>选择已有标签</Text>
+                  <View style={styles.tagGrid}>
+                    {existingTags.map((tag) => (
+                      <TouchableOpacity
+                        key={tag.id}
+                        style={[
+                          styles.tagOption,
+                          formData.tags.includes(tag.name) && styles.tagOptionSelected,
+                          { borderColor: tag.color },
+                        ]}
+                        onPress={() => toggleTag(tag.name)}
+                      >
+                        <Text
+                          style={[
+                            styles.tagOptionText,
+                            formData.tags.includes(tag.name) && styles.tagOptionTextSelected,
+                          ]}
+                        >
+                          {tag.name}
+                        </Text>
+                        {formData.tags.includes(tag.name) && (
+                          <FontAwesome6 name="check" size={10} color="#FFFFFF" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
             </ScrollView>
+
+            <TouchableOpacity
+              style={styles.doneButton}
+              onPress={() => setTagModalVisible(false)}
+            >
+              <Text style={styles.doneButtonText}>完成</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -729,217 +531,235 @@ export default function MeetingMinuteCreate() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  containerContent: {
     padding: 16,
     paddingBottom: 40,
   },
-  formSection: {
+  formGroup: {
     marginBottom: 20,
   },
-  labelContainer: {
+  labelRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
     marginBottom: 8,
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#2D3436',
+    marginBottom: 8,
   },
   required: {
     color: '#E74C3C',
   },
+  tagCount: {
+    fontSize: 12,
+    color: '#636E72',
+  },
   input: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#2D3436',
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: '#E8E8E8',
   },
   textArea: {
-    minHeight: 80,
+    height: 60,
     paddingTop: 12,
   },
-  pickerButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
+  textAreaLarge: {
+    height: 120,
+    paddingTop: 12,
   },
-  pickerText: {
-    fontSize: 14,
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  dateText: {
+    fontSize: 15,
     color: '#2D3436',
   },
-  placeholder: {
-    color: '#95A5A6',
+  selectedTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
   },
-  uploadButton: {
+  selectedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#6C63FF',
+  },
+  selectedTagText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  addTagButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    paddingVertical: 16,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#6C63FF',
     borderStyle: 'dashed',
   },
-  uploadButtonText: {
+  addTagText: {
     fontSize: 14,
-    color: '#1E88E5',
-  },
-  fileContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  fileName: {
-    flex: 1,
-    fontSize: 14,
-    color: '#2D3436',
-  },
-  removeFileButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#F5F7FA',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    color: '#636E72',
-    fontWeight: '500',
+    color: '#6C63FF',
   },
   submitButton: {
-    flex: 2,
-    flexDirection: 'row',
+    backgroundColor: '#6C63FF',
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#1E88E5',
+    marginTop: 20,
   },
-  buttonDisabled: {
-    backgroundColor: '#BDC3C7',
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
     maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#2D3436',
   },
-  modalList: {
-    paddingHorizontal: 20,
+  modalBody: {
+    marginBottom: 20,
   },
-  optionItem: {
+  newTagSection: {
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 12,
+  },
+  newTagInput: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F7FA',
-  },
-  optionText: {
-    fontSize: 15,
-    color: '#2D3436',
-  },
-  optionTextActive: {
-    color: '#1E88E5',
-    fontWeight: '600',
-  },
-  tagCountText: {
-    fontSize: 12,
-    color: '#95A5A6',
-    fontWeight: '400',
-  },
-  tagInputContainer: {
-    flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   tagInput: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#2D3436',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
-  addTagButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#1E88E5',
+  colorPicker: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
-  addTagButtonDisabled: {
-    backgroundColor: '#BDC3C7',
+  colorDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
-  tagList: {
+  createTagButton: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  createTagButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  existingTagSection: {
+    marginBottom: 20,
+  },
+  tagGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
+    gap: 10,
   },
-  tagItem: {
+  tagOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
-  tagText: {
+  tagOptionSelected: {
+    backgroundColor: '#6C63FF',
+    borderColor: '#6C63FF',
+  },
+  tagOptionText: {
     fontSize: 13,
-    color: '#1E88E5',
+    color: '#636E72',
+  },
+  tagOptionTextSelected: {
+    color: '#FFFFFF',
+  },
+  doneButton: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  doneButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

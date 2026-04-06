@@ -2,76 +2,86 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
+  FlatList,
   StyleSheet,
   TouchableOpacity,
   TextInput,
   Alert,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
+import { storage } from '@/utils/storage';
 
 interface MeetingMinute {
   id: number;
-  minute_id: string;
   meeting_name: string;
-  meeting_type: string;
   meeting_date: string;
   meeting_location: string;
   attendees: string;
-  host: string;
   recorder: string;
   topics: string;
-  key_points: string;
   summary: string;
-  file_url?: string;
-  customer_id?: number;
-  customer_name?: string;
-  project_id?: number;
-  project_name?: string;
-  tags?: { id: number; tag: string }[];
+  tags: Array<{ id: number; name: string; color: string }>;
   created_at: string;
   updated_at: string;
 }
 
-const MEETING_TYPES = {
-  'department-morning': '部门晨会',
-  'department-weekly': '部门周例会',
-  'project-start': '项目启动会',
-  'project-push': '项目推进会',
-  'pm-meeting': 'PM会议',
-  'customer-meeting': '客户会议',
-  'other': '其它会议',
-};
+interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  count?: number;
+}
 
 export default function MeetingMinutes() {
   const router = useSafeRouter();
   const [minutes, setMinutes] = useState<MeetingMinute[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [selectedTag, setSelectedTag] = useState<number | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [selectedMinute, setSelectedMinute] = useState<MeetingMinute | null>(null);
 
   useEffect(() => {
+    loadUserInfo();
     loadMeetingMinutes();
+    fetchTags();
   }, []);
 
-  const loadMeetingMinutes = async (keyword?: string) => {
+  const loadUserInfo = async () => {
+    try {
+      const userStr = await storage.getItem('user');
+      if (userStr) {
+        setUser(JSON.parse(userStr));
+      }
+    } catch (error) {
+      console.error('Load user error:', error);
+    }
+  };
+
+  const loadMeetingMinutes = async (keyword?: string, tagId?: number) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
+      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes?limit=10`;
       if (keyword) {
-        params.append('keyword', keyword);
+        url += `&keyword=${encodeURIComponent(keyword)}`;
+      }
+      if (tagId) {
+        url += `&tag_id=${tagId}`;
       }
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes?${params.toString()}`
-      );
+      const response = await fetch(url);
       const data = await response.json();
       if (response.ok) {
-        setMinutes(data);
+        // 如果返回的是数组直接使用，如果是对象取其中的列表
+        setMinutes(Array.isArray(data) ? data.slice(0, 10) : (data.list || data.data || []));
       }
     } catch (error) {
       console.error('Fetch meeting minutes error:', error);
@@ -80,313 +90,366 @@ export default function MeetingMinutes() {
     }
   };
 
+  const fetchTags = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/tags`
+      );
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setTags(data);
+      }
+    } catch (error) {
+      console.error('Fetch tags error:', error);
+    }
+  };
+
   const handleSearch = () => {
-    loadMeetingMinutes(searchKeyword);
+    loadMeetingMinutes(searchKeyword || undefined, selectedTag || undefined);
+  };
+
+  const handleFilterApply = () => {
+    loadMeetingMinutes(searchKeyword || undefined, selectedTag || undefined);
+    setFilterModalVisible(false);
+  };
+
+  const handleResetFilter = () => {
+    setSearchKeyword('');
+    setSelectedTag(null);
+    loadMeetingMinutes();
+    setFilterModalVisible(false);
   };
 
   const handleCreate = () => {
     router.push('/meeting-minute-create');
   };
 
-  const handleViewDetail = (minuteId: number) => {
-    router.push('/meeting-minute-detail', { id: minuteId });
-  };
-
   const handleEdit = (minuteId: number) => {
     router.push('/meeting-minute-edit', { id: minuteId });
   };
 
-  const handleDelete = (minute: MeetingMinute) => {
-    Alert.alert('确认删除', `确定要删除会议纪要"${minute.meeting_name}"吗？`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${minute.id}`,
-              {
-                method: 'DELETE',
-              }
-            );
-            if (response.ok) {
-              Alert.alert('成功', '删除成功');
-              loadMeetingMinutes();
-            }
-          } catch (error) {
-            Alert.alert('错误', '删除失败');
-          }
-        },
-      },
-    ]);
+  const handleViewDetail = (minuteId: number) => {
+    router.push('/meeting-minute-detail', { id: minuteId });
   };
 
-  const handleDownload = async (minute: MeetingMinute) => {
-    if (!minute.file_url) {
-      Alert.alert('提示', '该会议纪要未上传附件');
+  const handleDeletePress = (minute: MeetingMinute) => {
+    setSelectedMinute(minute);
+    setDeleteModalVisible(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedMinute) return;
+
+    if (user?.role !== 'admin') {
+      Alert.alert('提示', '只有管理员可以删除会议纪要');
+      setDeleteModalVisible(false);
       return;
     }
 
     try {
-      const response = await fetch(minute.file_url);
-      if (!response.ok) throw new Error('下载失败');
-
-      // 检测平台
-      if (typeof window !== 'undefined') {
-        // Web端
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${minute.minute_id}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        // 移动端
-        const fileName = `${minute.minute_id}.pdf`;
-        const fileUri = `${(FileSystem as any).cacheDirectory}${fileName}`;
-
-        const fileInfo = await (FileSystem as any).downloadAsync(minute.file_url, fileUri);
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(fileInfo.uri);
-        } else {
-          Alert.alert('提示', '分享功能不可用');
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${selectedMinute.id}`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user?.id }),
         }
+      );
+
+      if (response.ok) {
+        Alert.alert('成功', '删除成功');
+        setDeleteModalVisible(false);
+        setSelectedMinute(null);
+        loadMeetingMinutes(searchKeyword || undefined, selectedTag || undefined);
+      } else {
+        const error = await response.json();
+        Alert.alert('错误', error.message || '删除失败');
       }
     } catch (error) {
-      Alert.alert('错误', '下载失败');
+      Alert.alert('错误', '删除失败');
     }
   };
 
-  const getMeetingTypeText = (type: string) => {
-    return MEETING_TYPES[type as keyof typeof MEETING_TYPES] || type;
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  const getMeetingTypeIcon = (type: string) => {
-    switch (type) {
-      case 'department-morning':
-        return 'sun';
-      case 'department-weekly':
-        return 'calendar-week';
-      case 'project-start':
-        return 'rocket';
-      case 'project-push':
-        return 'forward';
-      case 'pm-meeting':
-        return 'list-check';
-      case 'customer-meeting':
-        return 'handshake';
-      default:
-        return 'file-lines';
-    }
-  };
+  const renderMinuteCard = ({ item }: { item: MeetingMinute }) => (
+    <View style={styles.card}>
+      {/* 卡片头部 */}
+      <View style={styles.cardHeader}>
+        <View style={styles.cardTitleContainer}>
+          <FontAwesome6 name="file-lines" size={18} color="#6C63FF" />
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.meeting_name}
+          </Text>
+        </View>
+        <Text style={styles.cardDate}>{formatDate(item.meeting_date)}</Text>
+      </View>
 
-  const getMeetingTypeColor = (type: string) => {
-    switch (type) {
-      case 'department-morning':
-        return '#F39C12';
-      case 'department-weekly':
-        return '#3498DB';
-      case 'project-start':
-        return '#2ECC71';
-      case 'project-push':
-        return '#E74C3C';
-      case 'pm-meeting':
-        return '#9B59B6';
-      case 'customer-meeting':
-        return '#1ABC9C';
-      default:
-        return '#95A5A6';
-    }
-  };
+      {/* 会议信息 */}
+      <View style={styles.cardInfo}>
+        {item.meeting_location && (
+          <View style={styles.infoRow}>
+            <FontAwesome6 name="location-dot" size={12} color="#636E72" />
+            <Text style={styles.infoText}>{item.meeting_location}</Text>
+          </View>
+        )}
+        {item.attendees && (
+          <View style={styles.infoRow}>
+            <FontAwesome6 name="users" size={12} color="#636E72" />
+            <Text style={styles.infoText} numberOfLines={1}>
+              {item.attendees}
+            </Text>
+          </View>
+        )}
+        {item.recorder && (
+          <View style={styles.infoRow}>
+            <FontAwesome6 name="pen" size={12} color="#636E72" />
+            <Text style={styles.infoText}>{item.recorder}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* 标签 */}
+      {item.tags && item.tags.length > 0 && (
+        <View style={styles.tagContainer}>
+          {item.tags.slice(0, 5).map((tag, index) => (
+            <View
+              key={tag.id || index}
+              style={[styles.tag, { backgroundColor: tag.color || '#6C63FF' }]}
+            >
+              <Text style={styles.tagText}>{tag.name}</Text>
+            </View>
+          ))}
+          {item.tags.length > 5 && (
+            <Text style={styles.moreTagsText}>+{item.tags.length - 5}</Text>
+          )}
+        </View>
+      )}
+
+      {/* 操作按钮 */}
+      <View style={styles.cardActions}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleViewDetail(item.id)}
+        >
+          <FontAwesome6 name="eye" size={14} color="#1E88E5" />
+          <Text style={styles.actionButtonText}>查看</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleEdit(item.id)}
+        >
+          <FontAwesome6 name="pen" size={14} color="#00B894" />
+          <Text style={[styles.actionButtonText, { color: '#00B894' }]}>修改</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleDeletePress(item)}
+        >
+          <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+          <Text style={[styles.actionButtonText, { color: '#E74C3C' }]}>删除</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
     <Screen>
-      <PageHeader title="会议纪要" />
+      <PageHeader
+        title="会议纪要"
+        rightAction={
+          <TouchableOpacity onPress={handleCreate} style={styles.addButton}>
+            <FontAwesome6 name="plus" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        }
+      />
 
-      <ScrollView style={styles.container}>
-        {/* 操作栏 */}
-        <View style={styles.actionBar}>
-          <TouchableOpacity style={styles.createButton} onPress={handleCreate}>
-            <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
-            <Text style={styles.createButtonText}>新建纪要</Text>
+      <View style={styles.container}>
+        {/* 搜索栏 */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <FontAwesome6 name="magnifying-glass" size={16} color="#B2BEC3" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="搜索会议纪要..."
+              placeholderTextColor="#B2BEC3"
+              value={searchKeyword}
+              onChangeText={setSearchKeyword}
+              onSubmitEditing={handleSearch}
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <FontAwesome6 name="filter" size={18} color="#6C63FF" />
           </TouchableOpacity>
         </View>
 
-        {/* 搜索框 */}
-        <View style={styles.searchBar}>
-          <FontAwesome6 name="magnifying-glass" size={16} color="#636E72" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="搜索日期、名称、内容、参会人员"
-            value={searchKeyword}
-            onChangeText={setSearchKeyword}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-            <Text style={styles.searchButtonText}>搜索</Text>
-          </TouchableOpacity>
-        </View>
+        {/* 筛选标签显示 */}
+        {(selectedTag || searchKeyword) && (
+          <View style={styles.activeFilters}>
+            {searchKeyword && (
+              <TouchableOpacity
+                style={styles.filterTag}
+                onPress={() => {
+                  setSearchKeyword('');
+                  loadMeetingMinutes(undefined, selectedTag || undefined);
+                }}
+              >
+                <Text style={styles.filterTagText}>关键词: {searchKeyword}</Text>
+                <FontAwesome6 name="xmark" size={10} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            {selectedTag && (
+              <TouchableOpacity
+                style={styles.filterTag}
+                onPress={() => {
+                  setSelectedTag(null);
+                  loadMeetingMinutes(searchKeyword || undefined, undefined);
+                }}
+              >
+                <Text style={styles.filterTagText}>
+                  标签: {tags.find((t) => t.id === selectedTag)?.name}
+                </Text>
+                <FontAwesome6 name="xmark" size={10} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* 会议纪要列表 */}
-        {loading ? (
-          <View style={styles.centerContainer}>
-            <Text>加载中...</Text>
-          </View>
-        ) : minutes.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <Text style={styles.emptyText}>暂无会议纪要</Text>
-          </View>
-        ) : (
-          minutes.map((minute) => (
-            <View key={minute.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.titleContainer}>
-                  <View
-                    style={[
-                      styles.typeBadge,
-                      { backgroundColor: `${getMeetingTypeColor(minute.meeting_type)}20` },
-                    ]}
+        <FlatList
+          data={minutes}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderMinuteCard}
+          contentContainerStyle={styles.listContainer}
+          refreshing={loading}
+          onRefresh={() => loadMeetingMinutes(searchKeyword || undefined, selectedTag || undefined)}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <FontAwesome6 name="file-circle-xmark" size={48} color="#DFE6E9" />
+              <Text style={styles.emptyText}>暂无会议纪要</Text>
+              <Text style={styles.emptyHint}>点击右上角"+"按钮新增</Text>
+            </View>
+          }
+          ListHeaderComponent={
+            <Text style={styles.listHeader}>最新10条记录</Text>
+          }
+        />
+      </View>
+
+      {/* 筛选弹窗 */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>筛选条件</Text>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>标签筛选</Text>
+                <View style={styles.tagGrid}>
+                  <TouchableOpacity
+                    style={[styles.tagOption, !selectedTag && styles.tagOptionActive]}
+                    onPress={() => setSelectedTag(null)}
                   >
-                    <FontAwesome6
-                      name={getMeetingTypeIcon(minute.meeting_type) as any}
-                      size={14}
-                      color={getMeetingTypeColor(minute.meeting_type)}
-                    />
-                    <Text
-                      style={[
-                        styles.typeText,
-                        { color: getMeetingTypeColor(minute.meeting_type) },
-                      ]}
-                    >
-                      {getMeetingTypeText(minute.meeting_type)}
+                    <Text style={[styles.tagOptionText, !selectedTag && styles.tagOptionTextActive]}>
+                      全部
                     </Text>
-                  </View>
-                </View>
-
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => handleViewDetail(minute.id)}
-                  >
-                    <FontAwesome6 name="eye" size={16} color="#1E88E5" />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => handleEdit(minute.id)}
-                  >
-                    <FontAwesome6 name="pen" size={16} color="#F39C12" />
-                  </TouchableOpacity>
-                  {minute.file_url && (
+                  {tags.map((tag) => (
                     <TouchableOpacity
-                      style={styles.iconButton}
-                      onPress={() => handleDownload(minute)}
+                      key={tag.id}
+                      style={[
+                        styles.tagOption,
+                        selectedTag === tag.id && styles.tagOptionActive,
+                        { borderColor: tag.color },
+                      ]}
+                      onPress={() => setSelectedTag(tag.id)}
                     >
-                      <FontAwesome6 name="download" size={16} color="#2ECC71" />
+                      <Text
+                        style={[
+                          styles.tagOptionText,
+                          selectedTag === tag.id && styles.tagOptionTextActive,
+                        ]}
+                      >
+                        {tag.name} ({tag.count || 0})
+                      </Text>
                     </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => handleDelete(minute)}
-                  >
-                    <FontAwesome6 name="trash" size={16} color="#E74C3C" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* 关联信息 */}
-              {(minute.customer_id || minute.project_id) && (
-                <View style={styles.relationContainer}>
-                  {minute.customer_id && (
-                    <View style={styles.relationItem}>
-                      <FontAwesome6 name="building" size={12} color="#636E72" />
-                      <Text style={styles.relationText}>{minute.customer_name}</Text>
-                    </View>
-                  )}
-                  {minute.project_id && (
-                    <View style={styles.relationItem}>
-                      <FontAwesome6 name="folder-open" size={12} color="#636E72" />
-                      <Text style={styles.relationText}>{minute.project_name}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              <View style={styles.cardTitleRow}>
-                <Text style={styles.cardTitle}>{minute.meeting_name}</Text>
-                <Text style={styles.minuteId}>#{minute.minute_id}</Text>
-              </View>
-
-              <View style={styles.cardBody}>
-                <View style={styles.infoRow}>
-                  <FontAwesome6 name="calendar" size={14} color="#636E72" />
-                  <Text style={styles.infoText}>
-                    {new Date(minute.meeting_date).toLocaleString()}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <FontAwesome6 name="location-dot" size={14} color="#636E72" />
-                  <Text style={styles.infoText}>{minute.meeting_location}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <FontAwesome6 name="user" size={14} color="#636E72" />
-                  <Text style={styles.infoText}>主持人: {minute.host}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <FontAwesome6 name="users" size={14} color="#636E72" />
-                  <Text style={styles.infoText} numberOfLines={1}>
-                    参会: {minute.attendees}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.topicsContainer}>
-                <FontAwesome6 name="list" size={14} color="#1E88E5" />
-                <Text style={styles.topicsText} numberOfLines={2}>
-                  {minute.topics}
-                </Text>
-              </View>
-
-              {minute.tags && minute.tags.length > 0 && (
-                <View style={styles.tagsContainer}>
-                  {minute.tags.map((tagItem, index) => (
-                    <View key={index} style={styles.tagBadge}>
-                      <FontAwesome6 name="tag" size={10} color="#9B59B6" />
-                      <Text style={styles.tagText}>{tagItem.tag}</Text>
-                    </View>
                   ))}
                 </View>
-              )}
-
-              <View style={styles.cardFooter}>
-                <View style={styles.fileStatus}>
-                  <FontAwesome6
-                    name={minute.file_url ? 'file-pdf' : 'file-circle-xmark'}
-                    size={14}
-                    color={minute.file_url ? '#E74C3C' : '#95A5A6'}
-                  />
-                  <Text
-                    style={[
-                      styles.fileStatusText,
-                      { color: minute.file_url ? '#E74C3C' : '#95A5A6' },
-                    ]}
-                  >
-                    {minute.file_url ? '已上传附件' : '未上传附件'}
-                  </Text>
-                </View>
-                <Text style={styles.updateDate}>
-                  {new Date(minute.updated_at).toLocaleDateString()}
-                </Text>
               </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleResetFilter}
+              >
+                <Text style={styles.cancelButtonText}>重置</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleFilterApply}
+              >
+                <Text style={styles.confirmButtonText}>应用</Text>
+              </TouchableOpacity>
             </View>
-          ))
-        )}
-      </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 删除确认弹窗 */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.deleteOverlay}>
+          <View style={styles.deleteContent}>
+            <View style={styles.deleteIconContainer}>
+              <FontAwesome6 name="exclamation-triangle" size={40} color="#E74C3C" />
+            </View>
+            <Text style={styles.deleteTitle}>确认删除</Text>
+            <Text style={styles.deleteMessage}>
+              确定要删除会议纪要"{selectedMinute?.meeting_name}"吗？
+            </Text>
+            <Text style={styles.deleteHint}>此操作不可恢复</Text>
+            <View style={styles.deleteActions}>
+              <TouchableOpacity
+                style={[styles.deleteButton, styles.deleteCancelButton]}
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={styles.deleteCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteButton, styles.deleteConfirmButton]}
+                onPress={handleDelete}
+              >
+                <Text style={styles.deleteConfirmText}>删除</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -394,153 +457,111 @@ export default function MeetingMinutes() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    backgroundColor: '#F5F7FA',
   },
-  actionBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  createButton: {
-    flexDirection: 'row',
+  addButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#6C63FF',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#1E88E5',
   },
-  createButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
+  searchContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
   },
-  searchBar: {
+  searchInputContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
+    color: '#2D3436',
   },
-  searchButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#1E88E5',
-  },
-  searchButtonText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#636E72',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
+  filterButton: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardHeader: {
+  activeFilters: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
   },
-  titleContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
-  typeBadge: {
+  filterTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    alignSelf: 'flex-start',
+    backgroundColor: '#6C63FF',
   },
-  typeText: {
+  filterTagText: {
     fontSize: 12,
-    fontWeight: '600',
+    color: '#FFFFFF',
   },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 4,
+  listContainer: {
+    padding: 16,
+    paddingTop: 0,
   },
-  iconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    backgroundColor: '#F5F7FA',
-    alignItems: 'center',
-    justifyContent: 'center',
+  listHeader: {
+    fontSize: 13,
+    color: '#636E72',
+    marginBottom: 12,
   },
-  relationContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  relationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(30, 136, 229, 0.1)',
-  },
-  relationText: {
-    fontSize: 11,
-    color: '#1E88E5',
-    fontWeight: '500',
-  },
-  cardTitleRow: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  cardTitle: {
+  cardTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     flex: 1,
+    marginRight: 12,
+  },
+  cardTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2D3436',
+    flex: 1,
   },
-  minuteId: {
+  cardDate: {
     fontSize: 12,
-    color: '#95A5A6',
+    color: '#6C63FF',
     fontWeight: '500',
   },
-  cardBody: {
-    marginBottom: 12,
+  cardInfo: {
     gap: 6,
+    marginBottom: 12,
   },
   infoRow: {
     flexDirection: 'row',
@@ -550,61 +571,212 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 13,
     color: '#636E72',
-  },
-  topicsContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  topicsText: {
     flex: 1,
-    fontSize: 13,
-    color: '#2D3436',
-    lineHeight: 18,
   },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  fileStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  fileStatusText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  updateDate: {
-    fontSize: 12,
-    color: '#95A5A6',
-  },
-  tagsContainer: {
+  tagContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
     marginBottom: 12,
   },
-  tagBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  tag: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+    paddingVertical: 3,
+    borderRadius: 4,
   },
   tagText: {
     fontSize: 11,
-    color: '#9B59B6',
-    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  moreTagsText: {
+    fontSize: 11,
+    color: '#636E72',
+    alignSelf: 'center',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F3',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    color: '#1E88E5',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: '#636E72',
+    marginTop: 12,
+  },
+  emptyHint: {
+    fontSize: 13,
+    color: '#B2BEC3',
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3436',
+  },
+  modalBody: {
+    marginBottom: 20,
+  },
+  filterSection: {
+    marginBottom: 16,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 12,
+  },
+  tagGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tagOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  tagOptionActive: {
+    backgroundColor: '#6C63FF',
+    borderColor: '#6C63FF',
+  },
+  tagOptionText: {
+    fontSize: 13,
+    color: '#636E72',
+  },
+  tagOptionTextActive: {
+    color: '#FFFFFF',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F5F7FA',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  confirmButton: {
+    backgroundColor: '#6C63FF',
+  },
+  confirmButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  deleteOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  deleteContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+  },
+  deleteIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  deleteTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  deleteMessage: {
+    fontSize: 14,
+    color: '#636E72',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  deleteHint: {
+    fontSize: 12,
+    color: '#E74C3C',
+    marginBottom: 20,
+  },
+  deleteActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  deleteCancelButton: {
+    backgroundColor: '#F5F7FA',
+  },
+  deleteCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#E74C3C',
+  },
+  deleteConfirmText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
