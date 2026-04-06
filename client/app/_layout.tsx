@@ -2,7 +2,9 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { useEffect } from 'react';
 import { Provider } from '@/components/Provider';
+import { useVersionUpdate } from '@/components/VersionUpdate';
 
 import '../global.css';
 
@@ -11,9 +13,27 @@ LogBox.ignoreLogs([
   // 添加其它想暂时忽略的错误或警告信息
 ]);
 
-export default function RootLayout() {
+function RootLayoutInner() {
+  const { checkVersionUpdate, renderDialog } = useVersionUpdate({
+    enabled: true,
+    onUpgradeStart: () => {
+      console.log('升级开始');
+    },
+    onUpgradeSuccess: () => {
+      console.log('升级成功');
+    },
+    onUpgradeError: (error) => {
+      console.error('升级失败:', error);
+    },
+  });
+
+  // 应用启动时检查版本更新
+  useEffect(() => {
+    checkVersionUpdate();
+  }, []);
+
   return (
-    <Provider>
+    <>
       <Stack
         screenOptions={{
           animation: 'slide_from_right',
@@ -31,7 +51,16 @@ export default function RootLayout() {
         <Stack.Screen name="gallery" options={{ title: "" }} />
         <Stack.Screen name="media-detail" options={{ title: "" }} />
       </Stack>
+      {renderDialog()}
       <Toast />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <Provider>
+      <RootLayoutInner />
     </Provider>
   );
 }

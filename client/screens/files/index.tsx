@@ -101,6 +101,7 @@ export default function FilesScreen() {
 
   const handleUpload = async () => {
     try {
+      // 支持多次调用选择文件
       const result = await DocumentPicker.getDocumentAsync({
         type: [
           'application/vnd.ms-excel',
@@ -111,15 +112,23 @@ export default function FilesScreen() {
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'application/pdf',
         ],
+        // Expo DocumentPicker不支持多选，只能一次选一个
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
         return;
       }
 
+      // 检查文件大小（50MB）
       const file = result.assets[0];
+      if (file.size && file.size > 50 * 1024 * 1024) {
+        Alert.alert('提示', `${file.name} 超过50MB限制，无法上传`);
+        return;
+      }
+
+      // 构建FormData
       const formData = new FormData();
-      formData.append('file', {
+      formData.append('files', {
         uri: file.uri,
         name: file.name,
         type: file.mimeType || 'application/octet-stream',
@@ -137,7 +146,7 @@ export default function FilesScreen() {
         throw new Error(data.error || '上传失败');
       }
 
-      Alert.alert('成功', '文件上传成功');
+      Alert.alert('成功', data.message || '文件上传成功');
       fetchFiles(selectedTag || undefined);
     } catch (error: any) {
       Alert.alert('错误', error.message);

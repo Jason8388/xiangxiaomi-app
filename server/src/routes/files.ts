@@ -7,7 +7,13 @@ const router = express.Router();
 
 // 配置multer用于文件上传
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB
+    files: 5, // 最多5个文件
+  },
+});
 
 // 判断文件类型
 const getFileType = (mimeType: string): string => {
@@ -157,41 +163,62 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/v1/files/upload - 上传文件
-router.post('/upload', upload.single('file'), async (req, res) => {
+// POST /api/v1/files/upload - 上传文件（支持多文件上传，最多5个，每个不超过50MB）
+router.post('/upload', upload.array('files', 5), async (req, res) => {
   try {
-    if (!req.file) {
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
       return res.status(400).json({ error: '请选择文件' });
     }
 
-    const { originalname, mimetype, size, buffer } = req.file;
     const uploader_id = req.body.uploader_id ? parseInt(req.body.uploader_id) : 1;
     const description = req.body.description || '';
-    const file_type = getFileType(mimetype);
+    const results: any[] = [];
 
-    // 检查是否是文档类型
-    const validTypes = ['excel', 'ppt', 'word', 'pdf'];
-    if (!validTypes.includes(file_type)) {
-      return res.status(400).json({ error: '仅支持上传Excel、PPT、Word、PDF格式的文件' });
+    // 批量处理文件
+    for (const file of files) {
+      const { originalname, mimetype, size, buffer } = file;
+      const file_type = getFileType(mimetype);
+
+      // 检查文件大小
+      if (size > 50 * 1024 * 1024) {
+        return res.status(400).json({
+          error: `文件 ${originalname} 超过50MB限制，无法上传`
+        });
+      }
+
+      // 检查是否是文档类型
+      const validTypes = ['excel', 'ppt', 'word', 'pdf'];
+      if (!validTypes.includes(file_type)) {
+        return res.status(400).json({
+          error: `文件 ${originalname} 格式不支持，仅支持Excel、PPT、Word、PDF格式`
+        });
+      }
+
+      // 生成文件名
+      const fileName = `${randomUUID()}.${originalname.split('.').pop()}`;
+
+      // TODO: 上传到对象存储，这里暂时使用模拟URL
+      const file_url = `https://example.com/files/${fileName}`;
+
+      // 保存文件信息到数据库
+      const result = await pool.query(
+        `INSERT INTO files (file_name, file_type, original_name, file_size, file_url, uploader_id, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [fileName, file_type, originalname, size, file_url, uploader_id, description]
+      );
+
+      results.push(result.rows[0]);
     }
 
-    // 生成文件名
-    const fileName = `${randomUUID()}.${originalname.split('.').pop()}`;
-
-    // TODO: 上传到对象存储，这里暂时使用模拟URL
-    const file_url = `https://example.com/files/${fileName}`;
-
-    // 保存文件信息到数据库
-    const result = await pool.query(
-      `INSERT INTO files (file_name, file_type, original_name, file_size, file_url, uploader_id, description)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [fileName, file_type, originalname, size, file_url, uploader_id, description]
-    );
-
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({
+      message: `成功上传${results.length}个文件`,
+      files: results
+    });
   } catch (error: any) {
-    console.error('Upload file error:', error);
+    console.error('Upload files error:', error);
     res.status(500).json({ error: '文件上传失败' });
   }
 });
@@ -361,6 +388,201 @@ router.post('/tags', async (req, res) => {
     }
     console.error('Create tag error:', error);
     res.status(500).json({ error: '创建标签失败' });
+  }
+});
+
+// POST /api/v1/files/upload/initiate - 初始化分片上传
+router.post('/upload/initiate', async (req, res) => {
+  try {
+    const { file_name, file_size, file_type, uploader_id, description, chunk_count } = req.body;
+
+    if (!file_name || !file_size || !file_type || !chunk_count) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+
+    // 检查文件大小
+    if (file_size > 50 * 1024 * 1024) {
+      return res.status(400).json({ error: '文件大小超过50MB限制' });
+    }
+
+    // 检查是否是文档类型
+    const validTypes = ['excel', 'ppt', 'word', 'pdf'];
+    if (!validTypes.includes(file_type)) {
+      return res.status(400).json({ error: '文件格式不支持，仅支持Excel、PPT、Word、PDF格式' });
+    }
+
+    // 生成文件名和上传ID
+    const uploadId = randomUUID();
+    const fileName = `${randomUUID()}.${file_name.split('.').pop()}`;
+
+    // 保存上传记录
+    const result = await pool.query(
+      `INSERT INTO file_uploads (upload_id, file_name, file_type, original_name, file_size, uploader_id, description, chunk_count, status, uploaded_chunks)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'uploading', ARRAY[]::integer[])
+       RETURNING *`,
+      [uploadId, fileName, file_type, file_name, file_size, uploader_id || 1, description, chunk_count]
+    );
+
+    res.status(201).json({
+      upload_id: uploadId,
+      file_name: fileName,
+      chunk_count,
+      message: '上传已初始化'
+    });
+  } catch (error: any) {
+    console.error('Initiate upload error:', error);
+    res.status(500).json({ error: '初始化上传失败' });
+  }
+});
+
+// POST /api/v1/files/upload/chunk - 上传分片
+router.post('/upload/chunk', upload.single('chunk'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请选择文件分片' });
+    }
+
+    const { upload_id, chunk_index } = req.body;
+    const chunkData = req.file.buffer;
+
+    // 查询上传记录
+    const uploadResult = await pool.query(
+      'SELECT * FROM file_uploads WHERE upload_id = $1',
+      [upload_id]
+    );
+
+    if (uploadResult.rows.length === 0) {
+      return res.status(404).json({ error: '上传记录不存在' });
+    }
+
+    const upload = uploadResult.rows[0];
+
+    // 检查分片索引是否有效
+    if (chunk_index < 0 || chunk_index >= upload.chunk_count) {
+      return res.status(400).json({ error: '无效的分片索引' });
+    }
+
+    // 保存分片到临时目录
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const tmpDir = '/tmp/file_chunks';
+    await fs.mkdir(tmpDir, { recursive: true });
+    const chunkPath = path.join(tmpDir, `${upload_id}_${chunk_index}`);
+    await fs.writeFile(chunkPath, chunkData);
+
+    // 更新已上传分片列表
+    await pool.query(
+      `UPDATE file_uploads
+       SET uploaded_chunks = array_append(uploaded_chunks, $1)
+       WHERE upload_id = $2`,
+      [parseInt(chunk_index), upload_id]
+    );
+
+    res.json({
+      message: '分片上传成功',
+      chunk_index: parseInt(chunk_index),
+      uploaded_chunks: [...upload.uploaded_chunks, parseInt(chunk_index)]
+    });
+  } catch (error: any) {
+    console.error('Upload chunk error:', error);
+    res.status(500).json({ error: '分片上传失败' });
+  }
+});
+
+// POST /api/v1/files/upload/complete - 完成上传（合并分片）
+router.post('/upload/complete', async (req, res) => {
+  try {
+    const { upload_id } = req.body;
+
+    // 查询上传记录
+    const uploadResult = await pool.query(
+      'SELECT * FROM file_uploads WHERE upload_id = $1',
+      [upload_id]
+    );
+
+    if (uploadResult.rows.length === 0) {
+      return res.status(404).json({ error: '上传记录不存在' });
+    }
+
+    const upload = uploadResult.rows[0];
+
+    // 检查所有分片是否已上传
+    if (upload.uploaded_chunks.length !== upload.chunk_count) {
+      return res.status(400).json({
+        error: '还有分片未上传完成',
+        uploaded: upload.uploaded_chunks.length,
+        total: upload.chunk_count
+      });
+    }
+
+    // 合并分片
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const tmpDir = '/tmp/file_chunks';
+
+    const chunks: Buffer[] = [];
+    for (let i = 0; i < upload.chunk_count; i++) {
+      const chunkPath = path.join(tmpDir, `${upload_id}_${i}`);
+      const chunkData = await fs.readFile(chunkPath);
+      chunks.push(chunkData);
+      await fs.unlink(chunkPath); // 删除分片文件
+    }
+
+    const completeFile = Buffer.concat(chunks);
+
+    // 生成最终文件URL
+    const file_url = `https://example.com/files/${upload.file_name}`;
+
+    // 保存文件信息到数据库
+    const result = await pool.query(
+      `INSERT INTO files (file_name, file_type, original_name, file_size, file_url, uploader_id, description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [upload.file_name, upload.file_type, upload.original_name, upload.file_size, file_url, upload.uploader_id, upload.description]
+    );
+
+    // 更新上传状态
+    await pool.query(
+      `UPDATE file_uploads SET status = 'completed', file_id = $1 WHERE upload_id = $2`,
+      [result.rows[0].id, upload_id]
+    );
+
+    res.status(201).json({
+      message: '文件上传完成',
+      file: result.rows[0]
+    });
+  } catch (error: any) {
+    console.error('Complete upload error:', error);
+    res.status(500).json({ error: '完成上传失败' });
+  }
+});
+
+// GET /api/v1/files/upload/:uploadId - 查询上传状态
+router.get('/upload/:uploadId', async (req, res) => {
+  try {
+    const { uploadId } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM file_uploads WHERE upload_id = $1',
+      [uploadId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '上传记录不存在' });
+    }
+
+    const upload = result.rows[0];
+
+    res.json({
+      upload_id: upload.upload_id,
+      status: upload.status,
+      uploaded_chunks: upload.uploaded_chunks,
+      total_chunks: upload.chunk_count,
+      progress: (upload.uploaded_chunks.length / upload.chunk_count * 100).toFixed(2)
+    });
+  } catch (error: any) {
+    console.error('Get upload status error:', error);
+    res.status(500).json({ error: '查询上传状态失败' });
   }
 });
 

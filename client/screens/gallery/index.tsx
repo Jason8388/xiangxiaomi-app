@@ -6,6 +6,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function GalleryScreen() {
   const [mediaList, setMediaList] = useState<any[]>([]);
@@ -126,10 +127,18 @@ export default function GalleryScreen() {
   };
 
   const handlePickMedia = async () => {
+    // 请求权限
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('提示', '需要相册权限才能选择照片和视频');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images', 'videos'],
       allowsEditing: false,
       quality: 0.8,
+      // Expo ImagePicker默认支持单文件选择
     });
 
     if (result.canceled) {
@@ -141,17 +150,51 @@ export default function GalleryScreen() {
     }
 
     const asset = result.assets[0];
+
+    // 处理照片压缩
+    let processedAsset = asset;
+    if (asset.type === 'image') {
+      try {
+        const compressed = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 1920 } }], // 限制最大宽度为1920
+          {
+            compress: 0.8,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: false,
+          }
+        );
+        processedAsset = {
+          ...asset,
+          uri: compressed.uri,
+        };
+      } catch (error) {
+        console.error('Image compression error:', error);
+      }
+    }
+
+    // 检查文件大小限制
+    // 注意：压缩后无法直接获取文件大小，需要依赖后端验证
+    const fileSize = asset.fileSize || 0;
+
+    if (asset.type === 'image' && fileSize > 20 * 1024 * 1024) {
+      Alert.alert('提示', `${asset.fileName || '照片'} 超过照片20MB限制，无法上传`);
+      return;
+    }
+
+    if (asset.type === 'video' && fileSize > 200 * 1024 * 1024) {
+      Alert.alert('提示', `${asset.fileName || '视频'} 超过视频200MB限制，无法上传`);
+      return;
+    }
+
+    // 构建FormData
     const formData = new FormData();
-    formData.append('file', {
-      uri: asset.uri,
-      name: asset.fileName || 'media',
-      type: asset.mimeType || 'image/jpeg',
+    formData.append('files', {
+      uri: processedAsset.uri,
+      name: processedAsset.fileName || 'media',
+      type: processedAsset.mimeType || (asset.type === 'image' ? 'image/jpeg' : 'video/mp4'),
     } as any);
     formData.append('uploader_id', user?.id || '1');
-
-    if (asset.width) formData.append('width', asset.width.toString());
-    if (asset.height) formData.append('height', asset.height.toString());
-    if (asset.duration) formData.append('duration', asset.duration.toString());
 
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/upload`, {
@@ -165,7 +208,7 @@ export default function GalleryScreen() {
         throw new Error(data.error || '上传失败');
       }
 
-      Alert.alert('成功', '媒体上传成功');
+      Alert.alert('成功', data.message || '媒体上传成功');
       fetchMedia(selectedTag || undefined, selectedUploader || undefined);
     } catch (error: any) {
       Alert.alert('错误', error.message);
@@ -414,7 +457,7 @@ export default function GalleryScreen() {
                 <View style={styles.mediaPreview}>
                   {media.media_type === 'video' ? (
                     <>
-                      <FontAwesome6 name="play-circle" size={40} color="#FFFFFF" />
+                      <FontAwesome6 name="circle-play" size={40} color="#FFFFFF" />
                       {media.duration && (
                         <View style={styles.durationBadge}>
                           <Text style={styles.durationText}>{formatDuration(media.duration)}</Text>
@@ -664,7 +707,7 @@ const styles = {
     width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: 'hidden' as const,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,

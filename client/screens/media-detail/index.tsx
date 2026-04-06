@@ -209,7 +209,7 @@ export default function MediaDetailScreen() {
         >
           {media.media_type === 'video' ? (
             <>
-              <FontAwesome6 name="play-circle" size={64} color="#FFFFFF" />
+              <FontAwesome6 name="circle-play" size={64} color="#FFFFFF" />
               {media.duration && (
                 <View style={styles.durationBadgeLarge}>
                   <Text style={styles.durationTextLarge}>{formatDuration(media.duration)}</Text>
