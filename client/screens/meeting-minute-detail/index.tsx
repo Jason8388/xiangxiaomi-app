@@ -32,6 +32,7 @@ interface MeetingMinute {
   customer_name?: string;
   project_id?: number;
   project_name?: string;
+  tags?: { id: number; tag: string }[];
   created_at: string;
   updated_at: string;
 }
@@ -341,6 +342,26 @@ export default function MeetingMinuteDetail() {
           </View>
         </View>
 
+        {/* 标签信息 */}
+        {minute.tags && minute.tags.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <FontAwesome6 name="tags" size={16} color="#9B59B6" />
+              <Text style={styles.sectionTitle}>标签</Text>
+            </View>
+            <View style={styles.tagsCard}>
+              <View style={styles.tagsContainer}>
+                {minute.tags.map((tagItem, index) => (
+                  <View key={index} style={styles.tagBadge}>
+                    <FontAwesome6 name="tag" size={12} color="#9B59B6" />
+                    <Text style={styles.tagText}>{tagItem.tag}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* 时间信息 */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -531,5 +552,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#95A5A6',
     marginTop: 8,
+  },
+  tagsCard: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    padding: 16,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+  },
+  tagText: {
+    fontSize: 13,
+    color: '#9B59B6',
+    fontWeight: '500',
   },
 });

@@ -204,7 +204,7 @@ export default function HomeScreen() {
       </Screen>
     );
   }
-};
+}
 
 const styles = StyleSheet.create({
   loadingContainer: {
@@ -274,3 +274,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#2D3436',
     textAlign: 'center',
+  },
+});

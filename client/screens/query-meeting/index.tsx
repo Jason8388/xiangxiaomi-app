@@ -26,7 +26,7 @@ interface QueryMeeting {
   file_url?: string;
   customer_name?: string;
   project_name?: string;
-  tags: string[];
+  tags?: { id: number; tag: string }[];
   created_at: string;
 }
 
@@ -55,7 +55,7 @@ export default function QueryMeeting() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/query/meetings?keyword=${encodeURIComponent(searchKeyword)}`
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/search?keyword=${encodeURIComponent(searchKeyword)}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -171,6 +171,20 @@ export default function QueryMeeting() {
                     {meeting.topics}
                   </Text>
                 </View>
+
+                {meeting.tags && meeting.tags.length > 0 && (
+                  <View style={styles.tagsContainer}>
+                    {meeting.tags.slice(0, 5).map((tagItem, index) => (
+                      <View key={index} style={styles.tagBadge}>
+                        <FontAwesome6 name="tag" size={10} color="#9B59B6" />
+                        <Text style={styles.tagText}>{tagItem.tag}</Text>
+                      </View>
+                    ))}
+                    {meeting.tags.length > 5 && (
+                      <Text style={styles.moreTagsText}>+{meeting.tags.length - 5}</Text>
+                    )}
+                  </View>
+                )}
 
                 <View style={styles.meetingFooter}>
                   <View style={styles.fileStatus}>
@@ -379,5 +393,30 @@ const styles = StyleSheet.create({
   uploadDate: {
     fontSize: 12,
     color: '#95A5A6',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  tagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+  },
+  tagText: {
+    fontSize: 11,
+    color: '#9B59B6',
+    fontWeight: '500',
+  },
+  moreTagsText: {
+    fontSize: 11,
+    color: '#95A5A6',
+    alignSelf: 'center',
   },
 });

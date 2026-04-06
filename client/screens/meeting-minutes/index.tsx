@@ -33,6 +33,7 @@ interface MeetingMinute {
   customer_name?: string;
   project_id?: number;
   project_name?: string;
+  tags?: { id: number; tag: string }[];
   created_at: string;
   updated_at: string;
 }
@@ -351,6 +352,17 @@ export default function MeetingMinutes() {
                 </Text>
               </View>
 
+              {minute.tags && minute.tags.length > 0 && (
+                <View style={styles.tagsContainer}>
+                  {minute.tags.map((tagItem, index) => (
+                    <View key={index} style={styles.tagBadge}>
+                      <FontAwesome6 name="tag" size={10} color="#9B59B6" />
+                      <Text style={styles.tagText}>{tagItem.tag}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               <View style={styles.cardFooter}>
                 <View style={styles.fileStatus}>
                   <FontAwesome6
@@ -574,5 +586,25 @@ const styles = StyleSheet.create({
   updateDate: {
     fontSize: 12,
     color: '#95A5A6',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  tagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+  },
+  tagText: {
+    fontSize: 11,
+    color: '#9B59B6',
+    fontWeight: '500',
   },
 });

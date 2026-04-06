@@ -32,6 +32,7 @@ interface FormData {
   customer_id?: number;
   project_id?: number;
   viewable_users?: string;
+  tags: string[];
 }
 
 const MEETING_TYPES = [
@@ -74,6 +75,7 @@ export default function MeetingMinuteCreate() {
     topics: '',
     key_points: '',
     summary: '',
+    tags: [],
   });
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export default function MeetingMinuteCreate() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -110,6 +113,7 @@ export default function MeetingMinuteCreate() {
           summary: data.summary,
           customer_id: data.customer_id,
           project_id: data.project_id,
+          tags: data.tags ? data.tags.map((t: any) => t.tag) : [],
         });
         setSelectedDate(new Date(data.meeting_date));
         setUploadedFile(data.file_url || null);
@@ -199,6 +203,7 @@ export default function MeetingMinuteCreate() {
       setLoading(true);
       const submitData = {
         ...formData,
+        tags: formData.tags,
         customer_id: formData.meeting_type === 'customer-meeting' ? selectedCustomer?.id : null,
         project_id: formData.meeting_type === 'customer-meeting' ? selectedProject?.id : null,
       };
@@ -239,6 +244,28 @@ export default function MeetingMinuteCreate() {
 
   const getSelectedMeetingType = () => {
     return MEETING_TYPES.find((t) => t.value === formData.meeting_type)?.label || '请选择';
+  };
+
+  const handleAddTag = () => {
+    const trimmedTag = tagInput.trim();
+    if (!trimmedTag) return;
+    if (formData.tags.length >= 10) {
+      Alert.alert('提示', '最多只能添加10个标签');
+      return;
+    }
+    if (formData.tags.includes(trimmedTag)) {
+      Alert.alert('提示', '该标签已存在');
+      return;
+    }
+    setFormData({ ...formData, tags: [...formData.tags, trimmedTag] });
+    setTagInput('');
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData({
+      ...formData,
+      tags: formData.tags.filter((tag) => tag !== tagToRemove),
+    });
   };
 
   return (
@@ -497,6 +524,43 @@ export default function MeetingMinuteCreate() {
                 <FontAwesome6 name="cloud-arrow-up" size={20} color="#1E88E5" />
                 <Text style={styles.uploadButtonText}>点击上传文件（PDF）</Text>
               </TouchableOpacity>
+            )}
+          </View>
+
+          {/* 标签 */}
+          <View style={styles.formSection}>
+            <View style={styles.labelContainer}>
+              <FontAwesome6 name="tags" size={16} color="#1E88E5" />
+              <Text style={styles.label}>标签 <Text style={styles.tagCountText}>({formData.tags.length}/10)</Text></Text>
+            </View>
+            <View style={styles.tagInputContainer}>
+              <TextInput
+                style={[styles.input, styles.tagInput]}
+                placeholder="输入标签后点击添加"
+                value={tagInput}
+                onChangeText={setTagInput}
+                onSubmitEditing={handleAddTag}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={[styles.addTagButton, formData.tags.length >= 10 && styles.addTagButtonDisabled]}
+                onPress={handleAddTag}
+                disabled={formData.tags.length >= 10}
+              >
+                <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            {formData.tags.length > 0 && (
+              <View style={styles.tagList}>
+                {formData.tags.map((tag, index) => (
+                  <View key={index} style={styles.tagItem}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                    <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
+                      <FontAwesome6 name="xmark" size={12} color="#E74C3C" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
             )}
           </View>
 
@@ -835,5 +899,47 @@ const styles = StyleSheet.create({
   optionTextActive: {
     color: '#1E88E5',
     fontWeight: '600',
+  },
+  tagCountText: {
+    fontSize: 12,
+    color: '#95A5A6',
+    fontWeight: '400',
+  },
+  tagInputContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  tagInput: {
+    flex: 1,
+  },
+  addTagButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#1E88E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addTagButtonDisabled: {
+    backgroundColor: '#BDC3C7',
+  },
+  tagList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  tagItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  tagText: {
+    fontSize: 13,
+    color: '#1E88E5',
   },
 });
