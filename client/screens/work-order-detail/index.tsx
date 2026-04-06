@@ -36,6 +36,13 @@ interface ServiceDocument {
   name?: string;
 }
 
+interface PaymentProgress {
+  id: string;
+  progress: string;
+  updated_at: string;
+  updated_by: string;
+}
+
 interface WorkOrderDetail {
   id: number;
   name?: string;
@@ -80,6 +87,13 @@ interface WorkOrderDetail {
   work_order_docs?: ServiceDocument[];
   site_completion_docs?: ServiceDocument[];
   work_order_signer?: string;
+  // 服务回款
+  invoice_application?: string; // '已申请' | '未申请'
+  invoice_completed?: string; // '已开票' | '待开票'
+  invoice_delivered?: string; // '是' | '否'
+  planned_payment_date?: string;
+  payment_progress_list?: PaymentProgress[];
+  actual_payment_date?: string;
 }
 
 export default function WorkOrderDetailScreen() {
@@ -101,6 +115,13 @@ export default function WorkOrderDetailScreen() {
   const [documentPickerType, setDocumentPickerType] = useState<'quote' | 'consensus'>('quote');
   const [implementationDocPickerVisible, setImplementationDocPickerVisible] = useState(false);
   const [implementationDocPickerType, setImplementationDocPickerType] = useState<'work_order' | 'site'>('work_order');
+  const [paymentProgressModalVisible, setPaymentProgressModalVisible] = useState(false);
+  const [paymentProgressText, setPaymentProgressText] = useState('');
+
+  // 开票状态选项
+  const invoiceApplicationOptions = ['已申请', '未申请'];
+  const invoiceCompletedOptions = ['已开票', '待开票'];
+  const invoiceDeliveredOptions = ['是', '否'];
 
   // 质保期状态选项
   const warrantyStatusOptions = ['质保期内', '质保期外'];
@@ -773,6 +794,82 @@ export default function WorkOrderDetailScreen() {
     setImplementationDocPickerVisible(true);
   };
 
+  // 回款进度相关函数
+  const handleAddPaymentProgress = () => {
+    setPaymentProgressText('');
+    setPaymentProgressModalVisible(true);
+  };
+
+  const handleSavePaymentProgress = async () => {
+    if (!order) return;
+    if (!paymentProgressText.trim()) {
+      Alert.alert('提示', '请输入回款进展情况');
+      return;
+    }
+
+    try {
+      const newProgress: PaymentProgress = {
+        id: Date.now().toString(),
+        progress: paymentProgressText.trim(),
+        updated_at: new Date().toISOString(),
+        updated_by: '当前用户', // TODO: 实际应从登录用户获取
+      };
+
+      const currentList = order.payment_progress_list || [];
+      const updatedList = [...currentList, newProgress];
+
+      const formData = new FormData();
+      formData.append('payment_progress_list', JSON.stringify(updatedList));
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+        {
+          method: 'PUT',
+          body: formData,
+        }
+      );
+
+      if (response.ok) {
+        setOrder({ ...order, payment_progress_list: updatedList });
+        setPaymentProgressModalVisible(false);
+        Alert.alert('成功', '回款进度添加成功');
+      } else {
+        throw new Error('添加失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 处理开票相关字段的更新
+  const handleInvoiceFieldUpdate = async (field: string, value: string) => {
+    if (!order) return;
+
+    try {
+      const updates: any = {};
+      updates[field] = value;
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }
+      );
+
+      if (response.ok) {
+        setOrder({ ...order, [field]: value });
+        setSelectModalVisible(false);
+        Alert.alert('成功', '修改成功');
+      } else {
+        throw new Error('修改失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
   const renderInfoRow = (label: string, value: string | number, field?: string, isEditable = false) => (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -1223,6 +1320,115 @@ export default function WorkOrderDetailScreen() {
           </View>
         </View>
 
+        {/* 栏7：服务回款 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="yen-sign" size={20} color="#F39C12" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>服务回款</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            {/* 是否申请开票 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>是否申请开票</Text>
+              <TouchableOpacity
+                style={styles.infoValueContainer}
+                onPress={() => {
+                  setSelectOptions(invoiceApplicationOptions);
+                  setSelectTitle('选择是否申请开票');
+                  setEditValue(order.invoice_application || '');
+                  setEditingDemandField('invoice_application');
+                  setSelectModalVisible(true);
+                }}
+              >
+                <Text style={[styles.infoValue, !order.invoice_application && styles.infoValuePlaceholder]}>
+                  {order.invoice_application || '请选择'}
+                </Text>
+                <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 开票是否完成 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>开票是否完成</Text>
+              <TouchableOpacity
+                style={styles.infoValueContainer}
+                onPress={() => {
+                  setSelectOptions(invoiceCompletedOptions);
+                  setSelectTitle('选择开票状态');
+                  setEditValue(order.invoice_completed || '');
+                  setEditingDemandField('invoice_completed');
+                  setSelectModalVisible(true);
+                }}
+              >
+                <Text style={[styles.infoValue, !order.invoice_completed && styles.infoValuePlaceholder]}>
+                  {order.invoice_completed || '请选择'}
+                </Text>
+                <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 发票是否送达客户 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>发票是否送达</Text>
+              <TouchableOpacity
+                style={styles.infoValueContainer}
+                onPress={() => {
+                  setSelectOptions(invoiceDeliveredOptions);
+                  setSelectTitle('选择发票送达状态');
+                  setEditValue(order.invoice_delivered || '');
+                  setEditingDemandField('invoice_delivered');
+                  setSelectModalVisible(true);
+                }}
+              >
+                <Text style={[styles.infoValue, !order.invoice_delivered && styles.infoValuePlaceholder]}>
+                  {order.invoice_delivered === '是' ? '是' : order.invoice_delivered === '否' ? '否' : '请选择'}
+                </Text>
+                <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 计划回款日期 */}
+            {renderInfoRow('计划回款日期', order.planned_payment_date || '', 'planned_payment_date', true)}
+
+            {/* 实际回款日期 */}
+            {renderInfoRow('实际回款日期', order.actual_payment_date || '', 'actual_payment_date', true)}
+
+            {/* 回款进展情况记录 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>回款进展情况</Text>
+              <TouchableOpacity
+                style={styles.addProgressButton}
+                onPress={handleAddPaymentProgress}
+              >
+                <FontAwesome6 name="plus" size={12} color="#6C63FF" />
+                <Text style={styles.addProgressButtonText}>添加</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.paymentProgressSection}>
+              {order.payment_progress_list && order.payment_progress_list.length > 0 ? (
+                order.payment_progress_list.map((item, index) => (
+                  <View key={item.id} style={styles.paymentProgressItem}>
+                    <View style={styles.paymentProgressHeader}>
+                      <View style={styles.paymentProgressNumber}>
+                        <Text style={styles.paymentProgressNumberText}>{index + 1}</Text>
+                      </View>
+                      <Text style={styles.paymentProgressDate}>
+                        {item.updated_at ? new Date(item.updated_at).toLocaleDateString('zh-CN') : ''}
+                      </Text>
+                    </View>
+                    <Text style={styles.paymentProgressContent}>{item.progress}</Text>
+                    <Text style={styles.paymentProgressAuthor}>更新人：{item.updated_by}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyPaymentProgress}>
+                  <Text style={styles.emptyPaymentProgressText}>暂无回款进度记录</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
         {/* 工单描述 */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -1406,6 +1612,48 @@ export default function WorkOrderDetailScreen() {
                   />
                 </View>
               </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 回款进度添加 Modal */}
+      <Modal
+        visible={paymentProgressModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPaymentProgressModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setPaymentProgressModalVisible(false)}>
+                  <Text style={styles.modalCancelButton}>取消</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>添加回款进度</Text>
+                <TouchableOpacity onPress={handleSavePaymentProgress}>
+                  <Text style={styles.modalSaveButton}>保存</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalBody}>
+                <Text style={styles.formLabel}>回款进展情况 *</Text>
+                <TextInput
+                  style={[styles.modalInput, styles.modalTextArea]}
+                  value={paymentProgressText}
+                  onChangeText={setPaymentProgressText}
+                  placeholder="请输入回款进展情况"
+                  multiline
+                  numberOfLines={4}
+                  autoFocus
+                />
+                <Text style={styles.formHint}>
+                  提交后将自动记录更新日期和更新人，不可删除
+                </Text>
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -1692,6 +1940,78 @@ const styles = {
   modalTextArea: {
     minHeight: 100,
     textAlignVertical: 'top' as const,
+  },
+  addProgressButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(108, 99, 255, 0.1)',
+  },
+  addProgressButtonText: {
+    fontSize: 12,
+    color: '#6C63FF',
+    fontWeight: '500' as const,
+    marginLeft: 4,
+  },
+  paymentProgressSection: {
+    marginTop: 8,
+  },
+  paymentProgressItem: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  paymentProgressHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  paymentProgressNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#6C63FF',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginRight: 8,
+  },
+  paymentProgressNumberText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: 'bold' as const,
+  },
+  paymentProgressDate: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  paymentProgressContent: {
+    fontSize: 14,
+    color: '#2D3436',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  paymentProgressAuthor: {
+    fontSize: 11,
+    color: '#B2BEC3',
+    textAlign: 'right' as const,
+  },
+  emptyPaymentProgress: {
+    alignItems: 'center' as const,
+    paddingVertical: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+  },
+  emptyPaymentProgressText: {
+    fontSize: 12,
+    color: '#B2BEC3',
+  },
+  formHint: {
+    fontSize: 11,
+    color: '#B2BEC3',
+    marginTop: 8,
   },
   addButton: {
     flexDirection: 'row' as const,
