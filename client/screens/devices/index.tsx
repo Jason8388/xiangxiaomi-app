@@ -8,7 +8,9 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -52,6 +54,8 @@ export default function DeviceManagement() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [deviceTypeFilter, setDeviceTypeFilter] = useState('');
+  const [sitePhotos, setSitePhotos] = useState<string[]>([]);
+  const [qrCode, setQrCode] = useState<string>('');
   const [formData, setFormData] = useState({
     device_number: '',
     device_name: '',
@@ -141,7 +145,22 @@ export default function DeviceManagement() {
       location: device.location || '',
       remarks: device.remarks || '',
     });
+    // 加载现场照片
+    if (device.site_photos && Array.isArray(device.site_photos)) {
+      setSitePhotos(device.site_photos);
+    } else {
+      setSitePhotos([]);
+    }
+    // 生成二维码
+    setQrCode(`S${device.id}`);
     setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setEditingDevice(null);
+    setSitePhotos([]);
+    setQrCode('');
   };
 
   const handleSave = async () => {
@@ -151,26 +170,47 @@ export default function DeviceManagement() {
     }
 
     try {
-      const response = editingDevice
-        ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${editingDevice.id}`,
-            {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(formData),
-            }
-          )
-        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData),
-          });
+      // 构建FormData以支持文件上传
+      const data = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (formData[key as keyof typeof formData]) {
+          data.append(key, formData[key as keyof typeof formData]);
+        }
+      });
 
-      const data = await response.json();
+      // 上传照片
+      if (sitePhotos.length > 0) {
+        sitePhotos.forEach((photoUri, index) => {
+          data.append(`site_photo_${index}`, {
+            uri: photoUri,
+            type: 'image/jpeg',
+            name: `site_photo_${index}.jpg`,
+          } as any);
+        });
+      }
+
+      // 生成设备二维码（设备ID + 前缀S）
+      // 如果是编辑模式，使用现有ID；如果是新增模式，使用temp_前缀
+      const deviceId = editingDevice ? editingDevice.id : `temp_${Date.now()}`;
+      const qrCodeValue = `S${deviceId}`;
+      data.append('qr_code', qrCodeValue);
+
+      const url = editingDevice
+        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${editingDevice.id}`
+        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`;
+
+      const response = await fetch(url, {
+        method: editingDevice ? 'PUT' : 'POST',
+        body: data,
+      });
+
+      const dataJson = await response.json();
 
       if (response.ok) {
         Alert.alert('成功', editingDevice ? '修改成功' : '创建成功');
         setModalVisible(false);
+        setSitePhotos([]);
+        setQrCode('');
         setLoading(true);
         const loadResponse = await fetch(
           `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`
@@ -184,10 +224,77 @@ export default function DeviceManagement() {
         }
         setLoading(false);
       } else {
-        throw new Error(data.error || '操作失败');
+        throw new Error(dataJson.error || '操作失败');
       }
     } catch (error: any) {
       Alert.alert('错误', error.message);
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      // 请求相册权限
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相册权限才能上传照片');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+        aspect: [4, 3],
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setSitePhotos([...sitePhotos, selectedUri]);
+      }
+    } catch (error) {
+      Alert.alert('错误', '选择图片失败');
+    }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    const newPhotos = sitePhotos.filter((_, i) => i !== index);
+    setSitePhotos(newPhotos);
+  };
+
+  const handleOpenCamera = async () => {
+    try {
+      // 请求相机权限
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相机权限才能拍照');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+        aspect: [4, 3],
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const takenUri = result.assets[0].uri;
+        setSitePhotos([...sitePhotos, takenUri]);
+      }
+    } catch (error) {
+      Alert.alert('错误', '拍照失败');
+    }
+  };
+
+  const generateQRCode = () => {
+    if (editingDevice) {
+      // 编辑模式：使用现有设备ID
+      setQrCode(`S${editingDevice.id}`);
+    } else if (formData.device_number) {
+      // 新增模式：使用设备编号（临时方案）
+      setQrCode(`S${formData.device_number}`);
+    } else {
+      Alert.alert('提示', '请先输入设备编号');
     }
   };
 
@@ -556,6 +663,67 @@ export default function DeviceManagement() {
                 />
               </View>
 
+              {/* 设备现场照片 */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备现场照片</Text>
+                <View style={styles.photoContainer}>
+                  {sitePhotos.map((photoUri, index) => (
+                    <View key={index} style={styles.photoItem}>
+                      <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                      <TouchableOpacity
+                        style={styles.photoRemoveButton}
+                        onPress={() => handleRemovePhoto(index)}
+                      >
+                        <FontAwesome6 name="xmark" size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {sitePhotos.length < 5 && (
+                    <TouchableOpacity
+                      style={styles.photoAddButton}
+                      onPress={handlePickImage}
+                    >
+                      <FontAwesome6 name="image" size={24} color="#1E88E5" />
+                      <Text style={styles.photoAddButtonText}>选择照片</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={styles.photoActions}>
+                  <TouchableOpacity style={styles.photoActionButton} onPress={handleOpenCamera}>
+                    <FontAwesome6 name="camera" size={16} color="#1E88E5" />
+                    <Text style={styles.photoActionText}>拍照</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 设备二维码 */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>设备二维码</Text>
+                <View style={styles.qrCodeContainer}>
+                  {qrCode ? (
+                    <View style={styles.qrCodeDisplay}>
+                      <FontAwesome6 name="qrcode" size={80} color="#2D3436" />
+                      <Text style={styles.qrCodeValue}>{qrCode}</Text>
+                      <Text style={styles.qrCodeHint}>扫码可查看设备详情</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.qrCodePlaceholder}>
+                      <FontAwesome6 name="qrcode" size={60} color="#B2BEC3" />
+                      <Text style={styles.qrCodePlaceholderText}>点击生成二维码</Text>
+                    </View>
+                  )}
+                </View>
+                {!qrCode && (
+                  <TouchableOpacity
+                    style={styles.generateQrButton}
+                    onPress={generateQRCode}
+                  >
+                    <FontAwesome6 name="rotate" size={16} color="#FFFFFF" />
+                    <Text style={styles.generateQrButtonText}>生成二维码</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>备注</Text>
                 <TextInput
@@ -894,6 +1062,111 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E88E5',
   },
   saveButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  photoContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 12,
+  },
+  photoItem: {
+    width: 100,
+    height: 100,
+    position: 'relative',
+  },
+  photoPreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  photoRemoveButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoAddButton: {
+    width: 100,
+    height: 100,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  photoAddButtonText: {
+    fontSize: 12,
+    color: '#1E88E5',
+  },
+  photoActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  photoActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#1E88E5',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  photoActionText: {
+    fontSize: 14,
+    color: '#1E88E5',
+    fontWeight: '500',
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  qrCodeDisplay: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  qrCodeValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  qrCodeHint: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  qrCodePlaceholder: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  qrCodePlaceholderText: {
+    fontSize: 14,
+    color: '#B2BEC3',
+  },
+  generateQrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: '#1E88E5',
+    borderRadius: 8,
+  },
+  generateQrButtonText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
