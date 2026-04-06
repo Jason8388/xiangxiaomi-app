@@ -80,6 +80,15 @@ function RootLayoutInner() {
         <Stack.Screen name="meeting-minute-detail" options={{ title: "" }} />
         <Stack.Screen name="meeting-minute-create" options={{ title: "" }} />
         <Stack.Screen name="meeting-minute-edit" options={{ title: "" }} />
+        <Stack.Screen name="query-assistant" options={{ title: "" }} />
+        <Stack.Screen name="query-scan" options={{ title: "" }} />
+        <Stack.Screen name="query-file" options={{ title: "" }} />
+        <Stack.Screen name="query-meeting" options={{ title: "" }} />
+        <Stack.Screen name="query-customer" options={{ title: "" }} />
+        <Stack.Screen name="query-device" options={{ title: "" }} />
+        <Stack.Screen name="query-contract" options={{ title: "" }} />
+        <Stack.Screen name="query-material" options={{ title: "" }} />
+        <Stack.Screen name="query-after-sales" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}
       <Toast />
