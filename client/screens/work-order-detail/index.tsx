@@ -1,16 +1,74 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
+interface WorkOrderDetail {
+  id: number;
+  name?: string;
+  order_no: string;
+  task_number?: string;
+  customer_name?: string;
+  assignee_name?: string;
+  implement_subject?: string;
+  work_order_type?: string;
+  task_phase?: string;
+  task_progress?: string;
+  task_status?: string;
+  demand_assessment_period?: number;
+  service_implementation_period?: number;
+  payment_period?: number;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export default function WorkOrderDetailScreen() {
-  const [order, setOrder] = useState<any>(null);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [order, setOrder] = useState<WorkOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingField, setEditingField] = useState('');
+  const [editValue, setEditValue] = useState('');
+  const [selectModalVisible, setSelectModalVisible] = useState(false);
+  const [selectOptions, setSelectOptions] = useState<string[]>([]);
+  const [selectTitle, setSelectTitle] = useState('');
+
   const router = useSafeRouter();
   const { id } = useSafeSearchParams<{ id: string }>();
+
+  // 工单类型选项
+  const workOrderTypeOptions = ['收费工单', '免费工单', '待定工单'];
+
+  // 任务阶段选项
+  const taskPhaseOptions = ['需求阶段', '实施阶段', '回款阶段', '关单存档', '异常状态'];
+
+  // 任务进度选项（根据工单类型变化）
+  const getTaskProgressOptions = (type: string) => {
+    switch (type) {
+      case '收费工单':
+        return ['需求调研', '方案报价', '合同签订', '服务实施', '验收交付', '回款结算'];
+      case '免费工单':
+        return ['需求收集', '技术支持', '问题解决', '客户确认', '记录归档'];
+      case '待定工单':
+        return ['信息登记', '需求评估', '方案制定', '待确认'];
+      default:
+        return [];
+    }
+  };
+
+  // 任务状态选项
+  const taskStatusOptions = ['未开始', '进行中', '已完成', '已暂停', '已取消'];
 
   useEffect(() => {
     fetchOrderDetail();
@@ -18,16 +76,31 @@ export default function WorkOrderDetailScreen() {
 
   const fetchOrderDetail = async () => {
     try {
-      const [orderRes, logsRes] = await Promise.all([
-        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${id}`),
-        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${id}/logs`),
-      ]);
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${id}`);
+      const data = await response.json();
 
-      const orderData = await orderRes.json();
-      const logsData = await logsRes.json();
+      // 转换数据结构以匹配新的字段
+      const transformedData: WorkOrderDetail = {
+        id: data.id,
+        name: data.description || '', // 工单名称使用description
+        order_no: data.order_no,
+        task_number: data.order_no, // 任务号默认使用order_no
+        customer_name: data.customer_name || '',
+        assignee_name: data.assignee_name || '',
+        implement_subject: '', // 新增字段，默认为空
+        work_order_type: data.is_charged ? '收费工单' : '免费工单', // 根据is_charged判断
+        task_phase: '需求阶段', // 默认值
+        task_progress: '', // 根据work_order_type动态设置
+        task_status: data.status === 'pending' ? '未开始' : data.status === 'processing' ? '进行中' : data.status === 'completed' ? '已完成' : '未开始',
+        demand_assessment_period: 0,
+        service_implementation_period: 0,
+        payment_period: 0,
+        description: data.description || '',
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
 
-      setOrder(orderData);
-      setLogs(Array.isArray(logsData) ? logsData : []);
+      setOrder(transformedData);
     } catch (error) {
       console.error('Fetch order detail error:', error);
       Alert.alert('错误', '获取工单详情失败');
@@ -36,55 +109,65 @@ export default function WorkOrderDetailScreen() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '#FDCB6E';
-      case 'processing':
-        return '#1E88E5';
-      case 'completed':
-        return '#00B894';
-      default:
-        return '#B2BEC3';
+  const handleEdit = (field: string, value: string) => {
+    setEditingField(field);
+    setEditValue(value);
+
+    // 下拉选择类型的字段
+    if (field === 'work_order_type') {
+      setSelectOptions(workOrderTypeOptions);
+      setSelectTitle('选择工单类型');
+      setSelectModalVisible(true);
+    } else if (field === 'task_phase') {
+      setSelectOptions(taskPhaseOptions);
+      setSelectTitle('选择任务阶段');
+      setSelectModalVisible(true);
+    } else if (field === 'task_progress') {
+      const type = order?.work_order_type || '免费工单';
+      setSelectOptions(getTaskProgressOptions(type));
+      setSelectTitle('选择任务进度');
+      setSelectModalVisible(true);
+    } else if (field === 'task_status') {
+      setSelectOptions(taskStatusOptions);
+      setSelectTitle('选择任务状态');
+      setSelectModalVisible(true);
+    } else {
+      // 文本输入类型
+      setEditModalVisible(true);
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '待处理';
-      case 'processing':
-        return '处理中';
-      case 'completed':
-        return '已完成';
-      default:
-        return status;
-    }
-  };
+  const handleSave = async () => {
+    if (!order) return;
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return '#FF6B6B';
-      case 'medium':
-        return '#FDCB6E';
-      case 'low':
-        return '#00B894';
-      default:
-        return '#B2BEC3';
-    }
-  };
+    try {
+      const updates: any = {};
+      updates[editingField] = editValue;
 
-  const getPriorityText = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return '高';
-      case 'medium':
-        return '中';
-      case 'low':
-        return '低';
-      default:
-        return priority;
+      // 特殊字段处理
+      if (editingField === 'name') {
+        updates.description = editValue;
+      }
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }
+      );
+
+      if (response.ok) {
+        setOrder({ ...order, [editingField]: editValue });
+        setEditModalVisible(false);
+        setSelectModalVisible(false);
+        Alert.alert('成功', '修改成功');
+      } else {
+        throw new Error('修改失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
     }
   };
 
@@ -97,19 +180,27 @@ export default function WorkOrderDetailScreen() {
     return `${year}-${month}-${day}`;
   };
 
-  const formatTime = (dateStr: string) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  };
+  const renderInfoRow = (label: string, value: string | number, field?: string, isEditable = false) => (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <TouchableOpacity
+        style={styles.infoValueContainer}
+        onPress={() => isEditable && field && handleEdit(field, String(value))}
+        disabled={!isEditable}
+      >
+        <Text style={[styles.infoValue, !value && styles.infoValuePlaceholder]}>
+          {value || '-'}
+        </Text>
+        {isEditable && field && (
+          <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
+        )}
+      </TouchableOpacity>
+    </View>
+  );
 
   if (loading) {
     return (
       <Screen>
-        <PageHeader title="工单详情" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 14, color: '#636E72' }}>加载中...</Text>
         </View>
@@ -120,7 +211,6 @@ export default function WorkOrderDetailScreen() {
   if (!order) {
     return (
       <Screen>
-        <PageHeader title="工单详情" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 14, color: '#636E72' }}>工单不存在</Text>
         </View>
@@ -130,224 +220,353 @@ export default function WorkOrderDetailScreen() {
 
   return (
     <Screen>
-      <PageHeader title="工单详情" />
+      {/* 顶部导航 */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+          <FontAwesome6 name="arrow-left" size={20} color="#2D3436" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>工单详情</Text>
+        <View style={styles.headerButton} />
+      </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 24 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
       >
-        {/* 工单基本信息 */}
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 24,
-            marginBottom: 16,
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            elevation: 4,
-          }}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <View>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#2D3436', marginBottom: 4 }}>
-                {order.order_no}
-              </Text>
-              <Text style={{ fontSize: 14, color: '#636E72' }}>
-                {order.customer_name}
-              </Text>
-            </View>
-            <View
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 12,
-                backgroundColor: `${getStatusColor(order.status)}20`,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: getStatusColor(order.status) }}>
-                {getStatusText(order.status)}
-              </Text>
-            </View>
+        {/* 栏1：基本情况 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="circle-info" size={20} color="#6C63FF" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>基本情况</Text>
           </View>
-
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: 'rgba(0,0,0,0.02)',
-                borderRadius: 8,
-                padding: 12,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginBottom: 4 }}>优先级</Text>
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: getPriorityColor(order.priority) }}>
-                {getPriorityText(order.priority)}
-              </Text>
-            </View>
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: 'rgba(0,0,0,0.02)',
-                borderRadius: 8,
-                padding: 12,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginBottom: 4 }}>类型</Text>
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#2D3436' }}>
-                {order.type}
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ borderTopWidth: 1, borderTopColor: '#DFE6E9', paddingTop: 16 }}>
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginBottom: 4 }}>客户联系人</Text>
-              <Text style={{ fontSize: 14, color: '#2D3436' }}>{order.customer_contact || '-'}</Text>
-            </View>
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginBottom: 4 }}>联系电话</Text>
-              <Text style={{ fontSize: 14, color: '#2D3436' }}>{order.customer_phone || '-'}</Text>
-            </View>
-            <View>
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginBottom: 4 }}>服务地址</Text>
-              <Text style={{ fontSize: 14, color: '#2D3436' }}>{order.address || '-'}</Text>
-            </View>
+          <View style={styles.sectionContent}>
+            {renderInfoRow('工单名称', order.name || '', 'name', true)}
+            {renderInfoRow('工单编号', order.order_no)}
+            {renderInfoRow('任务号', order.task_number || '', 'task_number', true)}
+            {renderInfoRow('客户名称', order.customer_name || '')}
+            {renderInfoRow('任务负责人', order.assignee_name || '')}
+            {renderInfoRow('实施主体', order.implement_subject || '', 'implement_subject', true)}
           </View>
         </View>
 
-        {/* 设备信息 */}
-        {order.device_name && (
-          <View
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
-              padding: 24,
-              marginBottom: 16,
-              shadowColor: '#000000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08,
-              shadowRadius: 8,
-              elevation: 4,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <FontAwesome6 name="box" size={20} color="#1E88E5" style={{ marginRight: 8 }} />
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
-                设备信息
-              </Text>
-            </View>
-            <View style={{ marginBottom: 8 }}>
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginBottom: 4 }}>设备名称</Text>
-              <Text style={{ fontSize: 14, color: '#2D3436' }}>{order.device_name}</Text>
-            </View>
-            {order.serial_number && (
-              <View>
-                <Text style={{ fontSize: 12, color: '#B2BEC3', marginBottom: 4 }}>序列号</Text>
-                <Text style={{ fontSize: 14, color: '#2D3436' }}>{order.serial_number}</Text>
-              </View>
+        {/* 栏2：工单状态 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="clipboard-list" size={20} color="#00B894" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>工单状态</Text>
+          </View>
+          <View style={styles.sectionContent}>
+            {renderInfoRow('工单类型', order.work_order_type || '', 'work_order_type', true)}
+            {renderInfoRow('任务阶段', order.task_phase || '', 'task_phase', true)}
+            {renderInfoRow(
+              '任务进度',
+              order.task_progress || '',
+              'task_progress',
+              !!order.work_order_type
+            )}
+            {renderInfoRow('任务状态', order.task_status || '', 'task_status', true)}
+            {renderInfoRow(
+              '需求评估周期',
+              order.demand_assessment_period ? `${order.demand_assessment_period} 天` : '',
+              'demand_assessment_period',
+              true
+            )}
+            {renderInfoRow(
+              '服务实施周期',
+              order.service_implementation_period ? `${order.service_implementation_period} 天` : '',
+              'service_implementation_period',
+              true
+            )}
+            {renderInfoRow(
+              '回款周期',
+              order.payment_period ? `${order.payment_period} 天` : '',
+              'payment_period',
+              true
             )}
           </View>
-        )}
-
-        {/* 故障描述 */}
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 24,
-            marginBottom: 16,
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            elevation: 4,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <FontAwesome6 name="triangle-exclamation" size={20} color="#FDCB6E" style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
-              故障描述
-            </Text>
-          </View>
-          <Text style={{ fontSize: 14, color: '#2D3436', lineHeight: 24 }}>
-            {order.description || '暂无描述'}
-          </Text>
         </View>
 
-        {/* 处理记录 */}
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 24,
-            marginBottom: 120,
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            elevation: 4,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-            <FontAwesome6 name="clock-rotate-left" size={20} color="#1E88E5" style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
-              处理记录
-            </Text>
+        {/* 工单描述 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="align-left" size={20} color="#F39C12" style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>工单描述</Text>
           </View>
+          <View style={styles.sectionContent}>
+            <Text style={styles.descriptionText}>{order.description || '暂无描述'}</Text>
+          </View>
+        </View>
 
-          {logs.length === 0 ? (
-            <Text style={{ fontSize: 14, color: '#636E72', textAlign: 'center', paddingVertical: 20 }}>
-              暂无处理记录
-            </Text>
-          ) : (
-            logs.map((log, index) => (
-              <View
-                key={log.id}
-                style={{
-                  flexDirection: 'row',
-                  marginBottom: index < logs.length - 1 ? 16 : 0,
-                  paddingBottom: index < logs.length - 1 ? 16 : 0,
-                  borderBottomWidth: index < logs.length - 1 ? 1 : 0,
-                  borderBottomColor: '#F0F0F0',
-                }}
-              >
-                <View style={{ marginRight: 12 }}>
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: 'rgba(30, 136, 229, 0.1)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <FontAwesome6 name="user" size={18} color="#1E88E5" />
-                  </View>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436' }}>
-                      {log.operator_name || '系统'}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: '#B2BEC3' }}>
-                      {formatDate(log.created_at)} {formatTime(log.created_at)}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 14, color: '#636E72' }}>
-                    {log.action}
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
+        {/* 创建和更新时间 */}
+        <View style={styles.section}>
+          <View style={styles.sectionContent}>
+            {renderInfoRow('创建时间', formatDate(order.created_at || ''))}
+            {renderInfoRow('更新时间', formatDate(order.updated_at || ''))}
+          </View>
         </View>
       </ScrollView>
+
+      {/* 文本编辑 Modal */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                  <Text style={styles.modalCancelButton}>取消</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>编辑信息</Text>
+                <TouchableOpacity onPress={handleSave}>
+                  <Text style={styles.modalSaveButton}>保存</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalBody}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={editValue}
+                  onChangeText={setEditValue}
+                  placeholder="请输入内容"
+                  autoFocus
+                  multiline={editingField === 'implement_subject'}
+                  numberOfLines={editingField === 'implement_subject' ? 3 : 1}
+                />
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 下拉选择 Modal */}
+      <Modal
+        visible={selectModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.selectModalContainer}
+          activeOpacity={1}
+          onPress={() => setSelectModalVisible(false)}
+        >
+          <View style={styles.selectModalContent}>
+            <View style={styles.selectModalHeader}>
+              <Text style={styles.selectModalTitle}>{selectTitle}</Text>
+              <TouchableOpacity onPress={() => setSelectModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={24} color="#2D3436" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.selectModalBody}>
+              {selectOptions.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.selectModalItem,
+                    editValue === option && styles.selectModalItemSelected,
+                  ]}
+                  onPress={() => {
+                    setEditValue(option);
+                    handleSave();
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.selectModalItemText,
+                      editValue === option && styles.selectModalItemTextSelected,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                  {editValue === option && (
+                    <FontAwesome6 name="check" size={16} color="#6C63FF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   );
 }
+
+const styles = {
+  header: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold' as const,
+    color: '#2D3436',
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold' as const,
+    color: '#2D3436',
+  },
+  sectionContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  infoRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#636E72',
+    width: 100,
+  },
+  infoValueContainer: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'flex-end' as const,
+    gap: 8,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#2D3436',
+    textAlign: 'right' as const,
+  },
+  infoValuePlaceholder: {
+    color: '#B2BEC3',
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#2D3436',
+    lineHeight: 22,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end' as const,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold' as const,
+    color: '#2D3436',
+  },
+  modalCancelButton: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  modalSaveButton: {
+    fontSize: 14,
+    color: '#6C63FF',
+    fontWeight: '600' as const,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalInput: {
+    fontSize: 16,
+    color: '#2D3436',
+    backgroundColor: '#F5F6FA',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    textAlignVertical: 'top' as const,
+  },
+  selectModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 20,
+  },
+  selectModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '100%',
+    maxHeight: '60%',
+  },
+  selectModalHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  selectModalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold' as const,
+    color: '#2D3436',
+  },
+  selectModalBody: {
+    maxHeight: 400,
+  },
+  selectModalItem: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F6FA',
+  },
+  selectModalItemSelected: {
+    backgroundColor: 'rgba(108, 99, 255, 0.05)',
+  },
+  selectModalItemText: {
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  selectModalItemTextSelected: {
+    color: '#6C63FF',
+    fontWeight: '600' as const,
+  },
+} as const;
