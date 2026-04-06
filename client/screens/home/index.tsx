@@ -149,8 +149,8 @@ export default function HomeScreen() {
     }
   };
 
-  // Web 环境直接加载，避免 AsyncStorage 问题
-  if (Platform.OS === 'web' && !user) {
+  // 加载中状态
+  if (loading) {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
