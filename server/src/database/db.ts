@@ -7,10 +7,13 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'postgres',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-  max: 5,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 60000,
-  query_timeout: 60000,
+  max: 20,
+  min: 2,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 120000,
+  query_timeout: 120000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 // 测试数据库连接
@@ -20,6 +23,7 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
+  // 不要退出进程，让连接池自动重连
 });
 
 // 导出前测试连接

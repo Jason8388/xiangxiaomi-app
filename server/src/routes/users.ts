@@ -1,23 +1,73 @@
 import express from 'express';
 import { randomUUID } from 'crypto';
 import pool from '../database/db';
+import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession } from '../database/memory-storage';
 
 const router = express.Router();
+
+// 使用内存存储（用于演示，数据库连接超时）
+const USE_MEMORY_STORAGE = true;
 
 // 登录
 router.post('/login', async (req, res) => {
   try {
     const { username, password, device_id, device_info, ip_address } = req.body;
-    const result = await pool.query(
-      'SELECT * FROM users WHERE username = $1',
-      [username]
-    );
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: '用户名或密码错误' });
+    let user: any;
+
+    if (USE_MEMORY_STORAGE) {
+      // 使用内存存储
+      user = getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: '用户名或密码错误' });
+      }
+
+      // 验证密码
+      if (user.password !== password) {
+        return res.status(401).json({ error: '用户名或密码错误' });
+      }
+    } else {
+      // 使用数据库（带重试机制）
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          const result = await pool.query(
+            'SELECT * FROM users WHERE username = $1',
+            [username]
+          );
+
+          if (result.rows.length === 0) {
+            return res.status(401).json({ error: '用户名或密码错误' });
+          }
+
+          user = result.rows[0];
+
+          // 验证密码
+          if (user.password !== password) {
+            return res.status(401).json({ error: '用户名或密码错误' });
+          }
+          break; // 成功，退出重试循环
+        } catch (error: any) {
+          console.error(`Login attempt ${retryCount + 1} error:`, error.message);
+
+          // 检查是否是数据库连接错误
+          if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('Connection terminated')) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              console.log(`Retrying login... (${retryCount}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+              continue;
+            }
+          }
+
+          // 重试次数用完或其他错误
+          console.error('Login error:', error);
+          return res.status(500).json({ error: '服务器错误，请稍后重试' });
+        }
+      }
     }
-
-    const user = result.rows[0];
 
     // 检查账号是否被禁用
     if (user.is_disabled) {
@@ -27,56 +77,30 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // 简化：直接比较密码（实际应用应该使用 bcrypt）
-    if (user.password !== password) {
-      return res.status(401).json({ error: '用户名或密码错误' });
-    }
-
     // 生成会话ID
     const sessionId = randomUUID();
     const deviceId = device_id || randomUUID();
 
     // 检查该用户的活跃会话数量（最多2个）
-    const activeSessionsResult = await pool.query(
-      'SELECT COUNT(*) as count FROM sessions WHERE user_id = $1 AND is_active = TRUE',
-      [user.id]
-    );
-    const activeCount = parseInt(activeSessionsResult.rows[0].count);
+    const activeCount = getActiveSessionCount(user.id);
 
     // 如果已达到最大活跃会话数，删除最早的会话
     if (activeCount >= 2) {
-      await pool.query(
-        `UPDATE sessions
-         SET is_active = FALSE,
-             logout_time = CURRENT_TIMESTAMP,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id IN (
-           SELECT id FROM sessions
-           WHERE user_id = $1 AND is_active = TRUE
-           ORDER BY login_time ASC
-           LIMIT 1
-         )`,
-        [user.id]
-      );
+      deactivateOldestSession(user.id);
     }
 
     // 创建新会话
-    const sessionResult = await pool.query(
-      `INSERT INTO sessions (user_id, session_id, device_id, device_info, ip_address, login_time, last_active_time, is_active)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, TRUE)
-       RETURNING id, session_id, device_id, login_time`,
-      [user.id, sessionId, deviceId, device_info, ip_address]
-    );
+    const session = createSession(user.id, sessionId, deviceId);
 
     // 不返回密码
     const { password: _, ...userWithoutPassword } = user;
     res.json({
       user: userWithoutPassword,
-      session: sessionResult.rows[0],
+      session: session,
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: '服务器错误' });
+    res.status(500).json({ error: '服务器错误，请稍后重试' });
   }
 });
 
