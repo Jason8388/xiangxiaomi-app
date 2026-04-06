@@ -16,6 +16,7 @@ import dbBackupRoutes from "./routes/db-backup";
 import versionReleaseRoutes from "./routes/version-release";
 import versionRollbackRoutes from "./routes/version-rollback";
 import departmentRoutes from "./routes/departments";
+import reminderRoutes from "./routes/reminders";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -42,6 +43,7 @@ app.use('/api/v1/db-backup', dbBackupRoutes);
 app.use('/api/v1/version-release', versionReleaseRoutes);
 app.use('/api/v1/version-rollback', versionRollbackRoutes);
 app.use('/api/v1/departments', departmentRoutes);
+app.use('/api/v1/reminders', reminderRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');

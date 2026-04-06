@@ -87,6 +87,34 @@ const adminNavItems: NavigationItem[] = [
     color: '#E91E63',
     route: '/employee-management',
   },
+  {
+    id: 'album',
+    title: '相册管理',
+    icon: 'images',
+    color: '#FF6B9D',
+    route: '/album',
+  },
+  {
+    id: 'file',
+    title: '文件管理',
+    icon: 'folder',
+    color: '#5D6D7E',
+    route: '/files',
+  },
+  {
+    id: 'meeting',
+    title: '会议纪要',
+    icon: 'comments',
+    color: '#27AE60',
+    route: '/meetings',
+  },
+  {
+    id: 'reminder',
+    title: '工作提醒',
+    icon: 'bell',
+    color: '#E74C3C',
+    route: '/reminders',
+  },
 ];
 
 export default function HomeScreen() {
