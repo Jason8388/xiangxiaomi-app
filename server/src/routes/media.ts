@@ -340,6 +340,93 @@ router.delete('/:id/tags/:tagId', async (req, res) => {
   }
 });
 
+// PUT /api/v1/media/:id/tags - 批量更新媒体标签（替换所有标签）
+router.put('/:id/tags', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tag_ids } = req.body;
+
+    // 检查媒体是否存在
+    const mediaResult = await pool.query('SELECT * FROM media WHERE id = $1', [id]);
+    if (mediaResult.rows.length === 0) {
+      return res.status(404).json({ error: '媒体不存在' });
+    }
+
+    // 检查标签数量不超过5个
+    if (tag_ids && tag_ids.length > 5) {
+      return res.status(400).json({ error: '每个媒体最多只能添加5个标签' });
+    }
+
+    // 先删除所有现有标签关联
+    await pool.query('DELETE FROM media_tags WHERE media_id = $1', [id]);
+
+    // 如果有新的标签，批量插入
+    if (tag_ids && tag_ids.length > 0) {
+      const values = tag_ids.map((tagId: number, index: number) => 
+        `($1, $${index + 2})`
+      ).join(', ');
+      
+      await pool.query(
+        `INSERT INTO media_tags (media_id, tag_id) VALUES ${values}`,
+        [id, ...tag_ids]
+      );
+    }
+
+    // 返回更新后的媒体信息
+    const updatedMedia = await pool.query(
+      `SELECT m.*, u.username as uploader_name,
+        COALESCE(json_agg(DISTINCT jsonb_build_object(
+          'id', t.id,
+          'name', t.name,
+          'color', t.color
+        )) FILTER (WHERE t.id IS NOT NULL), '[]') as tags
+      FROM media m
+      LEFT JOIN users u ON m.uploader_id = u.id
+      LEFT JOIN media_tags mt ON m.id = mt.media_id
+      LEFT JOIN tags t ON mt.tag_id = t.id
+      WHERE m.id = $1
+      GROUP BY m.id, u.username`,
+      [id]
+    );
+
+    res.json({ message: '标签更新成功', media: updatedMedia.rows[0] });
+  } catch (error: any) {
+    console.error('Update tags error:', error);
+    res.status(500).json({ error: '更新标签失败' });
+  }
+});
+
+// POST /api/v1/media/tags - 创建新标签
+router.post('/tags', async (req, res) => {
+  try {
+    const { name, color } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: '标签名称不能为空' });
+    }
+
+    // 检查是否已存在同名标签
+    const existing = await pool.query(
+      'SELECT * FROM tags WHERE name = $1',
+      [name]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: '标签已存在' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO tags (name, color) VALUES ($1, $2) RETURNING *',
+      [name, color || '#1E88E5']
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error: any) {
+    console.error('Create tag error:', error);
+    res.status(500).json({ error: '创建标签失败' });
+  }
+});
+
 // POST /api/v1/media/download/:id - 下载媒体（增加下载计数）
 router.post('/download/:id', async (req, res) => {
   try {

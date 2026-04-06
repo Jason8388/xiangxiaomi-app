@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -8,16 +8,42 @@ import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 
+interface MediaItem {
+  id: number;
+  original_name: string;
+  file_name: string;
+  media_type: string;
+  file_size: number;
+  file_url: string;
+  thumbnail_url?: string;
+  upload_time: string;
+  download_count: number;
+  uploader_name?: string;
+  tags: Array<{ id: number; name: string; color: string }>;
+}
+
+interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  count?: number;
+}
+
 export default function GalleryScreen() {
-  const [mediaList, setMediaList] = useState<any[]>([]);
-  const [tags, setTags] = useState<any[]>([]);
+  const [mediaList, setMediaList] = useState<MediaItem[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [uploaders, setUploaders] = useState<any[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedUploader, setSelectedUploader] = useState<string | null>(null);
+  const [selectedMediaType, setSelectedMediaType] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<number[]>([]);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [tagModalVisible, setTagModalVisible] = useState(false);
+  const [editingMedia, setEditingMedia] = useState<MediaItem | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [newTagName, setNewTagName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,7 +68,7 @@ export default function GalleryScreen() {
     }
   };
 
-  const fetchMedia = async (tagId?: string, uploaderId?: string) => {
+  const fetchMedia = async (tagId?: string, uploaderId?: string, mediaType?: string) => {
     setLoading(true);
     try {
       let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media`;
@@ -50,6 +76,7 @@ export default function GalleryScreen() {
       if (searchText) params.append('search', searchText);
       if (tagId) params.append('tag_id', tagId);
       if (uploaderId) params.append('uploader_id', uploaderId);
+      if (mediaType) params.append('media_type', mediaType);
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
       if (params.toString()) url += `?${params.toString()}`;
@@ -251,13 +278,117 @@ export default function GalleryScreen() {
             Alert.alert('成功', data.message);
             setSelectedMedia([]);
             setIsSelectMode(false);
-            fetchMedia(selectedTag || undefined, selectedUploader || undefined);
+            fetchMedia(selectedTag || undefined, selectedUploader || undefined, selectedMediaType || undefined);
           } catch (error: any) {
             Alert.alert('错误', error.message);
           }
         },
       },
     ]);
+  };
+
+  // 打开标签编辑弹窗
+  const handleEditTags = (media: MediaItem) => {
+    setEditingMedia(media);
+    setSelectedTagIds(media.tags?.map(t => t.id) || []);
+    setNewTagName('');
+    setTagModalVisible(true);
+  };
+
+  // 切换标签选中状态
+  const toggleTagSelection = (tagId: number) => {
+    if (selectedTagIds.includes(tagId)) {
+      setSelectedTagIds(selectedTagIds.filter(id => id !== tagId));
+    } else {
+      if (selectedTagIds.length >= 5) {
+        Alert.alert('提示', '每个照片/视频最多只能添加5个标签');
+        return;
+      }
+      setSelectedTagIds([...selectedTagIds, tagId]);
+    }
+  };
+
+  // 创建新标签
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) {
+      Alert.alert('提示', '请输入标签名称');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/tags`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newTagName.trim(),
+            color: getRandomColor(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('成功', '标签创建成功');
+        fetchTags();
+        setNewTagName('');
+        // 自动选中新创建的标签
+        if (selectedTagIds.length < 5) {
+          setSelectedTagIds([...selectedTagIds, data.id]);
+        }
+      } else {
+        throw new Error(data.error || '创建失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 获取随机颜色
+  const getRandomColor = () => {
+    const colors = ['#1E88E5', '#00B894', '#F39C12', '#9B59B6', '#E74C3C', '#2ECC71', '#3498DB', '#FF6B9D'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  // 保存标签修改
+  const handleSaveTags = async () => {
+    if (!editingMedia) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/${editingMedia.id}/tags`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag_ids: selectedTagIds }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('成功', '标签更新成功');
+        setTagModalVisible(false);
+        fetchMedia(selectedTag || undefined, selectedUploader || undefined, selectedMediaType || undefined);
+      } else {
+        throw new Error(data.error || '更新失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 媒体类型筛选
+  const handleMediaTypeFilter = (type: string | null) => {
+    if (selectedMediaType === type) {
+      setSelectedMediaType(null);
+      fetchMedia(selectedTag || undefined, selectedUploader || undefined, undefined);
+    } else {
+      setSelectedMediaType(type);
+      fetchMedia(selectedTag || undefined, selectedUploader || undefined, type);
+    }
   };
 
   const handleMediaDetail = (media: any) => {
@@ -343,14 +474,74 @@ export default function GalleryScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* 媒体类型筛选 */}
+        <View style={styles.mediaTypeFilter}>
+          <TouchableOpacity
+            onPress={() => handleMediaTypeFilter('photo')}
+            style={[
+              styles.mediaTypeChip,
+              selectedMediaType === 'photo' && styles.mediaTypeChipActive,
+            ]}
+          >
+            <FontAwesome6
+              name="image"
+              size={16}
+              color={selectedMediaType === 'photo' ? '#FFF' : '#1E88E5'}
+            />
+            <Text
+              style={[
+                styles.mediaTypeText,
+                selectedMediaType === 'photo' && styles.mediaTypeTextActive,
+              ]}
+            >
+              照片
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleMediaTypeFilter('video')}
+            style={[
+              styles.mediaTypeChip,
+              selectedMediaType === 'video' && styles.mediaTypeChipActive,
+            ]}
+          >
+            <FontAwesome6
+              name="video"
+              size={16}
+              color={selectedMediaType === 'video' ? '#FFF' : '#9B59B6'}
+            />
+            <Text
+              style={[
+                styles.mediaTypeText,
+                selectedMediaType === 'video' && styles.mediaTypeTextActive,
+              ]}
+            >
+              视频
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* 筛选标签显示 */}
-        {(selectedTag || selectedUploader || startDate || endDate) && (
+        {(selectedTag || selectedUploader || selectedMediaType || startDate || endDate) && (
           <View style={styles.filterTagsContainer}>
+            {selectedMediaType && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedMediaType(null);
+                  fetchMedia(selectedTag || undefined, selectedUploader || undefined, undefined);
+                }}
+                style={styles.filterTag}
+              >
+                <Text style={styles.filterTagText}>
+                  {selectedMediaType === 'photo' ? '照片' : '视频'}
+                </Text>
+                <FontAwesome6 name="xmark" size={12} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
             {selectedTag && (
               <TouchableOpacity
                 onPress={() => {
                   setSelectedTag(null);
-                  fetchMedia(null, selectedUploader || undefined);
+                  fetchMedia(null, selectedUploader || undefined, selectedMediaType || undefined);
                 }}
                 style={styles.filterTag}
               >
@@ -364,7 +555,7 @@ export default function GalleryScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setSelectedUploader(null);
-                  fetchMedia(selectedTag || undefined, null);
+                  fetchMedia(selectedTag || undefined, undefined, selectedMediaType || undefined);
                 }}
                 style={styles.filterTag}
               >
@@ -378,7 +569,7 @@ export default function GalleryScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setStartDate('');
-                  fetchMedia(selectedTag || undefined, selectedUploader || undefined);
+                  fetchMedia(selectedTag || undefined, selectedUploader || undefined, selectedMediaType || undefined);
                 }}
                 style={styles.filterTag}
               >
@@ -494,14 +685,22 @@ export default function GalleryScreen() {
                   )}
                 </View>
 
-                {/* 下载按钮 */}
+                {/* 下载和标签编辑按钮 */}
                 {!isSelectMode && (
-                  <TouchableOpacity
-                    onPress={() => handleDownload(media)}
-                    style={styles.downloadButton}
-                  >
-                    <FontAwesome6 name="download" size={18} color="#FFFFFF" />
-                  </TouchableOpacity>
+                  <View style={styles.mediaActions}>
+                    <TouchableOpacity
+                      onPress={() => handleEditTags(media)}
+                      style={styles.tagEditButton}
+                    >
+                      <FontAwesome6 name="tags" size={16} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDownload(media)}
+                      style={styles.downloadButton}
+                    >
+                      <FontAwesome6 name="download" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
                 )}
               </TouchableOpacity>
             ))}
@@ -615,6 +814,92 @@ export default function GalleryScreen() {
                 style={[styles.modalButton, styles.confirmButton]}
               >
                 <Text style={styles.confirmButtonText}>应用</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 标签编辑弹窗 */}
+      <Modal visible={tagModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                编辑标签 - {editingMedia?.original_name}
+              </Text>
+              <TouchableOpacity onPress={() => setTagModalVisible(false)}>
+                <FontAwesome6 name="times" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.tagCountText}>
+                已选择 {selectedTagIds.length}/5 个标签
+              </Text>
+
+              {/* 现有标签选择 */}
+              <View style={styles.tagGrid}>
+                {tags.map((tag) => (
+                  <TouchableOpacity
+                    key={tag.id}
+                    onPress={() => toggleTagSelection(tag.id)}
+                    style={[
+                      styles.tagOption,
+                      selectedTagIds.includes(tag.id) && {
+                        backgroundColor: tag.color,
+                        borderColor: tag.color,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.tagOptionText,
+                        selectedTagIds.includes(tag.id) && { color: '#FFF' },
+                      ]}
+                    >
+                      {tag.name}
+                    </Text>
+                    {selectedTagIds.includes(tag.id) && (
+                      <FontAwesome6 name="check" size={14} color="#FFF" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 创建新标签 */}
+              <View style={styles.createTagSection}>
+                <Text style={styles.createTagLabel}>创建新标签</Text>
+                <View style={styles.createTagRow}>
+                  <TextInput
+                    style={styles.createTagInput}
+                    placeholder="输入标签名称"
+                    value={newTagName}
+                    onChangeText={setNewTagName}
+                    maxLength={20}
+                  />
+                  <TouchableOpacity
+                    style={styles.createTagButton}
+                    onPress={handleCreateTag}
+                  >
+                    <FontAwesome6 name="plus" size={18} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setTagModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleSaveTags}
+              >
+                <Text style={styles.confirmButtonText}>保存</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -882,5 +1167,111 @@ const styles = {
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#FFFFFF',
+  },
+  mediaTypeFilter: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    marginBottom: 16,
+  },
+  mediaTypeChip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+  },
+  mediaTypeChipActive: {
+    backgroundColor: '#1E88E5',
+    borderColor: '#1E88E5',
+  },
+  mediaTypeText: {
+    fontSize: 14,
+    color: '#636E72',
+    fontWeight: '500' as const,
+  },
+  mediaTypeTextActive: {
+    color: '#FFFFFF',
+  },
+  mediaActions: {
+    position: 'absolute' as const,
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  tagEditButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#9B59B6',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end' as const,
+  },
+  tagCountText: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 16,
+  },
+  tagGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 8,
+  },
+  tagOption: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    backgroundColor: '#F5F7FA',
+  },
+  tagOptionText: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  createTagSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F3F4',
+  },
+  createTagLabel: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: '#636E72',
+    marginBottom: 12,
+  },
+  createTagRow: {
+    flexDirection: 'row' as const,
+    gap: 12,
+  },
+  createTagInput: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  createTagButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#1E88E5',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
 };
