@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Modal,
+} from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -7,15 +15,39 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as SecureStore from 'expo-secure-store';
 import * as DocumentPicker from 'expo-document-picker';
 
+interface FileTag {
+  id: number;
+  name: string;
+  color: string;
+}
+
+interface FileItem {
+  id: number;
+  original_name: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  file_url: string;
+  upload_time: string;
+  download_count: number;
+  uploader_name?: string;
+  tags: FileTag[];
+}
+
 export default function FilesScreen() {
-  const [files, setFiles] = useState<any[]>([]);
-  const [tags, setTags] = useState<any[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [tags, setTags] = useState<FileTag[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedFileType, setSelectedFileType] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [tagModalVisible, setTagModalVisible] = useState(false);
+  const [editingFile, setEditingFile] = useState<FileItem | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [newTagName, setNewTagName] = useState('');
   const router = useSafeRouter();
 
   useEffect(() => {
@@ -35,13 +67,14 @@ export default function FilesScreen() {
     }
   };
 
-  const fetchFiles = async (tagId?: string) => {
+  const fetchFiles = async (tagId?: string, fileType?: string) => {
     setLoading(true);
     try {
       let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files`;
       const params = new URLSearchParams();
       if (searchText) params.append('search', searchText);
       if (tagId) params.append('tag_id', tagId);
+      if (fileType) params.append('file_type', fileType);
       if (params.toString()) url += `?${params.toString()}`;
 
       const response = await fetch(url);
@@ -49,6 +82,8 @@ export default function FilesScreen() {
 
       if (Array.isArray(data.files)) {
         setFiles(data.files);
+      } else if (Array.isArray(data)) {
+        setFiles(data);
       }
     } catch (error) {
       console.error('Fetch files error:', error);
@@ -96,6 +131,110 @@ export default function FilesScreen() {
       setSelectedFiles([]);
     } else {
       setSelectedFiles(files.map(f => f.id));
+    }
+  };
+
+  // 打开标签编辑弹窗
+  const handleEditTags = (file: FileItem) => {
+    setEditingFile(file);
+    setSelectedTagIds(file.tags?.map(t => t.id) || []);
+    setNewTagName('');
+    setTagModalVisible(true);
+  };
+
+  // 切换标签选中状态
+  const toggleTagSelection = (tagId: number) => {
+    if (selectedTagIds.includes(tagId)) {
+      setSelectedTagIds(selectedTagIds.filter(id => id !== tagId));
+    } else {
+      if (selectedTagIds.length >= 10) {
+        Alert.alert('提示', '每个文件最多只能添加10个标签');
+        return;
+      }
+      setSelectedTagIds([...selectedTagIds, tagId]);
+    }
+  };
+
+  // 创建新标签
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) {
+      Alert.alert('提示', '请输入标签名称');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newTagName.trim(),
+            color: getRandomColor(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('成功', '标签创建成功');
+        fetchTags();
+        setNewTagName('');
+        // 自动选中新创建的标签
+        if (selectedTagIds.length < 10) {
+          setSelectedTagIds([...selectedTagIds, data.id]);
+        }
+      } else {
+        throw new Error(data.error || '创建失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 获取随机颜色
+  const getRandomColor = () => {
+    const colors = ['#1E88E5', '#00B894', '#F39C12', '#9B59B6', '#E74C3C', '#2ECC71', '#3498DB'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  // 保存标签修改
+  const handleSaveTags = async () => {
+    if (!editingFile) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/${editingFile.id}/tags`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag_ids: selectedTagIds }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('成功', '标签更新成功');
+        setTagModalVisible(false);
+        fetchFiles(selectedTag || undefined, selectedFileType || undefined);
+      } else {
+        throw new Error(data.error || '更新失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 文件类型筛选
+  const handleFileTypeFilter = (type: string | null) => {
+    if (selectedFileType === type) {
+      setSelectedFileType(null);
+      fetchFiles(selectedTag || undefined, undefined);
+    } else {
+      setSelectedFileType(type);
+      fetchFiles(selectedTag || undefined, type);
     }
   };
 
@@ -266,7 +405,7 @@ export default function FilesScreen() {
         title="文件库"
         rightAction={
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            {isSelectMode && (
+            {user?.role === 'admin' && isSelectMode && (
               <TouchableOpacity onPress={handleBatchDelete} style={styles.iconButton}>
                 <FontAwesome6 name="trash" size={20} color="#FF6B6B" />
               </TouchableOpacity>
@@ -299,6 +438,39 @@ export default function FilesScreen() {
           <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
             <FontAwesome6 name="magnifying-glass" size={18} color="#FFFFFF" />
           </TouchableOpacity>
+        </View>
+
+        {/* 文件类型筛选 */}
+        <View style={styles.fileTypeFilter}>
+          {[
+            { type: 'excel', label: 'Excel', icon: 'file-excel', color: '#00B894' },
+            { type: 'ppt', label: 'PPT', icon: 'file-powerpoint', color: '#FDCB6E' },
+            { type: 'word', label: 'Word', icon: 'file-word', color: '#1E88E5' },
+            { type: 'pdf', label: 'PDF', icon: 'file-pdf', color: '#FF6B6B' },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.type}
+              onPress={() => handleFileTypeFilter(item.type)}
+              style={[
+                styles.fileTypeChip,
+                selectedFileType === item.type && { backgroundColor: item.color },
+              ]}
+            >
+              <FontAwesome6
+                name={item.icon as any}
+                size={16}
+                color={selectedFileType === item.type ? '#FFF' : item.color}
+              />
+              <Text
+                style={[
+                  styles.fileTypeText,
+                  selectedFileType === item.type && { color: '#FFF' },
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* 标签筛选 */}
@@ -429,19 +601,118 @@ export default function FilesScreen() {
                 </View>
               </View>
 
-              {/* 下载按钮 */}
+              {/* 下载和标签编辑按钮 */}
               {!isSelectMode && (
-                <TouchableOpacity
-                  onPress={() => handleDownload(file)}
-                  style={styles.downloadButton}
-                >
-                  <FontAwesome6 name="download" size={20} color="#1E88E5" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => handleEditTags(file)}
+                    style={styles.tagEditButton}
+                  >
+                    <FontAwesome6 name="tags" size={18} color="#9B59B6" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDownload(file)}
+                    style={styles.downloadButton}
+                  >
+                    <FontAwesome6 name="download" size={20} color="#1E88E5" />
+                  </TouchableOpacity>
+                </View>
               )}
             </TouchableOpacity>
           ))
         )}
       </ScrollView>
+
+      {/* 标签编辑弹窗 */}
+      <Modal
+        visible={tagModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTagModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                编辑标签 - {editingFile?.original_name}
+              </Text>
+              <TouchableOpacity onPress={() => setTagModalVisible(false)}>
+                <FontAwesome6 name="times" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.selectedCountText}>
+                已选择 {selectedTagIds.length}/10 个标签
+              </Text>
+
+              {/* 现有标签选择 */}
+              <View style={styles.tagGrid}>
+                {tags.map((tag) => (
+                  <TouchableOpacity
+                    key={tag.id}
+                    onPress={() => toggleTagSelection(tag.id)}
+                    style={[
+                      styles.tagOption,
+                      selectedTagIds.includes(tag.id) && {
+                        backgroundColor: tag.color,
+                        borderColor: tag.color,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.tagOptionText,
+                        selectedTagIds.includes(tag.id) && { color: '#FFF' },
+                      ]}
+                    >
+                      {tag.name}
+                    </Text>
+                    {selectedTagIds.includes(tag.id) && (
+                      <FontAwesome6 name="check" size={14} color="#FFF" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 创建新标签 */}
+              <View style={styles.createTagSection}>
+                <Text style={styles.createTagLabel}>创建新标签</Text>
+                <View style={styles.createTagRow}>
+                  <TextInput
+                    style={styles.createTagInput}
+                    placeholder="输入标签名称"
+                    value={newTagName}
+                    onChangeText={setNewTagName}
+                    maxLength={20}
+                  />
+                  <TouchableOpacity
+                    style={styles.createTagButton}
+                    onPress={handleCreateTag}
+                  >
+                    <FontAwesome6 name="plus" size={18} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setTagModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleSaveTags}
+              >
+                <Text style={styles.saveButtonText}>保存</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -476,6 +747,29 @@ const styles = {
     backgroundColor: '#1E88E5',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+  },
+  fileTypeFilter: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    marginBottom: 16,
+    gap: 8,
+  },
+  fileTypeChip: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+  },
+  fileTypeText: {
+    fontSize: 12,
+    color: '#636E72',
+    fontWeight: '500' as const,
   },
   tagChip: {
     paddingHorizontal: 16,
@@ -579,5 +873,124 @@ const styles = {
     justifyContent: 'center' as const,
     backgroundColor: 'rgba(30, 136, 229, 0.1)',
     marginLeft: 12,
+  },
+  tagEditButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end' as const,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#2D3436',
+    flex: 1,
+    marginRight: 16,
+  },
+  modalBody: {
+    padding: 16,
+    maxHeight: 400,
+  },
+  tagGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 8,
+  },
+  tagOption: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    backgroundColor: '#F5F7FA',
+  },
+  tagOptionText: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  createTagSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F3F4',
+  },
+  createTagLabel: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: '#636E72',
+    marginBottom: 12,
+  },
+  createTagRow: {
+    flexDirection: 'row' as const,
+    gap: 12,
+  },
+  createTagInput: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  createTagButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#1E88E5',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  modalFooter: {
+    flexDirection: 'row' as const,
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F3F4',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+  },
+  cancelButton: {
+    backgroundColor: '#F5F7FA',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#636E72',
+  },
+  saveButton: {
+    backgroundColor: '#1E88E5',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600' as const,
   },
 };

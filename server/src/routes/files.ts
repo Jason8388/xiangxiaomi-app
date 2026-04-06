@@ -287,6 +287,89 @@ router.delete('/:id/tags/:tagId', async (req, res) => {
   }
 });
 
+// PUT /api/v1/files/:id/tags - 更新文件的所有标签（替换）
+router.put('/:id/tags', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tag_ids } = req.body;
+
+    // 检查文件是否存在
+    const fileResult = await pool.query('SELECT * FROM files WHERE id = $1', [id]);
+    if (fileResult.rows.length === 0) {
+      return res.status(404).json({ error: '文件不存在' });
+    }
+
+    // 检查标签数量不超过10个
+    if (tag_ids && tag_ids.length > 10) {
+      return res.status(400).json({ error: '每个文件最多只能添加10个标签' });
+    }
+
+    // 先删除所有现有标签关联
+    await pool.query('DELETE FROM file_tags WHERE file_id = $1', [id]);
+
+    // 如果有新的标签，批量插入
+    if (tag_ids && tag_ids.length > 0) {
+      const values = tag_ids.map((tagId: number, index: number) => 
+        `($1, $${index + 2})`
+      ).join(', ');
+      
+      await pool.query(
+        `INSERT INTO file_tags (file_id, tag_id) VALUES ${values}`,
+        [id, ...tag_ids]
+      );
+    }
+
+    // 返回更新后的文件信息
+    const updatedFile = await pool.query(
+      `SELECT f.*, u.username as uploader_name,
+        COALESCE(json_agg(DISTINCT jsonb_build_object(
+          'id', t.id,
+          'name', t.name,
+          'color', t.color
+        )) FILTER (WHERE t.id IS NOT NULL), '[]') as tags
+      FROM files f
+      LEFT JOIN users u ON f.uploader_id = u.id
+      LEFT JOIN file_tags ft ON f.id = ft.file_id
+      LEFT JOIN tags t ON ft.tag_id = t.id
+      WHERE f.id = $1
+      GROUP BY f.id, u.username`,
+      [id]
+    );
+
+    res.json({ message: '标签更新成功', file: updatedFile.rows[0] });
+  } catch (error: any) {
+    console.error('Update tags error:', error);
+    res.status(500).json({ error: '更新标签失败' });
+  }
+});
+
+// GET /api/v1/files/download/:id - 获取文件下载URL
+router.get('/download/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE files SET download_count = download_count + 1 
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '文件不存在' });
+    }
+
+    // 返回文件URL，前端可以使用这个URL下载
+    res.json({
+      download_url: result.rows[0].file_url,
+      file_name: result.rows[0].original_name,
+      file_type: result.rows[0].file_type,
+    });
+  } catch (error: any) {
+    console.error('Get download URL error:', error);
+    res.status(500).json({ error: '获取下载链接失败' });
+  }
+});
+
 // POST /api/v1/files/download/:id - 下载文件（增加下载计数）
 router.post('/download/:id', async (req, res) => {
   try {
