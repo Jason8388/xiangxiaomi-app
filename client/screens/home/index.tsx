@@ -29,7 +29,7 @@ const adminNavItems: NavigationItem[] = [
     title: '工单管理',
     icon: 'clipboard-list',
     color: '#1E88E5',
-    route: '/(tabs)/work-orders',
+    route: '/work-orders',
   },
   {
     id: 'customers',
@@ -55,30 +55,30 @@ const adminNavItems: NavigationItem[] = [
   {
     id: 'warehouses',
     title: '仓库管理',
-    icon: 'warehouse',
+    icon: 'box-open',
     color: '#E74C3C',
-    route: '/warehouses',
+    route: '/materials',
   },
   {
-    id: 'statistics',
-    title: '统计报表',
-    icon: 'chart-pie',
-    color: '#3498DB',
-    route: '/(tabs)/work-orders', // 暂时指向工单页面
-  },
-  {
-    id: 'scan-query',
-    title: '扫码查询',
-    icon: 'qrcode',
+    id: 'query-assistant',
+    title: '查询助手',
+    icon: 'magnifying-glass',
     color: '#2ECC71',
-    route: '/(tabs)/query',
+    route: '/query-assistant',
   },
   {
     id: 'knowledge',
     title: '知识库',
     icon: 'book',
     color: '#F1C40F',
-    route: '/(tabs)/knowledge',
+    route: '/knowledge-base',
+  },
+  {
+    id: 'statistics',
+    title: '统计报表',
+    icon: 'chart-pie',
+    color: '#3498DB',
+    route: '/reports',
   },
   {
     id: 'account',
@@ -178,7 +178,7 @@ export default function HomeScreen() {
             </View>
             <TouchableOpacity
               style={styles.notificationButton}
-              onPress={() => router.push('/(tabs)/profile')}
+              onPress={() => router.push('/profile')}
             >
               <FontAwesome6 name="bell" size={20} color="#2D3436" />
             </TouchableOpacity>
@@ -188,7 +188,7 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>工单统计</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
+              <TouchableOpacity onPress={() => router.push('/work-orders')}>
                 <Text style={styles.sectionAction}>查看全部</Text>
               </TouchableOpacity>
             </View>
@@ -237,7 +237,7 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>最近工单</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
+              <TouchableOpacity onPress={() => router.push('/work-orders')}>
                 <Text style={styles.sectionAction}>查看全部</Text>
               </TouchableOpacity>
             </View>
@@ -311,7 +311,7 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
                 工单统计
               </Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
+              <TouchableOpacity onPress={() => router.push('/work-orders')}>
                 <Text style={{ fontSize: 14, color: '#1E88E5', fontWeight: '600' }}>
                   查看全部
                 </Text>
@@ -402,7 +402,7 @@ export default function HomeScreen() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
             <TouchableOpacity
               style={{ width: '48%', marginBottom: 16, marginHorizontal: '1%' }}
-              onPress={() => router.push('/(tabs)/work-orders')}
+              onPress={() => router.push('/work-orders')}
             >
               <View
                 style={{
@@ -438,7 +438,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={{ width: '48%', marginBottom: 16, marginHorizontal: '1%' }}
-              onPress={() => router.push('/(tabs)/query')}
+              onPress={() => router.push('/query-assistant')}
             >
               <View
                 style={{
@@ -474,7 +474,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={{ width: '48%', marginHorizontal: '1%' }}
-              onPress={() => router.push('/(tabs)/knowledge')}
+              onPress={() => router.push('/knowledge-base')}
             >
               <View
                 style={{
@@ -516,7 +516,7 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>
               最近工单
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/work-orders')}>
+            <TouchableOpacity onPress={() => router.push('/work-orders')}>
               <Text style={{ fontSize: 14, color: '#1E88E5', fontWeight: '600' }}>
                 查看全部
               </Text>
