@@ -49,16 +49,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const sessionId = await SecureStore.getItemAsync('session_id');
-    if (!sessionId) {
+    // Web 环境下跳过会话检查（expo-secure-store 不支持）
+    if (Platform.OS === 'web') {
       setIsAuthenticated(false);
       setSession(null);
       return;
     }
 
-    isCheckingRef.current = true;
-
     try {
+      const sessionId = await SecureStore.getItemAsync('session_id');
+      if (!sessionId) {
+        setIsAuthenticated(false);
+        setSession(null);
+        return;
+      }
+
+      isCheckingRef.current = true;
       setIsLoading(true);
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/sessions/check/${sessionId}`

@@ -28,6 +28,7 @@ interface VersionUpdateProps {
   onDismiss: () => void;
 }
 
+// 修复：先检查 versionInfo 是否为 null
 export default function VersionUpdateDialog({
   visible,
   versionInfo,
@@ -35,7 +36,7 @@ export default function VersionUpdateDialog({
   onLater,
   onDismiss,
 }: VersionUpdateProps) {
-  if (!versionInfo.has_update) {
+  if (!versionInfo || !versionInfo.has_update) {
     return null;
   }
 

@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Provider } from '@/components/Provider';
 import { useVersionUpdate } from '@/components/VersionUpdate';
 
@@ -10,12 +11,15 @@ import '../global.css';
 
 LogBox.ignoreLogs([
   "TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule' could not be found",
+  // 忽略 Web 环境下的 expo-secure-store 错误
+  "ExpoSecureStore.default.getValueWithKeyAsync is not a function",
   // 添加其它想暂时忽略的错误或警告信息
 ]);
 
 function RootLayoutInner() {
   const { checkVersionUpdate, renderDialog } = useVersionUpdate({
-    enabled: true,
+    // Web 环境下禁用版本更新检查
+    enabled: Platform.OS !== 'web',
     onUpgradeStart: () => {
       console.log('升级开始');
     },
@@ -53,7 +57,7 @@ function RootLayoutInner() {
         <Stack.Screen name="employee-management" options={{ title: "" }} />
         <Stack.Screen name="version-management" options={{ title: "" }} />
       </Stack>
-      {renderDialog()}
+      {Platform.OS !== 'web' && renderDialog()}
       <Toast />
     </>
   );
