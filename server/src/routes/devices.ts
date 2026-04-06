@@ -11,6 +11,22 @@ const upload = multer({ storage });
 // 检查是否使用内存存储
 const USE_MEMORY_STORAGE = false; // 设备管理需要数据库支持
 
+// 带重试的查询函数
+async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
+}
+
 // 内存设备数据
 let memoryDevices: any[] = [
   {
@@ -28,13 +44,40 @@ let memoryDevices: any[] = [
   },
 ];
 
-// 获取设备列表
+// 获取设备列表（带分页）
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT d.*, cu.name as customer_name, c.contract_no FROM devices d LEFT JOIN customers cu ON d.customer_id = cu.id LEFT JOIN contracts c ON d.contract_id = c.id ORDER BY d.id DESC'
-    );
-    res.json(result.rows);
+    const { page = 1, limit = 100, customer_id } = req.query;
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = Math.min(parseInt(limit as string) || 100, 200);
+    const offset = (pageNum - 1) * limitNum;
+
+    let query = 'SELECT d.*, cu.name as customer_name, c.contract_no FROM devices d LEFT JOIN customers cu ON d.customer_id = cu.id LEFT JOIN contracts c ON d.contract_id = c.id';
+    let countQuery = 'SELECT COUNT(*) as total FROM devices d';
+    const params: any[] = [];
+    const countParams: any[] = [];
+
+    if (customer_id) {
+      query += ' WHERE d.customer_id = $1';
+      countQuery += ' WHERE d.customer_id = $1';
+      params.push(customer_id);
+      countParams.push(customer_id);
+    }
+
+    query += ` ORDER BY d.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limitNum, offset);
+
+    const [result, countResult] = await Promise.all([
+      queryWithRetry(query, params),
+      queryWithRetry(countQuery, countParams),
+    ]);
+
+    res.json({
+      data: result.rows,
+      total: parseInt(countResult.rows[0].total),
+      page: pageNum,
+      limit: limitNum,
+    });
   } catch (error) {
     console.error('Get devices error:', error);
     res.status(500).json({ error: '服务器错误' });

@@ -3,13 +3,55 @@ import pool from '../database/db';
 
 const router = express.Router();
 
-// 获取客户列表
+// 带重试的查询函数
+async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
+}
+
+// 获取客户列表（带分页）
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM customers ORDER BY id DESC'
-    );
-    res.json(result.rows);
+    const { page = 1, limit = 100, keyword } = req.query;
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = Math.min(parseInt(limit as string) || 100, 200); // 最多200条
+    const offset = (pageNum - 1) * limitNum;
+
+    let query = 'SELECT * FROM customers';
+    let countQuery = 'SELECT COUNT(*) as total FROM customers';
+    const params: any[] = [];
+
+    // 关键词搜索
+    if (keyword) {
+      query += ' WHERE name ILIKE $1 OR contact ILIKE $1 OR phone ILIKE $1';
+      countQuery += ' WHERE name ILIKE $1 OR contact ILIKE $1 OR phone ILIKE $1';
+      params.push(`%${keyword}%`);
+    }
+
+    query += ` ORDER BY device_count DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limitNum, offset);
+
+    const [result, countResult] = await Promise.all([
+      queryWithRetry(query, params),
+      queryWithRetry(countQuery, keyword ? [`%${keyword}%`] : []),
+    ]);
+
+    res.json({
+      data: result.rows,
+      total: parseInt(countResult.rows[0].total),
+      page: pageNum,
+      limit: limitNum,
+    });
   } catch (error) {
     console.error('Get customers error:', error);
     res.status(500).json({ error: '服务器错误' });

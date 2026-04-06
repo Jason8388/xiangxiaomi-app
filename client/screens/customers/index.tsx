@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
   Modal,
   Alert,
   StyleSheet,
+  FlatList,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface Customer {
   id: number;
@@ -52,7 +54,7 @@ export default function CustomerManagement() {
   });
 
   useEffect(() => {
-    fetchCustomers();
+    cachedFetch('customers-list', fetchCustomers, 'medium');
   }, []);
 
   useEffect(() => {
@@ -69,18 +71,21 @@ export default function CustomerManagement() {
     }
   }, [searchKeyword, customers]);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (): Promise<Customer[]> => {
     try {
       setLoading(true);
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && Array.isArray(data)) {
         // 按设备数量降序排序
         const sorted = data.sort((a: Customer, b: Customer) => b.device_count - a.device_count);
         setCustomers(sorted);
+        return sorted;
       }
+      return [];
     } catch (error) {
       console.error('Fetch customers error:', error);
+      return [];
     } finally {
       setLoading(false);
     }

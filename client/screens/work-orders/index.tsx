@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface WorkOrder {
   id: number;
@@ -70,11 +71,14 @@ export default function WorkOrdersScreen() {
   const router = useSafeRouter();
 
   useEffect(() => {
-    fetchWorkOrders();
-    fetchStats();
-    fetchCustomers();
-    fetchDevices();
-    fetchUsers();
+    // 页面加载时并行获取所有数据
+    Promise.all([
+      cachedFetch('work-orders-list', fetchWorkOrders, 'short'),
+      cachedFetch('work-orders-stats', fetchStats, 'short'),
+      cachedFetch('customers-list', fetchCustomers, 'medium'),
+      cachedFetch('devices-list', fetchDevices, 'medium'),
+      cachedFetch('users-list', fetchUsers, 'medium'),
+    ]);
   }, []);
 
   useEffect(() => {
@@ -97,63 +101,78 @@ export default function WorkOrdersScreen() {
     setFilteredOrders(filtered);
   }, [searchKeyword, workOrders]);
 
-  const fetchWorkOrders = async () => {
+  const fetchWorkOrders = async (): Promise<WorkOrder[]> => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setWorkOrders(data);
+        return data;
       }
+      return [];
     } catch (error) {
       console.error('Fetch work orders error:', error);
+      return [];
     }
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (): Promise<any> => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/stats`);
       const data = await response.json();
       if (data) {
         setStats(data);
+        return data;
       }
+      return null;
     } catch (error) {
       console.error('Fetch stats error:', error);
+      return null;
     }
   };
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (): Promise<any[]> => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setCustomers(data);
+        return data;
       }
+      return [];
     } catch (error) {
       console.error('Fetch customers error:', error);
+      return [];
     }
   };
 
-  const fetchDevices = async () => {
+  const fetchDevices = async (): Promise<any[]> => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setDevices(data);
+        return data;
       }
+      return [];
     } catch (error) {
       console.error('Fetch devices error:', error);
+      return [];
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (): Promise<any[]> => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setUsers(data);
+        return data;
       }
+      return [];
     } catch (error) {
       console.error('Fetch users error:', error);
+      return [];
     }
   };
 
@@ -207,6 +226,8 @@ export default function WorkOrdersScreen() {
             );
             if (response.ok) {
               Alert.alert('成功', '删除成功');
+              clearCache('work-orders-list');
+              clearCache('work-orders-stats');
               fetchWorkOrders();
               fetchStats();
             } else {
@@ -278,6 +299,8 @@ export default function WorkOrdersScreen() {
       }
 
       setModalVisible(false);
+      clearCache('work-orders-list');
+      clearCache('work-orders-stats');
       fetchWorkOrders();
       fetchStats();
       Alert.alert('成功', editingOrder ? '修改成功' : '创建成功');
@@ -301,6 +324,8 @@ export default function WorkOrdersScreen() {
         throw new Error('更新失败');
       }
 
+      clearCache('work-orders-list');
+      clearCache('work-orders-stats');
       fetchWorkOrders();
       Alert.alert('成功', '工单状态已更新');
     } catch (error: any) {

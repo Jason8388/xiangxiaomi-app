@@ -13,6 +13,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface Contract {
   id: number;
@@ -63,8 +64,11 @@ export default function ContractManagement() {
   const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
-    fetchContracts();
-    fetchCustomers();
+    // 并行获取数据
+    Promise.all([
+      cachedFetch('contracts-list', fetchContracts, 'medium'),
+      cachedFetch('customers-list', fetchCustomers, 'medium'),
+    ]);
   }, []);
 
   useEffect(() => {
@@ -82,12 +86,38 @@ export default function ContractManagement() {
     }
   }, [searchKeyword, contracts]);
 
-  const fetchContracts = async () => {
+  const fetchContracts = async (): Promise<Contract[]> => {
     try {
       setLoading(true);
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && Array.isArray(data)) {
+        setContracts(data);
+        return data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Fetch contracts error:', error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCustomers = async (): Promise<Customer[]> => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setCustomers(data);
+        return data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Fetch customers error:', error);
+      return [];
+    }
+  };
         // 按签订日期降序排序
         const sorted = data.sort((a: Contract, b: Contract) =>
           new Date(b.sign_date).getTime() - new Date(a.sign_date).getTime()
@@ -98,18 +128,6 @@ export default function ContractManagement() {
       console.error('Fetch contracts error:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
-      const data = await response.json();
-      if (response.ok) {
-        setCustomers(data);
-      }
-    } catch (error) {
-      console.error('Fetch customers error:', error);
     }
   };
 
@@ -199,6 +217,7 @@ export default function ContractManagement() {
       if (response.ok) {
         Alert.alert('成功', editingContract ? '修改成功' : '创建成功');
         setModalVisible(false);
+        clearCache('contracts-list');
         fetchContracts();
       } else {
         throw new Error(data.error || '操作失败');
@@ -225,6 +244,7 @@ export default function ContractManagement() {
             const data = await response.json();
             if (response.ok) {
               Alert.alert('成功', '删除成功');
+              clearCache('contracts-list');
               fetchContracts();
             } else {
               throw new Error(data.error || '删除失败');

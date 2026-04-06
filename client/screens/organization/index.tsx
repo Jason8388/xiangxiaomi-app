@@ -14,6 +14,7 @@ import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface Employee {
   id: number;
@@ -65,7 +66,7 @@ export default function OrganizationScreen() {
   const [editingDeptId, setEditingDeptId] = useState<number | null>(null);
   const [user, setUser] = useState<any>(null);
 
-  const fetchOrganization = async () => {
+  const fetchOrganization = async (): Promise<OrgData | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -75,12 +76,15 @@ export default function OrganizationScreen() {
         setOrgData(data);
         const topLevelIds = new Set<number>(data.tree.map((d: Department) => d.id));
         setExpandedDepts(topLevelIds);
+        return data;
       } else {
         setError(data.error || '获取组织结构失败');
+        return null;
       }
     } catch (err: any) {
       console.error('Fetch organization error:', err);
       setError('网络连接失败，请检查网络后重试');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -99,7 +103,7 @@ export default function OrganizationScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchOrganization();
+      cachedFetch('organization-tree', fetchOrganization, 'medium');
       fetchUser();
     }, [])
   );
