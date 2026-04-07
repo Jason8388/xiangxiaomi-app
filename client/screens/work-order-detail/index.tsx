@@ -130,6 +130,11 @@ export default function WorkOrderDetailScreen() {
   const [contractSearchVisible, setContractSearchVisible] = useState(false);
   const [contractSearchKeyword, setContractSearchKeyword] = useState('');
 
+  // 完整性检查弹窗
+  const [checkModalVisible, setCheckModalVisible] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [checking, setChecking] = useState(false);
+
   // 联系人弹窗
   const [contactModalVisible, setContactModalVisible] = useState(false);
   const [editingContactIndex, setEditingContactIndex] = useState(-1);
@@ -595,6 +600,81 @@ export default function WorkOrderDetailScreen() {
     }
   };
 
+  // 字段名称映射
+  const getFieldLabel = (field: string) => {
+    const labels: Record<string, string> = {
+      'task_phase': '任务阶段',
+      'task_progress': '任务进度',
+      'task_status': '任务状态',
+      'customer_name': '客户名称',
+      'contacts': '客户联系人',
+      'service_plan': '服务方案',
+      'is_charged': '是否收费',
+      'consensus_docs': '客户共识凭证',
+      'oa_work_order_no': 'OA系统工单编号',
+      'work_order_docs': '派工单照片',
+      'work_order_signer': '派工单签字人',
+      'actual_hours': '实际工时',
+    };
+    return labels[field] || field;
+  };
+
+  // 工单完整性检查
+  const handleCheckCompleteness = async () => {
+    if (!order) return;
+    setChecking(true);
+
+    const missing: string[] = [];
+
+    // 检查必填字段
+    if (!order.task_phase) missing.push('task_phase');
+    if (!order.task_progress) missing.push('task_progress');
+    if (!order.task_status) missing.push('task_status');
+    if (!order.customer_name) missing.push('customer_name');
+    if (!order.contacts || order.contacts.length === 0) missing.push('contacts');
+    if (!order.service_plan) missing.push('service_plan');
+    if (order.is_charged === undefined || order.is_charged === null) missing.push('is_charged');
+    if (!order.consensus_docs) missing.push('consensus_docs');
+    if (!order.oa_work_order_no) missing.push('oa_work_order_no');
+    if (!order.work_order_docs) missing.push('work_order_docs');
+    if (!order.work_order_signer) missing.push('work_order_signer');
+    if (!order.actual_hours && order.actual_hours !== 0) missing.push('actual_hours');
+
+    setMissingFields(missing);
+    setCheckModalVisible(true);
+    setChecking(false);
+  };
+
+  // 创建提醒
+  const handleCreateReminder = async () => {
+    if (!order || missingFields.length === 0) return;
+
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-order-reminders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          work_order_id: order.id,
+          work_order_name: order.title,
+          work_order_no: order.order_no || order.task_no,
+          missing_fields: missingFields,
+          assigned_to: order.task_leader,
+        }),
+      });
+
+      if (response.ok) {
+        const reminder = await response.json();
+        setCheckModalVisible(false);
+        Alert.alert('成功', '已创建提醒，将通知相关人员', [
+          { text: '查看提醒', onPress: () => router.push('/work-order-reminders') },
+          { text: '关闭', style: 'cancel' },
+        ]);
+      }
+    } catch (error) {
+      Alert.alert('错误', '创建提醒失败');
+    }
+  };
+
   // 提交表单
   const handleSubmit = async () => {
     if (!order) return;
@@ -720,7 +800,24 @@ export default function WorkOrderDetailScreen() {
 
   return (
     <Screen>
-      <PageHeader title={isCreateMode ? '新建工单' : '工单详情'} />
+      <PageHeader
+        title={isCreateMode ? '新建工单' : '工单详情'}
+        rightAction={
+          !isCreateMode && (
+            <TouchableOpacity
+              style={styles.checkButton}
+              onPress={handleCheckCompleteness}
+              disabled={checking}
+            >
+              {checking ? (
+                <ActivityIndicator size="small" color="#6C63FF" />
+              ) : (
+                <FontAwesome6 name="clipboard-check" size={18} color="#6C63FF" />
+              )}
+            </TouchableOpacity>
+          )
+        }
+      />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 80 }}>
           {/* 信息栏1：基本情况 */}
@@ -1399,6 +1496,58 @@ export default function WorkOrderDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 工单完整性检查弹窗 */}
+      <Modal visible={checkModalVisible} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCheckModalVisible(false)}>
+          <View style={styles.checkModal} onStartShouldSetResponder={() => true}>
+            <View style={styles.checkModalHeader}>
+              <Text style={styles.checkModalTitle}>工单信息完整性检查</Text>
+              <TouchableOpacity onPress={() => setCheckModalVisible(false)}>
+                <FontAwesome6 name="times" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.checkModalContent}>
+              {missingFields.length === 0 ? (
+                <View style={styles.checkEmptyIcon}>
+                  <FontAwesome6 name="check-circle" size={60} color="#2ECC71" />
+                  <Text style={styles.checkEmptyText}>所有必填信息已填写完整</Text>
+                  <Text style={styles.checkEmptySubtext}>工单信息填写良好，无需补充</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                    <FontAwesome6 name="exclamation-triangle" size={18} color="#E74C3C" />
+                    <Text style={[styles.checkResultTitle, { marginLeft: 8, marginBottom: 0, color: '#E74C3C' }]}>
+                      发现 {missingFields.length} 项信息待填写
+                    </Text>
+                  </View>
+                  <View style={styles.checkFieldList}>
+                    {missingFields.map((field, index) => (
+                      <View key={index} style={styles.checkFieldItem}>
+                        <View style={styles.checkFieldNumber}>
+                          <Text style={styles.checkFieldNumberText}>{index + 1}</Text>
+                        </View>
+                        <Text style={styles.checkFieldLabel}>{getFieldLabel(field)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+            <View style={styles.checkModalFooter}>
+              <TouchableOpacity style={styles.checkCancelBtn} onPress={() => setCheckModalVisible(false)}>
+                <Text style={styles.checkCancelBtnText}>关闭</Text>
+              </TouchableOpacity>
+              {missingFields.length > 0 && (
+                <TouchableOpacity style={styles.checkConfirmBtn} onPress={handleCreateReminder}>
+                  <Text style={styles.checkConfirmBtnText}>创建提醒</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   );
 }
@@ -1518,4 +1667,25 @@ const styles = StyleSheet.create({
   progressNoteHeader: { flexDirection: 'row', marginBottom: 6 },
   progressNoteDate: { fontSize: 12, color: '#9B59B6', fontWeight: '500' },
   progressNoteContent: { fontSize: 14, color: '#2D3436', lineHeight: 20 },
+  checkButton: { padding: 8 },
+  checkModal: { backgroundColor: '#FFF', borderRadius: 16, width: '90%', maxHeight: '70%' },
+  checkModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  checkModalTitle: { fontSize: 17, fontWeight: '600', color: '#2D3436' },
+  checkModalContent: { padding: 18 },
+  checkResultTitle: { fontSize: 14, fontWeight: '600', color: '#636E72', marginBottom: 12 },
+  checkEmptyIcon: { alignItems: 'center', paddingVertical: 20 },
+  checkEmptyText: { fontSize: 15, color: '#636E72', marginTop: 12 },
+  checkEmptySubtext: { fontSize: 13, color: '#95A5A6', marginTop: 6 },
+  checkFieldList: { backgroundColor: '#FFF5F5', borderRadius: 12, padding: 14 },
+  checkFieldItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#FFE5E5' },
+  checkFieldNumber: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#E74C3C', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  checkFieldNumberText: { fontSize: 12, fontWeight: '600', color: '#FFF' },
+  checkFieldLabel: { fontSize: 14, color: '#2D3436', flex: 1 },
+  checkModalFooter: { flexDirection: 'row', padding: 14, gap: 12, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  checkCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#F0F0F0', alignItems: 'center' },
+  checkCancelBtnText: { fontSize: 14, fontWeight: '600', color: '#636E72' },
+  checkConfirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#6C63FF', alignItems: 'center' },
+  checkConfirmBtnText: { fontSize: 14, fontWeight: '600', color: '#FFF' },
 });
+
+export default WorkOrderDetailScreen;

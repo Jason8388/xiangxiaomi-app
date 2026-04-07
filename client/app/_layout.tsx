@@ -103,6 +103,7 @@ function RootLayoutInner() {
         <Stack.Screen name="report-device" options={{ title: "" }} />
         <Stack.Screen name="report-after-sales" options={{ title: "" }} />
         <Stack.Screen name="reminders" options={{ title: "" }} />
+        <Stack.Screen name="work-order-reminders" options={{ title: "" }} />
         <Stack.Screen name="organization" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}

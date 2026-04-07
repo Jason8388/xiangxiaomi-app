@@ -119,6 +119,13 @@ const adminNavItems: NavigationItem[] = [
     route: '/reminders',
   },
   {
+    id: 'work-order-reminder',
+    title: '工单待填提醒',
+    icon: 'clipboard-check',
+    color: '#FF6B6B',
+    route: '/work-order-reminders',
+  },
+  {
     id: 'organization',
     title: '组织结构',
     icon: 'sitemap',
