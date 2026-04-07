@@ -14,7 +14,6 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { clearCache } from '@/utils/storage';
 
 interface Contract {
   id: number;
@@ -108,6 +107,39 @@ export default function ContractManagement() {
     };
     loadData();
   }, []);
+
+  // 获取合同列表
+  const fetchContracts = async (): Promise<Contract[]> => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        const sorted = data.sort((a: Contract, b: Contract) =>
+          new Date(b.sign_date).getTime() - new Date(a.sign_date).getTime()
+        );
+        setContracts(sorted);
+        return sorted;
+      }
+      return [];
+    } catch (error) {
+      console.error('Fetch contracts error:', error);
+      return [];
+    }
+  };
+
+  // 获取客户列表
+  const fetchCustomers = async (): Promise<Customer[]> => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+      const data = await response.json();
+      const list = Array.isArray(data) ? data : (data.data || []);
+      setCustomers(list);
+      return list;
+    } catch (error) {
+      console.error('Fetch customers error:', error);
+      return [];
+    }
+  };
 
   useEffect(() => {
     if (searchKeyword.trim()) {

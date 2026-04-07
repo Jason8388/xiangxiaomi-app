@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -83,56 +83,57 @@ export default function EmployeeManagement() {
     }
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // 并行加载用户和部门数据
-        const [usersRes, deptsRes] = await Promise.all([
-          fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`),
-          fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`),
-        ]);
+  // 加载数据函数
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 并行加载用户和部门数据
+      const [usersRes, deptsRes] = await Promise.all([
+        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`),
+        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`),
+      ]);
 
-        const usersData = await usersRes.json();
-        const deptsData = await deptsRes.json();
+      const usersData = await usersRes.json();
+      const deptsData = await deptsRes.json();
 
-        if (usersRes.ok) {
-          setUsers(Array.isArray(usersData) ? usersData : []);
-        } else {
-          setError(usersData.error || '获取员工列表失败');
-        }
-
-        if (deptsRes.ok && Array.isArray(deptsData)) {
-          // 将部门树扁平化用于选择
-          const flattenDepts = (depts: Department[], level: number = 0): { id: number; name: string; level: number }[] => {
-            let result: { id: number; name: string; level: number }[] = [];
-            depts.forEach((dept) => {
-              result.push({
-                id: dept.id,
-                name: dept.name,
-                level,
-              });
-              if (dept.children && dept.children.length > 0) {
-                result = result.concat(flattenDepts(dept.children, level + 1));
-              }
-            });
-            return result;
-          };
-
-          setFlatDepartments(flattenDepts(deptsData));
-        }
-      } catch (error) {
-        console.error('Load data error:', error);
-        setError('网络连接失败，请检查网络后重试');
-      } finally {
-        setLoading(false);
+      if (usersRes.ok) {
+        setUsers(Array.isArray(usersData) ? usersData : []);
+      } else {
+        setError(usersData.error || '获取员工列表失败');
       }
-    };
 
+      if (deptsRes.ok && Array.isArray(deptsData)) {
+        // 将部门树扁平化用于选择
+        const flattenDepts = (depts: Department[], level: number = 0): { id: number; name: string; level: number }[] => {
+          let result: { id: number; name: string; level: number }[] = [];
+          depts.forEach((dept) => {
+            result.push({
+              id: dept.id,
+              name: dept.name,
+              level,
+            });
+            if (dept.children && dept.children.length > 0) {
+              result = result.concat(flattenDepts(dept.children, level + 1));
+            }
+          });
+          return result;
+        };
+
+        setFlatDepartments(flattenDepts(deptsData));
+      }
+    } catch (error) {
+      console.error('Load data error:', error);
+      setError('网络连接失败，请检查网络后重试');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     loadUserData();
     loadData();
-  }, []);
+  }, [loadData]);
 
   const handleAddEmployee = () => {
     setNewEmployee({
@@ -413,7 +414,7 @@ export default function EmployeeManagement() {
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
               style={styles.retryButton}
-              onPress={() => cachedFetch('users-list', fetchUsers, 'short')}
+              onPress={() => loadData()}
             >
               <Text style={styles.retryButtonText}>重新加载</Text>
             </TouchableOpacity>
