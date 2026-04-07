@@ -52,6 +52,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="file-library"
+        options={{
+          title: '文件库',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome6 name="folder-open" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="knowledge"
         options={{
           title: '知识库',
