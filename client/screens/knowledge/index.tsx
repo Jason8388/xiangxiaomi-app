@@ -25,8 +25,11 @@ export default function KnowledgeScreen() {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge`);
       const data = await response.json();
+      // 支持两种格式：直接数组 或 { code, data, message }
       if (Array.isArray(data)) {
         setKnowledgeList(data);
+      } else if (data.data && Array.isArray(data.data)) {
+        setKnowledgeList(data.data);
       }
     } catch (error) {
       console.error('Fetch knowledge error:', error);
@@ -125,8 +128,11 @@ export default function KnowledgeScreen() {
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/search/${searchText}`
       );
       const data = await response.json();
+      // 支持两种格式：直接数组 或 { code, data, message }
       if (Array.isArray(data)) {
         setKnowledgeList(data);
+      } else if (data.data && Array.isArray(data.data)) {
+        setKnowledgeList(data.data);
       }
     } catch (error) {
       console.error('Search knowledge error:', error);

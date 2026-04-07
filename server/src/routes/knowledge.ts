@@ -41,8 +41,45 @@ const upload = multer({
 });
 
 // 内存数据存储（用于数据库不可用时）
-const memoryKnowledgeList: any[] = [];
-let memoryKnowledgeId = 1;
+const memoryKnowledgeList: any[] = [
+  {
+    id: 1,
+    title: '设备日常维护指南',
+    category: '维护手册',
+    content: '设备日常维护是保证设备正常运行的重要环节。\n\n1. 每天开机前检查设备外观和电源\n2. 定期清洁设备表面和散热孔\n3. 每周检查设备运行参数\n4. 每月进行全面的设备保养',
+    author: '系统管理员',
+    view_count: 156,
+    like_count: 28,
+    tags: ['设备维护', '日常保养', '操作规范'],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    title: '常见故障代码及解决方案',
+    category: '故障处理',
+    content: '当设备出现故障时，请参照以下代码进行初步诊断：\n\nE001 - 温度过高：检查散热系统是否正常\nE002 - 压力异常：检查管路是否堵塞\nE003 - 电机过载：减少设备负荷\nE004 - 传感器故障：联系技术支持',
+    author: '技术支持部',
+    view_count: 234,
+    like_count: 45,
+    tags: ['故障代码', '故障处理', '维修指南'],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    title: '安全生产操作规程',
+    category: '安全规范',
+    content: '安全生产是企业发展的基础，每位员工必须遵守以下规程：\n\n1. 进入车间必须穿戴安全防护用品\n2. 严禁酒后上岗和疲劳作业\n3. 设备运行中禁止进行维修保养\n4. 发现安全隐患立即报告\n5. 定期参加安全培训',
+    author: '安全管理部门',
+    view_count: 312,
+    like_count: 67,
+    tags: ['安全生产', '操作规程', '安全培训'],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+let memoryKnowledgeId = 4;
 
 // 带重试的查询函数
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {
@@ -70,14 +107,14 @@ router.get('/', async (req, res) => {
       const result = await queryWithRetry(
         'SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id ORDER BY k.id DESC LIMIT 100'
       );
-      res.json(result.rows);
+      res.json({ code: 0, data: result.rows, message: 'success' });
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
-      res.json(memoryKnowledgeList.slice(0, 100));
+      res.json({ code: 0, data: memoryKnowledgeList.slice(0, 100), message: 'success' });
     }
   } catch (error) {
     console.error('Get knowledge error:', error);
-    res.status(500).json({ error: '服务器错误' });
+    res.status(500).json({ code: 1, message: '服务器错误' });
   }
 });
 
