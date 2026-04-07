@@ -36,7 +36,7 @@ const REPORTS: ReportCard[] = [
   },
   {
     id: 'after-sales-report',
-    title: '售后工单统计表',
+    title: '工单统计表',
     icon: 'screwdriver-wrench',
     color: '#E67E22',
     description: '统计售后工单数、收费工单数、免费工单数、工单明细',
