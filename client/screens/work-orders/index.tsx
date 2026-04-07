@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { cachedFetch, clearCache } from '@/utils/storage';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface WorkOrder {
   id: number;
@@ -44,6 +45,8 @@ interface FormDataType {
 export default function WorkOrdersScreen() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<WorkOrder[]>([]);
+  const [orders, setOrders] = useState<WorkOrder[]>([]);
+  const [showAllOrders, setShowAllOrders] = useState(false);
   const [stats, setStats] = useState({
     totalWorkOrders: 0,
     chargedWorkOrders: 0,
@@ -109,6 +112,7 @@ export default function WorkOrdersScreen() {
       const data = await response.json();
       if (Array.isArray(data)) {
         setWorkOrders(data);
+        setOrders(data);
         return data;
       }
       return [];
@@ -434,7 +438,90 @@ export default function WorkOrdersScreen() {
           </View>
         </View>
 
-        {/* 栏3：工单查询 */}
+        {/* 栏3：最近工单 */}
+        <View className="px-6 mb-4">
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-lg font-bold text-[#2D3436]">最近工单</Text>
+            <TouchableOpacity onPress={() => setShowAllOrders(!showAllOrders)}>
+              <Text className="text-sm text-[#6C63FF]">{showAllOrders ? '收起' : '查看全部'}</Text>
+            </TouchableOpacity>
+          </View>
+          {orders.length === 0 ? (
+            <View className="bg-white rounded-2xl p-6 items-center">
+              <Text className="text-sm text-[#636E72]">暂无工单数据</Text>
+            </View>
+          ) : (
+            <View className="gap-3">
+              {orders.slice(0, showAllOrders ? orders.length : 10).map((order) => (
+                <TouchableOpacity
+                  key={order.id}
+                  className="bg-white rounded-2xl p-4"
+                  onPress={() => router.push('/work-order-detail', { id: order.id })}
+                >
+                  <View className="flex-row justify-between items-start mb-2">
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-[#2D3436]" numberOfLines={1}>
+                        {order.title || order.order_no || `工单 #${order.id}`}
+                      </Text>
+                      <Text className="text-sm text-[#636E72] mt-1">
+                        客户: {order.customer_name || '未指定'}
+                      </Text>
+                      <Text className="text-sm text-[#636E72]">
+                        任务号: {order.order_no || '-'}
+                      </Text>
+                    </View>
+                    <View className="flex-row gap-2">
+                      <TouchableOpacity
+                        className="px-3 py-1.5 rounded-lg bg-[#F39C12]"
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleEdit(order);
+                        }}
+                      >
+                        <Text className="text-white text-xs font-semibold">修改</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        className="px-3 py-1.5 rounded-lg bg-[#E74C3C]"
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDelete(order);
+                        }}
+                      >
+                        <Text className="text-white text-xs font-semibold">删除</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {/* 工单状态标签 */}
+                  <View className="flex-row items-center mt-2">
+                    <View
+                      className="px-2 py-1 rounded-full"
+                      style={{
+                        backgroundColor: order.stage === 'completed' ? 'rgba(0, 184, 148, 0.15)' :
+                          order.stage === 'processing' ? 'rgba(108, 99, 255, 0.15)' :
+                          order.stage === 'assigned' ? 'rgba(243, 156, 18, 0.15)' : 'rgba(253, 203, 110, 0.15)'
+                      }}
+                    >
+                      <Text
+                        className="text-xs font-semibold"
+                        style={{
+                          color: order.stage === 'completed' ? '#00B894' :
+                            order.stage === 'processing' ? '#6C63FF' :
+                            order.stage === 'assigned' ? '#F39C12' : '#FDCB6E'
+                        }}
+                      >
+                        {order.stage === 'completed' ? '已完成' :
+                          order.stage === 'processing' ? '处理中' :
+                          order.stage === 'assigned' ? '已派工' : '待派工'}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* 栏4：工单查询 */}
         <View className="px-6 mb-4">
           <View
             className="rounded-3xl p-5"
