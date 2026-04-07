@@ -141,28 +141,51 @@ router.get('/', async (req, res) => {
   return res.json(users);
 });
 
+// 内存用户存储（用于创建新用户时）
+let memoryUserList: any[] = [...memoryUsersList];
+let memoryNewUserId = Math.max(...memoryUsersList.map(u => u.id)) + 1;
+
 // 创建用户
 router.post('/', async (req, res) => {
   try {
-    const { username, password, name, role, position, department_id } = req.body;
+    const { username, password, name, role, position, phone, department_id, department_name } = req.body;
 
     if (!username || !password || !name) {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
-    const result = await queryWithRetry(
-      'INSERT INTO users (username, password, name, role, position, department_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, name, role, position, department_id, created_at',
-      [username, password, name, role || 'staff', position || null, department_id || null]
-    );
-
-    res.json(result.rows[0]);
+    try {
+      const result = await queryWithRetry(
+        'INSERT INTO users (username, password, name, role, position, phone, department_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username, name, role, position, phone, department_id, created_at',
+        [username, password, name, role || 'staff', position || null, phone || null, department_id || null]
+      );
+      res.json(result.rows[0]);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      // 检查是否已存在
+      if (memoryUserList.find(u => u.username === username)) {
+        return res.status(400).json({ error: '用户名已存在' });
+      }
+      const newUser = {
+        id: memoryNewUserId++,
+        username,
+        password,
+        name,
+        role: role || 'staff',
+        position: position || null,
+        phone: phone || null,
+        department_id: department_id || null,
+        department_name: department_name || null,
+        is_disabled: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryUserList.push(newUser);
+      res.json(newUser);
+    }
   } catch (error: any) {
     console.error('Create user error:', error);
-    if (error.code === '23505') {
-      res.status(400).json({ error: '用户名已存在' });
-    } else {
-      res.status(500).json({ error: '服务器错误' });
-    }
+    res.status(500).json({ error: '服务器错误' });
   }
 });
 

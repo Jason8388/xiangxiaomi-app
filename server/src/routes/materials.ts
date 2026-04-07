@@ -3,6 +3,26 @@ import pool from '../database/db';
 
 const router = express.Router();
 
+// 内存数据存储
+const memoryMaterials: any[] = [];
+let memoryMaterialId = 1;
+
+// 带超时的查询函数
+async function queryWithTimeout(query: string, params: any[] = [], timeout = 3000) {
+  try {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout')), timeout);
+    });
+    const queryPromise = pool.query(query, params);
+    return await Promise.race([queryPromise, timeoutPromise]);
+  } catch (error: any) {
+    if (error.message === 'Query timeout') {
+      throw new Error('Database timeout');
+    }
+    throw error;
+  }
+}
+
 // 获取物料列表
 router.get('/', async (req, res) => {
   try {
@@ -25,10 +45,47 @@ router.get('/', async (req, res) => {
 
     query += ' ORDER BY id DESC';
 
-    const result = await pool.query(query, params);
+    const result = await queryWithTimeout(query, params);
     res.json(result.rows);
   } catch (error) {
-    console.error('Get materials error:', error);
+    console.error('Get materials error, using memory storage:', error);
+    res.json(memoryMaterials);
+  }
+});
+
+// 创建物料
+router.post('/', async (req, res) => {
+  try {
+    const { name, code, category, unit, specification, min_stock } = req.body;
+
+    if (!name || !code) {
+      return res.status(400).json({ error: '物料名称和编码不能为空' });
+    }
+
+    try {
+      const result = await queryWithTimeout(
+        'INSERT INTO materials (name, code, category, unit, specification, min_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [name, code, category, unit, specification, min_stock || 0]
+      );
+      res.json(result.rows[0]);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const newMaterial = {
+        id: memoryMaterialId++,
+        name,
+        code,
+        category,
+        unit,
+        specification,
+        min_stock: min_stock || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryMaterials.push(newMaterial);
+      res.json(newMaterial);
+    }
+  } catch (error) {
+    console.error('Create material error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
 });

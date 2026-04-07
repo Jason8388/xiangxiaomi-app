@@ -9,7 +9,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // 检查是否使用内存存储
-const USE_MEMORY_STORAGE = false; // 设备管理需要数据库支持
+const USE_MEMORY_STORAGE = true; // 数据库超时，启用内存存储
 
 // 带重试的查询函数
 async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {

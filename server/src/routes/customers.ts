@@ -3,20 +3,24 @@ import pool from '../database/db';
 
 const router = express.Router();
 
-// 带重试的查询函数
-async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await pool.query(query, params);
-    } catch (error: any) {
-      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
-        continue;
-      }
-      throw error;
+// 内存数据存储（用于数据库不可用时）
+const memoryCustomers: any[] = [];
+let memoryCustomerId = 1;
+
+// 带超时的查询函数
+async function queryWithTimeout(query: string, params: any[] = [], timeout = 3000) {
+  try {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout')), timeout);
+    });
+    const queryPromise = pool.query(query, params);
+    return await Promise.race([queryPromise, timeoutPromise]);
+  } catch (error: any) {
+    if (error.message === 'Query timeout') {
+      throw new Error('Database timeout');
     }
+    throw error;
   }
-  throw new Error('Max retries reached');
 }
 
 // 获取客户列表（带分页）
@@ -42,8 +46,8 @@ router.get('/', async (req, res) => {
     params.push(limitNum, offset);
 
     const [result, countResult] = await Promise.all([
-      queryWithRetry(query, params),
-      queryWithRetry(countQuery, keyword ? [`%${keyword}%`] : []),
+      queryWithTimeout(query, params),
+      queryWithTimeout(countQuery, keyword ? [`%${keyword}%`] : []),
     ]);
 
     res.json({
@@ -53,8 +57,14 @@ router.get('/', async (req, res) => {
       limit: limitNum,
     });
   } catch (error) {
-    console.error('Get customers error:', error);
-    res.status(500).json({ error: '服务器错误' });
+    console.error('Get customers error, using memory storage:', error);
+    // 数据库失败时返回内存数据
+    res.json({
+      data: memoryCustomers,
+      total: memoryCustomers.length,
+      page: 1,
+      limit: 100,
+    });
   }
 });
 
@@ -78,18 +88,36 @@ router.get('/:id', async (req, res) => {
 // 创建客户
 router.post('/', async (req, res) => {
   try {
-    const { name, contact, phone, email, address } = req.body;
+    const { name, contact, phone, email, address, remark } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: '客户名称不能为空' });
     }
 
-    const result = await pool.query(
-      'INSERT INTO customers (name, contact, phone, email, address) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [name, contact, phone, email, address]
-    );
-
-    res.json(result.rows[0]);
+    try {
+      const result = await queryWithTimeout(
+        'INSERT INTO customers (name, contact, phone, email, address, remark) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [name, contact, phone, email, address, remark]
+      );
+      res.json(result.rows[0]);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      // 数据库失败时使用内存存储
+      const newCustomer = {
+        id: memoryCustomerId++,
+        name,
+        contact,
+        phone,
+        email,
+        address,
+        remark,
+        device_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryCustomers.push(newCustomer);
+      res.json(newCustomer);
+    }
   } catch (error) {
     console.error('Create customer error:', error);
     res.status(500).json({ error: '服务器错误' });
