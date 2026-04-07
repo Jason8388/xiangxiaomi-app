@@ -13,15 +13,13 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { getApiBaseUrl } from '@/utils/api';
 
-interface SummaryData {
-  total_orders: number;
-  charged_orders: number;
-  free_orders: number;
-  completed_orders: number;
-  total_amount: number;
-  paid_amount: number;
-  pending_amount: number;
-  updated_at: string;
+// 与工单管理一致的统计数据接口
+interface WorkOrderStats {
+  totalWorkOrders: number;
+  chargedWorkOrders: number;
+  performanceAmount: number;
+  pendingPaymentAmount: number;
+  paidAmount: number;
 }
 
 const FILTER_OPTIONS = [
@@ -36,7 +34,7 @@ const EXPORT_OPTIONS = [
   { label: 'PDF 导出', value: 'pdf', icon: 'file-pdf', color: '#E74C3C' },
 ];
 
-// 统计卡片配置
+// 统计卡片配置 - 与工单数据源一致
 const STAT_CARDS = [
   { key: 'total_orders', label: '总工单数', icon: 'clipboard-list', color: '#1E88E5', bgColor: 'rgba(30, 136, 229, 0.1)' },
   { key: 'charged_orders', label: '收费工单数', icon: 'dollar-sign', color: '#2ECC71', bgColor: 'rgba(46, 204, 113, 0.1)' },
@@ -45,7 +43,7 @@ const STAT_CARDS = [
 ];
 
 export default function ReportAfterSales() {
-  const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [summary, setSummary] = useState<WorkOrderStats | null>(null);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -58,17 +56,21 @@ export default function ReportAfterSales() {
   const loadReportData = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedFilter !== 'all') {
-        params.append('period', selectedFilter);
-      }
-
-      const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/reports/after-sales?${params.toString()}`
-      );
+      // 使用与工单管理相同的数据源
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/work-orders/stats`);
       const data = await response.json();
       if (response.ok) {
-        setSummary(data.summary);
+        // 转换数据格式以匹配页面显示
+        const transformedData: any = {
+          total_orders: data.totalWorkOrders || 0,
+          charged_orders: data.chargedWorkOrders || 0,
+          free_orders: (data.totalWorkOrders || 0) - (data.chargedWorkOrders || 0),
+          completed_orders: 0,
+          total_amount: data.performanceAmount || 0,
+          paid_amount: data.paidAmount || 0,
+          pending_amount: data.pendingPaymentAmount || 0,
+        };
+        setSummary(transformedData);
       }
     } catch (error) {
       console.error('Load report data error:', error);
@@ -88,7 +90,19 @@ export default function ReportAfterSales() {
   };
 
   const renderStatCard = (card: typeof STAT_CARDS[0], index: number) => {
-    const value = summary?.[card.key as keyof SummaryData] as number || 0;
+    // 映射卡片key到summary属性
+    const keyMap: Record<string, keyof WorkOrderStats> = {
+      total_orders: 'totalWorkOrders',
+      charged_orders: 'chargedWorkOrders',
+      free_orders: 'chargedWorkOrders',
+      completed_orders: 'totalWorkOrders',
+    };
+    const summaryKey = keyMap[card.key] || 'totalWorkOrders';
+    // 免费工单数 = 总工单数 - 收费工单数
+    let value = (summary?.[summaryKey] as number) || 0;
+    if (card.key === 'free_orders' && summary) {
+      value = (summary.totalWorkOrders || 0) - (summary.chargedWorkOrders || 0);
+    }
     return (
       <View
         key={card.key}
