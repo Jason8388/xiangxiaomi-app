@@ -66,6 +66,10 @@ interface WorkOrderDetail {
   sales_sub_project_no?: string;
   material_code?: string;
   oa_work_order_no?: string;
+  // 合同信息
+  contract_id?: number;
+  contract_no?: string;
+  contract_name?: string;
   implementer?: string;
   implementation_complete_date?: string;
   actual_hours?: number;
@@ -106,6 +110,17 @@ export default function WorkOrderDetailScreen() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerSearchVisible, setCustomerSearchVisible] = useState(false);
   const [customerSearchKeyword, setCustomerSearchKeyword] = useState('');
+
+  // 合同搜索
+  interface Contract {
+    id: number;
+    contract_no: string;
+    title: string;
+    customer_name?: string;
+  }
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [contractSearchVisible, setContractSearchVisible] = useState(false);
+  const [contractSearchKeyword, setContractSearchKeyword] = useState('');
 
   // 联系人弹窗
   const [contactModalVisible, setContactModalVisible] = useState(false);
@@ -181,6 +196,9 @@ export default function WorkOrderDetailScreen() {
     sales_sub_project_no: '',
     material_code: '',
     oa_work_order_no: '',
+    contract_id: undefined,
+    contract_no: '',
+    contract_name: '',
     implementer: '',
     implementation_complete_date: '',
     actual_hours: 0,
@@ -211,6 +229,24 @@ export default function WorkOrderDetailScreen() {
       }
     };
     loadCustomers();
+  }, []);
+
+  // 加载合同列表
+  useEffect(() => {
+    const loadContracts = async () => {
+      try {
+        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setContracts(data);
+        } else if (data.rows) {
+          setContracts(data.rows);
+        }
+      } catch (error) {
+        console.error('Load contracts error:', error);
+      }
+    };
+    loadContracts();
   }, []);
 
   // 加载工单详情
@@ -256,6 +292,9 @@ export default function WorkOrderDetailScreen() {
         sales_sub_project_no: data.sales_sub_project_no || '',
         material_code: data.material_code || '',
         oa_work_order_no: data.oa_work_order_no || '',
+        contract_id: data.contract_id,
+        contract_no: data.contract_no || '',
+        contract_name: data.contract_name || '',
         implementer: data.implementer || '',
         implementation_complete_date: data.implementation_complete_date || '',
         actual_hours: data.actual_hours || 0,
@@ -941,6 +980,57 @@ export default function WorkOrderDetailScreen() {
                     </TouchableOpacity>
                   </View>
                   {renderInputRow('销售子项目号', 'sales_sub_project_no', '请输入销售子项目号')}
+                  {/* 合同搜索选择 */}
+                  <View style={styles.contractSearchContainer}>
+                    <Text style={styles.contractLabel}>合同编号/名称</Text>
+                    <TouchableOpacity
+                      style={styles.contractInput}
+                      onPress={() => setContractSearchVisible(!contractSearchVisible)}
+                    >
+                      <Text style={order.contract_no ? styles.contractValue : styles.contractPlaceholder}>
+                        {order.contract_no ? `${order.contract_no} - ${order.contract_name || '未知'}` : '点击选择合同'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {contractSearchVisible && (
+                    <View style={styles.contractDropdown}>
+                      <TextInput
+                        style={styles.contractSearchInput}
+                        placeholder="输入合同编号或名称搜索"
+                        placeholderTextColor="#CCC"
+                        value={contractSearchKeyword}
+                        onChangeText={setContractSearchKeyword}
+                      />
+                      <ScrollView style={styles.contractList} nestedScrollEnabled>
+                        {contracts
+                          .filter(c => 
+                            !contractSearchKeyword ||
+                            c.contract_no?.toLowerCase().includes(contractSearchKeyword.toLowerCase()) ||
+                            (c.title || '').toLowerCase().includes(contractSearchKeyword.toLowerCase())
+                          )
+                          .slice(0, 10)
+                          .map((contract) => (
+                            <TouchableOpacity
+                              key={contract.id}
+                              style={styles.contractItem}
+                              onPress={() => {
+                                setOrder((prev: any) => ({
+                                  ...prev,
+                                  contract_id: contract.id,
+                                  contract_no: contract.contract_no,
+                                  contract_name: contract.title || '',
+                                }));
+                                setContractSearchVisible(false);
+                                setContractSearchKeyword('');
+                              }}
+                            >
+                              <Text style={styles.contractItemNo}>{contract.contract_no}</Text>
+                              <Text style={styles.contractItemName}>{contract.title || '未知'}</Text>
+                            </TouchableOpacity>
+                          ))}
+                      </ScrollView>
+                    </View>
+                  )}
                   {renderMultiLineRow('物料编码', 'material_code', '请输入物料编码（支持多行）')}
                   {renderInputRow('OA系统工单编号', 'oa_work_order_no', '请输入OA系统工单编号')}
                 </>
@@ -975,6 +1065,18 @@ export default function WorkOrderDetailScreen() {
                     </TouchableOpacity>
                   </View>
                   {renderInputRow('销售子项目号', 'sales_sub_project_no', '请输入销售子项目号', true)}
+                  {order.contract_no ? (
+                    <View style={styles.contractDisplayRow}>
+                      <Text style={styles.infoLabel}>合同编号</Text>
+                      <Text style={styles.infoValue}>{order.contract_no}</Text>
+                    </View>
+                  ) : null}
+                  {order.contract_name ? (
+                    <View style={styles.contractDisplayRow}>
+                      <Text style={styles.infoLabel}>合同名称</Text>
+                      <Text style={styles.infoValue}>{order.contract_name}</Text>
+                    </View>
+                  ) : null}
                   {renderMultiLineRow('物料编码', 'material_code', '请输入物料编码（支持多行）')}
                   {renderInputRow('OA系统工单编号', 'oa_work_order_no', '请输入OA系统工单编号', true)}
                 </>
@@ -1310,4 +1412,16 @@ const styles = StyleSheet.create({
   multiLineContainer: { marginBottom: 12 },
   multiLineLabel: { fontSize: 13, color: '#95A5A6', marginBottom: 6 },
   multiLineInput: { backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#2D3436', minHeight: 80 },
+  contractSearchContainer: { marginBottom: 12 },
+  contractLabel: { fontSize: 13, color: '#95A5A6', marginBottom: 6 },
+  contractInput: { backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  contractValue: { fontSize: 14, color: '#2D3436' },
+  contractPlaceholder: { fontSize: 14, color: '#CCC' },
+  contractDropdown: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E0E0E0', marginTop: 8, overflow: 'hidden' },
+  contractSearchInput: { borderBottomWidth: 1, borderBottomColor: '#F0F0F0', paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#2D3436' },
+  contractList: { maxHeight: 200 },
+  contractItem: { paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  contractItemNo: { fontSize: 13, color: '#6C63FF', fontWeight: '500' },
+  contractItemName: { fontSize: 12, color: '#636E72', marginTop: 2 },
+  contractDisplayRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F8F9FA', borderRadius: 8 },
 });
