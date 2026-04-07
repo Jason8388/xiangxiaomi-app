@@ -13,7 +13,6 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface User {
   id: number;
@@ -72,14 +71,7 @@ export default function EmployeeManagement() {
   const [disableModalVisible, setDisableModalVisible] = useState(false);
   const [disableReason, setDisableReason] = useState('');
 
-  useEffect(() => {
-    loadUserData();
-    Promise.all([
-      cachedFetch('users-list', fetchUsers, 'medium'),
-      cachedFetch('departments-list', fetchDepartments, 'medium'),
-    ]);
-  }, []);
-
+  // 加载当前登录用户信息
   const loadUserData = async () => {
     try {
       const userStr = await SecureStore.getItemAsync('user');
@@ -91,77 +83,56 @@ export default function EmployeeManagement() {
     }
   };
 
-  const fetchUsers = async (): Promise<User[]> => {
-    try {
+  useEffect(() => {
+    const loadData = async () => {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
-      const data = await response.json();
+      try {
+        // 并行加载用户和部门数据
+        const [usersRes, deptsRes] = await Promise.all([
+          fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`),
+          fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`),
+        ]);
 
-      if (response.ok) {
-        setUsers(data);
-        return data;
-      } else {
-        setError(data.error || '获取员工列表失败');
-        Alert.alert('错误', data.error || '获取员工列表失败');
-        return [];
-      }
-    } catch (error) {
-      console.error('Fetch users error:', error);
-      setError('网络连接失败，请检查网络后重试');
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  };
+        const usersData = await usersRes.json();
+        const deptsData = await deptsRes.json();
 
-  const fetchDepartments = async (): Promise<void> => {
-    try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`);
-      const data = await response.json();
+        if (usersRes.ok) {
+          setUsers(Array.isArray(usersData) ? usersData : []);
+        } else {
+          setError(usersData.error || '获取员工列表失败');
+        }
 
-      if (response.ok) {
-        // 将部门树扁平化用于选择
-        const flattenDepts = (depts: Department[], level: number = 0): { id: number; name: string; level: number }[] => {
-          let result: { id: number; name: string; level: number }[] = [];
-          depts.forEach((dept) => {
-            result.push({
-              id: dept.id,
-              name: dept.name,
-              level,
+        if (deptsRes.ok && Array.isArray(deptsData)) {
+          // 将部门树扁平化用于选择
+          const flattenDepts = (depts: Department[], level: number = 0): { id: number; name: string; level: number }[] => {
+            let result: { id: number; name: string; level: number }[] = [];
+            depts.forEach((dept) => {
+              result.push({
+                id: dept.id,
+                name: dept.name,
+                level,
+              });
+              if (dept.children && dept.children.length > 0) {
+                result = result.concat(flattenDepts(dept.children, level + 1));
+              }
             });
-            if (dept.children && dept.children.length > 0) {
-              result = result.concat(flattenDepts(dept.children, level + 1));
-            }
-          });
-          return result;
-        };
+            return result;
+          };
 
-        setFlatDepartments(flattenDepts(data));
-
-        // 将用户分配到部门，构建树形结构
-        const assignUsersToDepts = (depts: Department[]): DepartmentWithUsers[] => {
-          return depts.map((dept) => {
-            const deptUsers = users.filter((u) => u.department_id === dept.id);
-            return {
-              ...dept,
-              users: deptUsers,
-              children: dept.children ? assignUsersToDepts(dept.children) : [],
-            };
-          });
-        };
-
-        setDepartments(assignUsersToDepts(data));
+          setFlatDepartments(flattenDepts(deptsData));
+        }
+      } catch (error) {
+        console.error('Load data error:', error);
+        setError('网络连接失败，请检查网络后重试');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Fetch departments error:', error);
-    }
-  };
+    };
 
-  useEffect(() => {
-    fetchDepartments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users]);
+    loadUserData();
+    loadData();
+  }, []);
 
   const handleAddEmployee = () => {
     setNewEmployee({
