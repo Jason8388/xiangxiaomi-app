@@ -423,7 +423,7 @@ export default function WorkOrdersScreen() {
                 <Text className="text-xl font-bold text-[#F39C12]">¥{stats.performanceAmount.toFixed(2)}</Text>
               </View>
               <View className="bg-white rounded-2xl p-4">
-                <Text className="text-xs text-[#636E72] mb-1">售后代收款金额</Text>
+                <Text className="text-xs text-[#636E72] mb-1">售后待收款金额</Text>
                 <Text className="text-xl font-bold text-[#E74C3C]">¥{stats.pendingPaymentAmount.toFixed(2)}</Text>
               </View>
               <View className="bg-white rounded-2xl p-4 col-span-2">
