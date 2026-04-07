@@ -93,7 +93,6 @@ export default function WorkOrdersScreen() {
           (order.description && order.description.toLowerCase().includes(keyword)) ||
           (order.customer_name && order.customer_name.toLowerCase().includes(keyword)) ||
           (order.device_name && order.device_name.toLowerCase().includes(keyword)) ||
-          (order.device_number && order.device_number.toLowerCase().includes(keyword)) ||
           (order.assignee_name && order.assignee_name.toLowerCase().includes(keyword))
       );
     }
@@ -116,18 +115,15 @@ export default function WorkOrdersScreen() {
     }
   };
 
-  const fetchStats = async (): Promise<any> => {
+  const fetchStats = async () => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/stats`);
       const data = await response.json();
       if (data) {
         setStats(data);
-        return data;
       }
-      return null;
     } catch (error) {
       console.error('Fetch stats error:', error);
-      return null;
     }
   };
 

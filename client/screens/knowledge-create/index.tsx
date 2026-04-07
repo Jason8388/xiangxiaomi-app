@@ -12,11 +12,25 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import * as SecureStore from 'expo-secure-store';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+
+// 支持的文档类型
+const SUPPORTED_DOCUMENT_TYPES = [
+  'application/msword', // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'application/vnd.ms-excel', // .xls
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+  'application/vnd.ms-powerpoint', // .ppt
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+  'application/pdf', // .pdf
+];
+
+const DOCUMENT_EXTENSIONS = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf'];
 
 interface Attachment {
   uri: string;
@@ -154,26 +168,95 @@ export default function KnowledgeCreate() {
       return;
     }
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('提示', '需要相册权限才能上传附件');
-      return;
+    // 显示选择菜单
+    Alert.alert(
+      '选择附件类型',
+      '请选择要上传的附件类型',
+      [
+        {
+          text: '图片',
+          onPress: () => handlePickImage(),
+        },
+        {
+          text: '文档',
+          onPress: () => handlePickDocument(),
+        },
+        {
+          text: '取消',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // 选择图片
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相册权限才能上传图片');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newAttachment: Attachment = {
+          uri: result.assets[0].uri,
+          name: result.assets[0].fileName || `图片${attachments.length + 1}`,
+          type: result.assets[0].type || 'image/jpeg',
+          size: result.assets[0].fileSize,
+        };
+        setAttachments([...attachments, newAttachment]);
+      }
+    } catch (error) {
+      console.error('Pick image error:', error);
+      Alert.alert('错误', '选择图片失败');
     }
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsEditing: false,
-      quality: 0.8,
-    });
+  // 选择文档（Word、Excel、PPT、PDF）
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: DOCUMENT_EXTENSIONS.map(ext => `*${ext}`), // 支持所有指定扩展名
+        copyToCacheDirectory: true,
+      });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const newAttachment: Attachment = {
-        uri: result.assets[0].uri,
-        name: result.assets[0].fileName || `附件${attachments.length + 1}`,
-        type: result.assets[0].type || 'image/jpeg',
-        size: result.assets[0].fileSize,
-      };
-      setAttachments([...attachments, newAttachment]);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const doc = result.assets[0];
+        
+        // 验证文件类型
+        const fileName = doc.name || '';
+        const extension = '.' + fileName.split('.').pop()?.toLowerCase();
+        
+        if (!DOCUMENT_EXTENSIONS.includes(extension)) {
+          Alert.alert('提示', `不支持的文件格式，仅支持：${DOCUMENT_EXTENSIONS.join('、')}`);
+          return;
+        }
+
+        // 获取MIME类型
+        let mimeType = doc.mimeType || 'application/octet-stream';
+        if (extension === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        else if (extension === '.xlsx') mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        else if (extension === '.pptx') mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+        const newAttachment: Attachment = {
+          uri: doc.uri,
+          name: doc.name || `文档${attachments.length + 1}`,
+          type: mimeType,
+          size: doc.size,
+        };
+        setAttachments([...attachments, newAttachment]);
+      }
+    } catch (error) {
+      console.error('Pick document error:', error);
+      Alert.alert('错误', '选择文档失败');
     }
   };
 
@@ -342,29 +425,45 @@ export default function KnowledgeCreate() {
             {/* 已上传附件 */}
             {attachments.length > 0 && (
               <View style={styles.attachmentsContainer}>
-                {attachments.map((attachment, index) => (
-                  <View key={index} style={styles.attachmentItem}>
-                    {attachment.type?.startsWith('image') ? (
-                      <Image source={{ uri: attachment.uri }} style={styles.attachmentImage} />
-                    ) : (
-                      <FontAwesome6 name="file" size={40} color="#95A5A6" style={styles.attachmentIcon} />
-                    )}
-                    <View style={styles.attachmentInfo}>
-                      <Text style={styles.attachmentName} numberOfLines={1}>
-                        {attachment.name}
-                      </Text>
-                      <Text style={styles.attachmentSize}>
-                        {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '未知大小'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.removeAttachmentButton}
-                      onPress={() => handleRemoveAttachment(index)}
-                    >
-                      <FontAwesome6 name="trash" size={14} color="#E74C3C" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                {attachments.map((attachment, index) => {
+                    // 根据文件类型显示不同图标
+                    const isImage = attachment.type?.startsWith('image');
+                    const isWord = attachment.name?.match(/\.(doc|docx)$/i);
+                    const isExcel = attachment.name?.match(/\.(xls|xlsx)$/i);
+                    const isPPT = attachment.name?.match(/\.(ppt|pptx)$/i);
+                    const isPDF = attachment.name?.match(/\.pdf$/i);
+
+                    let iconColor = '#95A5A6';
+                    let iconName = 'file';
+                    if (isWord) { iconColor = '#2B579A'; iconName = 'file-word'; }
+                    else if (isExcel) { iconColor = '#217346'; iconName = 'file-excel'; }
+                    else if (isPPT) { iconColor = '#D24726'; iconName = 'file-powerpoint'; }
+                    else if (isPDF) { iconColor = '#E74C3C'; iconName = 'file-pdf'; }
+
+                    return (
+                      <View key={index} style={styles.attachmentItem}>
+                        {isImage ? (
+                          <Image source={{ uri: attachment.uri }} style={styles.attachmentImage} />
+                        ) : (
+                          <FontAwesome6 name={iconName as any} size={40} color={iconColor} style={styles.attachmentIcon} />
+                        )}
+                        <View style={styles.attachmentInfo}>
+                          <Text style={styles.attachmentName} numberOfLines={1}>
+                            {attachment.name}
+                          </Text>
+                          <Text style={styles.attachmentSize}>
+                            {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '未知大小'}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.removeAttachmentButton}
+                          onPress={() => handleRemoveAttachment(index)}
+                        >
+                          <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
               </View>
             )}
 
@@ -372,9 +471,12 @@ export default function KnowledgeCreate() {
             {attachments.length < 10 && (
               <TouchableOpacity style={styles.addAttachmentButton} onPress={handlePickAttachment}>
                 <FontAwesome6 name="plus" size={16} color="#1E88E5" />
-                <Text style={styles.addAttachmentText}>添加附件</Text>
+                <Text style={styles.addAttachmentText}>添加附件（图片/文档）</Text>
               </TouchableOpacity>
             )}
+            <Text style={styles.attachmentHint}>
+              支持格式：JPG、PNG、GIF、Word(.doc/.docx)、Excel(.xls/.xlsx)、PPT(.ppt/.pptx)、PDF
+            </Text>
           </View>
 
           {/* 知识标签 */}
@@ -756,5 +858,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1E88E5',
     fontWeight: '500',
+  },
+  attachmentHint: {
+    fontSize: 11,
+    color: '#95A5A6',
+    marginTop: 4,
   },
 });

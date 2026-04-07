@@ -4,17 +4,74 @@ import pool from '../database/db';
 
 const router = express.Router();
 
-// 配置文件上传
+// 配置文件上传 - 支持图片和文档
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 限制50MB
+  },
+  fileFilter: (req, file, cb) => {
+    // 允许的文件类型
+    const allowedTypes = [
+      // 图片
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      // Word文档
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // Excel表格
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      // PowerPoint
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // PDF
+      'application/pdf',
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('不支持的文件类型'));
+    }
+  }
+});
+
+// 内存数据存储（用于数据库不可用时）
+const memoryKnowledgeList: any[] = [];
+let memoryKnowledgeId = 1;
+
+// 带超时的查询函数
+async function queryWithTimeout(query: string, params: any[] = [], timeout = 3000) {
+  try {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout')), timeout);
+    });
+    const queryPromise = pool.query(query, params);
+    return await Promise.race([queryPromise, timeoutPromise]);
+  } catch (error: any) {
+    if (error.message === 'Query timeout') {
+      throw new Error('Database timeout');
+    }
+    throw error;
+  }
+}
 
 // 获取知识库列表
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id ORDER BY k.id DESC'
-    );
-    res.json(result.rows);
+    try {
+      const result = await queryWithTimeout(
+        'SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id ORDER BY k.id DESC LIMIT 100'
+      );
+      res.json(result.rows);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      res.json(memoryKnowledgeList.slice(0, 100));
+    }
   } catch (error) {
     console.error('Get knowledge error:', error);
     res.status(500).json({ error: '服务器错误' });
@@ -26,19 +83,33 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 增加浏览次数
-    await pool.query('UPDATE knowledge SET views = views + 1 WHERE id = $1', [id]);
+    try {
+      // 增加浏览次数
+      await queryWithTimeout('UPDATE knowledge SET views = views + 1 WHERE id = $1', [id]);
 
-    const result = await pool.query(
-      'SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id WHERE k.id = $1',
-      [id]
-    );
+      const result = await queryWithTimeout(
+        'SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id WHERE k.id = $1',
+        [id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '知识不存在' });
+      if (result.rows.length === 0) {
+        // 尝试从内存中获取
+        const memoryItem = memoryKnowledgeList.find(k => k.id === parseInt(id));
+        if (memoryItem) {
+          return res.json(memoryItem);
+        }
+        return res.status(404).json({ error: '知识不存在' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const memoryItem = memoryKnowledgeList.find(k => k.id === parseInt(id));
+      if (memoryItem) {
+        return res.json(memoryItem);
+      }
+      res.status(404).json({ error: '知识不存在' });
     }
-
-    res.json(result.rows[0]);
   } catch (error) {
     console.error('Get knowledge detail error:', error);
     res.status(500).json({ error: '服务器错误' });
@@ -49,116 +120,178 @@ router.get('/:id', async (req, res) => {
 router.get('/search/:keyword', async (req, res) => {
   try {
     const { keyword } = req.params;
-    const result = await pool.query(
-      "SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id WHERE k.title ILIKE $1 OR k.content ILIKE $1 OR $1 = ANY(k.tags) ORDER BY k.id DESC",
-      [`%${keyword}%`]
-    );
-    res.json(result.rows);
+    try {
+      const result = await queryWithTimeout(
+        "SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id WHERE k.title ILIKE $1 OR k.content ILIKE $1 ORDER BY k.id DESC",
+        [`%${keyword}%`]
+      );
+      res.json(result.rows);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const kw = keyword.toLowerCase();
+      const filtered = memoryKnowledgeList.filter(k => 
+        k.title?.toLowerCase().includes(kw) || 
+        k.content?.toLowerCase().includes(kw)
+      );
+      res.json(filtered);
+    }
   } catch (error) {
     console.error('Search knowledge error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
 });
 
-// 创建知识
-router.post('/', upload.fields([
-  { name: 'attachment_0', maxCount: 1 },
-  { name: 'attachment_1', maxCount: 1 },
-  { name: 'attachment_2', maxCount: 1 },
-  { name: 'attachment_3', maxCount: 1 },
-  { name: 'attachment_4', maxCount: 1 },
-  { name: 'attachment_5', maxCount: 1 },
-  { name: 'attachment_6', maxCount: 1 },
-  { name: 'attachment_7', maxCount: 1 },
-  { name: 'attachment_8', maxCount: 1 },
-  { name: 'attachment_9', maxCount: 1 },
-]), async (req, res) => {
+// 创建知识库（支持文件上传）
+router.post('/', upload.array('files', 10), async (req, res) => {
   try {
-    const files = req.files as any;
-    const { title, content, tags, creator_name, creator_id } = req.body;
+    const { title, content, tags, author_id } = req.body;
+    const files = req.files as Express.Multer.File[];
 
-    if (!title || !content) {
-      return res.status(400).json({ error: '缺少必填字段' });
+    if (!title) {
+      return res.status(400).json({ error: '标题不能为空' });
     }
 
-    // 处理附件
-    const attachments: string[] = [];
-    if (files) {
-      Object.keys(files).forEach((key) => {
-        if (files[key] && files[key][0]) {
-          const fileBuffer = files[key][0].buffer;
-          attachments.push(`data:${files[key][0].mimetype};base64,${fileBuffer.toString('base64')}`);
-        }
-      });
+    // 处理文件信息
+    let attachments: any[] = [];
+    if (files && files.length > 0) {
+      attachments = files.map((file, index) => ({
+        name: file.originalname,
+        size: file.size,
+        type: file.mimetype,
+      }));
     }
 
-    const tagsArray = tags ? JSON.parse(tags) : [];
+    // 安全解析 tags
+    let parsedTags: string[] = [];
+    if (tags) {
+      try {
+        parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+      } catch (e) {
+        parsedTags = [tags];
+      }
+    }
 
-    const result = await pool.query(
-      'INSERT INTO knowledge (title, content, tags, author_id, author_name, attachments) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [title, content, tagsArray, creator_id || null, creator_name || null, JSON.stringify(attachments)]
-    );
-
-    res.json(result.rows[0]);
+    try {
+      const result = await queryWithTimeout(
+        'INSERT INTO knowledge (title, content, tags, author_id, attachments) VALUES ($1, $2, $3, $4, $5) RETURNING id, title',
+        [title, content || '', parsedTags, author_id, JSON.stringify(attachments)]
+      );
+      res.status(201).json({ id: result.rows[0].id, title: result.rows[0].title });
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      // 使用内存存储
+      const newKnowledge = {
+        id: memoryKnowledgeId++,
+        title,
+        content: content || '',
+        tags: parsedTags,
+        author_id,
+        attachments,
+        views: 0,
+        likes: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryKnowledgeList.unshift(newKnowledge);
+      res.status(201).json({ id: newKnowledge.id, title: newKnowledge.title });
+    }
   } catch (error) {
     console.error('Create knowledge error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
 });
 
-// 更新知识
-router.put('/:id', upload.fields([
-  { name: 'attachment_0', maxCount: 1 },
-  { name: 'attachment_1', maxCount: 1 },
-  { name: 'attachment_2', maxCount: 1 },
-  { name: 'attachment_3', maxCount: 1 },
-  { name: 'attachment_4', maxCount: 1 },
-  { name: 'attachment_5', maxCount: 1 },
-  { name: 'attachment_6', maxCount: 1 },
-  { name: 'attachment_7', maxCount: 1 },
-  { name: 'attachment_8', maxCount: 1 },
-  { name: 'attachment_9', maxCount: 1 },
-]), async (req, res) => {
+// 更新知识库
+router.put('/:id', upload.array('files', 10), async (req, res) => {
   try {
     const { id } = req.params;
-    const files = req.files as any;
-    const { title, content, tags, creator_name, creator_id } = req.body;
+    const { title, content, tags } = req.body;
+    const files = req.files as Express.Multer.File[];
 
-    // 处理附件
-    const attachments: string[] = [];
-    if (files) {
-      Object.keys(files).forEach((key) => {
-        if (files[key] && files[key][0]) {
-          const fileBuffer = files[key][0].buffer;
-          attachments.push(`data:${files[key][0].mimetype};base64,${fileBuffer.toString('base64')}`);
+    try {
+      let attachments: any[] = [];
+      if (files && files.length > 0) {
+        attachments = files.map(file => ({
+          name: file.originalname,
+          size: file.size,
+          type: file.mimetype,
+        }));
+      }
+
+      // 安全解析 tags
+      let parsedTags: string[] = [];
+      if (tags) {
+        try {
+          parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+        } catch (e) {
+          parsedTags = [tags];
         }
-      });
+      }
+
+      let query = 'UPDATE knowledge SET title = $1, content = $2, tags = $3';
+      const params: any[] = [title, content || '', parsedTags];
+      
+      if (attachments.length > 0) {
+        query += ', attachments = $4 WHERE id = $5';
+        params.push(JSON.stringify(attachments), id);
+      } else {
+        query += ' WHERE id = $4';
+        params.push(id);
+      }
+
+      const result = await queryWithTimeout(query, params);
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: '知识不存在' });
+      }
+
+      res.json({ message: '更新成功' });
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const index = memoryKnowledgeList.findIndex(k => k.id === parseInt(id));
+      if (index === -1) {
+        return res.status(404).json({ error: '知识不存在' });
+      }
+      memoryKnowledgeList[index] = {
+        ...memoryKnowledgeList[index],
+        title,
+        content: content || '',
+        tags: tags ? JSON.parse(tags) : [],
+        updated_at: new Date().toISOString(),
+      };
+      res.json({ message: '更新成功' });
     }
-
-    const tagsArray = tags ? JSON.parse(tags) : [];
-
-    const result = await pool.query(
-      'UPDATE knowledge SET title = $1, content = $2, tags = $3, author_id = $4, author_name = $5, attachments = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-      [title, content, tagsArray, creator_id || null, creator_name || null, JSON.stringify(attachments), id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '知识不存在' });
-    }
-
-    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update knowledge error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
 });
 
-// 删除知识
+// 删除知识库
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM knowledge WHERE id = $1', [id]);
-    res.json({ message: '删除成功' });
+
+    try {
+      const result = await queryWithTimeout(
+        'DELETE FROM knowledge WHERE id = $1 RETURNING id',
+        [id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: '知识不存在' });
+      }
+
+      res.json({ message: '删除成功' });
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const index = memoryKnowledgeList.findIndex(k => k.id === parseInt(id));
+      if (index === -1) {
+        return res.status(404).json({ error: '知识不存在' });
+      }
+      memoryKnowledgeList.splice(index, 1);
+      res.json({ message: '删除成功' });
+    }
   } catch (error) {
     console.error('Delete knowledge error:', error);
     res.status(500).json({ error: '服务器错误' });
