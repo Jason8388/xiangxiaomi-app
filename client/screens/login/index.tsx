@@ -76,9 +76,6 @@ export default function LoginScreen() {
             <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#1E88E5', textAlign: 'center', marginBottom: 8 }}>
               项小秘
             </Text>
-            <Text style={{ fontSize: 18, color: '#636E72', textAlign: 'center' }}>
-              售后助手
-            </Text>
           </View>
 
           <View style={{ width: '100%', marginBottom: 16 }}>

@@ -163,7 +163,7 @@ export default function ProfileScreen() {
 
         {/* 版本信息 */}
         <View style={styles.versionSection}>
-          <Text style={styles.versionText}>项小秘售后助手 v1.0.0</Text>
+          <Text style={styles.versionText}>项小秘 v1.0.0</Text>
         </View>
 
         {/* 系统版本与更新弹窗 */}
@@ -185,7 +185,7 @@ export default function ProfileScreen() {
               <View style={styles.versionInfo}>
                 <View style={styles.versionRow}>
                   <Text style={styles.versionLabel}>应用名称</Text>
-                  <Text style={styles.versionValue}>项小秘售后助手</Text>
+                  <Text style={styles.versionValue}>项小秘</Text>
                 </View>
                 <View style={styles.versionRow}>
                   <Text style={styles.versionLabel}>应用版本</Text>
