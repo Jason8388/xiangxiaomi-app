@@ -39,11 +39,25 @@ export function UpdateDialog({
 }: UpdateDialogProps) {
   if (!versionInfo) return null;
 
-  const handleUpdate = () => {
-    if (versionInfo.download_url) {
-      Linking.openURL(versionInfo.download_url).catch(() => {
+  const handleUpdate = async () => {
+    if (!versionInfo.download_url || versionInfo.download_url === 'https://example.com/download') {
+      Alert.alert(
+        '下载提示',
+        '当前版本为演示数据，下载链接尚未配置。\n\n请在「版本管理」页面设置真实的下载链接后，再进行发布。',
+        [{ text: '知道了' }]
+      );
+      return;
+    }
+
+    try {
+      const canOpen = await Linking.canOpenURL(versionInfo.download_url);
+      if (canOpen) {
+        await Linking.openURL(versionInfo.download_url);
+      } else {
         Alert.alert('提示', '无法打开下载链接，请联系管理员');
-      });
+      }
+    } catch (error) {
+      Alert.alert('提示', '无法打开下载链接，请联系管理员');
     }
     onUpdate();
   };
@@ -68,9 +82,9 @@ export function UpdateDialog({
 
           {/* 标题 */}
           <Text style={styles.title}>
-            {versionInfo.force_update ? '发现新版本' : '发现新版本'}
+            发现新版本 v{versionInfo.version_name}
           </Text>
-          <Text style={styles.versionText}>v{versionInfo.version_name}</Text>
+          <Text style={styles.versionText}>{versionInfo.version_title}</Text>
 
           {/* 更新内容 */}
           <View style={styles.content}>
