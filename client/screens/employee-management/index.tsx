@@ -121,6 +121,20 @@ export default function EmployeeManagement() {
         };
 
         setFlatDepartments(flattenDepts(deptsData));
+
+        // 构建带用户的部门树
+        const users = Array.isArray(usersData) ? usersData : [];
+        const assignUsersToDepts = (depts: Department[]): DepartmentWithUsers[] => {
+          return depts.map((dept) => {
+            const deptUsers = users.filter((u: User) => u.department_id === dept.id);
+            return {
+              ...dept,
+              users: deptUsers,
+              children: dept.children ? assignUsersToDepts(dept.children) : [],
+            };
+          });
+        };
+        setDepartments(assignUsersToDepts(deptsData));
       }
     } catch (error) {
       console.error('Load data error:', error);
