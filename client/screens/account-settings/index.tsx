@@ -31,6 +31,7 @@ interface User {
 export default function AccountSettingsScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // 修改密码
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -54,6 +55,7 @@ export default function AccountSettingsScreen() {
   const loadUserInfo = async () => {
     try {
       setLoading(true);
+      setError(null);
       const userStr = await SecureStore.getItemAsync('user');
       const sessionStr = await SecureStore.getItemAsync('session');
       
@@ -77,14 +79,37 @@ export default function AccountSettingsScreen() {
           setSignature(userInfo.signature || '');
           // 同步更新本地存储
           await SecureStore.setItemAsync('user', JSON.stringify(userInfo));
+          setError(null);
+        } else if (response.status === 401) {
+          // 未登录或登录过期
+          setUser(null);
+          setError(null);
+          await SecureStore.deleteItemAsync('user');
+          await SecureStore.deleteItemAsync('session');
         } else {
+          // 服务器错误，使用本地缓存
           setUser(userData);
           setSignature(userData.signature || '');
         }
+      } else {
+        // 未登录，显示空状态
+        setUser(null);
       }
     } catch (error) {
       console.error('Load user error:', error);
-      Alert.alert('错误', '加载用户信息失败');
+      // 网络错误时使用本地缓存
+      const userStr = await SecureStore.getItemAsync('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          setUser(userData);
+          setSignature(userData.signature || '');
+        } catch (e) {
+          setError('网络连接失败，请检查网络');
+        }
+      } else {
+        setError('网络连接失败，请检查网络');
+      }
     } finally {
       setLoading(false);
     }
@@ -274,6 +299,21 @@ export default function AccountSettingsScreen() {
       <Screen>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>加载中...</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (error && !user) {
+    return (
+      <Screen>
+        <PageHeader title="账户设置" showHome />
+        <View style={styles.errorContainer}>
+          <FontAwesome6 name="wifi" size={48} color="#E74C3C" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadUserInfo}>
+            <Text style={styles.retryButtonText}>重新加载</Text>
+          </TouchableOpacity>
         </View>
       </Screen>
     );
@@ -514,6 +554,30 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#636E72',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#636E72',
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    backgroundColor: '#6C63FF',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 15,
+    color: '#FFF',
+    fontWeight: '600',
   },
   avatarSection: {
     alignItems: 'center',
