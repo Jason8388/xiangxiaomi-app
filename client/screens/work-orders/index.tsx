@@ -378,12 +378,6 @@ export default function WorkOrdersScreen() {
           >
             <Text className="text-white font-semibold text-base">新建工单</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push('/after-sales-audit')}
-            className="flex-1 py-3 rounded-2xl bg-[#F39C12] items-center justify-center"
-          >
-            <Text className="text-white font-semibold text-base">待审工单</Text>
-          </TouchableOpacity>
         </View>
 
         {/* 栏2：工单统计 */}
