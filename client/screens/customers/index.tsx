@@ -68,7 +68,12 @@ export default function CustomerManagement() {
         const data = await response.json();
         if (response.ok) {
           const list = Array.isArray(data) ? data : (data.data || []);
-          const sorted = list.sort((a: Customer, b: Customer) => b.device_count - a.device_count);
+          // 按客户名称首字母顺序排序
+          const sorted = list.sort((a: Customer, b: Customer) => {
+            const nameA = a.name.toUpperCase();
+            const nameB = b.name.toUpperCase();
+            return nameA.localeCompare(nameB);
+          });
           setCustomers(sorted);
           setFilteredCustomers(sorted);
         }
@@ -282,6 +287,28 @@ export default function CustomerManagement() {
           <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
           <Text style={styles.addButtonText}>新建客户</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* 客户数量统计 */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{customers.length}</Text>
+          <Text style={styles.statLabel}>客户总数</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>
+            {customers.reduce((sum, c) => sum + (c.device_count || 0), 0)}
+          </Text>
+          <Text style={styles.statLabel}>关联设备</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>
+            {customers.reduce((sum, c) => sum + (c.contract_count || 0), 0)}
+          </Text>
+          <Text style={styles.statLabel}>关联合同</Text>
+        </View>
       </View>
 
       {/* 客户列表 */}
@@ -615,6 +642,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1E88E5',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#636E72',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E0E0E0',
   },
   listContainer: {
     flex: 1,
