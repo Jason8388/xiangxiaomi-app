@@ -89,15 +89,44 @@ router.get('/devices', async (req, res) => {
   }
 });
 
-// 获取售后统计
+// 获取工单统计
 router.get('/after-sales', async (req, res) => {
   try {
+    // 模拟工单统计数据
+    const mockOrders = [
+      { id: 1, is_charged: true, status: '已完成', amount: 15000, paid: 15000 },
+      { id: 2, is_charged: true, status: '已完成', amount: 8000, paid: 5000 },
+      { id: 3, is_charged: false, status: '已完成', amount: 0, paid: 0 },
+      { id: 4, is_charged: true, status: '处理中', amount: 12000, paid: 8000 },
+      { id: 5, is_charged: true, status: '已完成', amount: 20000, paid: 20000 },
+      { id: 6, is_charged: false, status: '处理中', amount: 0, paid: 0 },
+      { id: 7, is_charged: true, status: '已完成', amount: 5500, paid: 5500 },
+      { id: 8, is_charged: true, status: '待处理', amount: 10000, paid: 0 },
+      { id: 9, is_charged: false, status: '已完成', amount: 0, paid: 0 },
+      { id: 10, is_charged: true, status: '已完成', amount: 18000, paid: 18000 },
+      { id: 11, is_charged: true, status: '处理中', amount: 9500, paid: 5000 },
+      { id: 12, is_charged: false, status: '已完成', amount: 0, paid: 0 },
+    ];
+
+    const totalOrders = mockOrders.length;
+    const chargedOrders = mockOrders.filter(o => o.is_charged).length;
+    const freeOrders = mockOrders.filter(o => !o.is_charged).length;
+    const completedOrders = mockOrders.filter(o => o.status === '已完成').length;
+    const totalAmount = mockOrders.reduce((sum, o) => sum + o.amount, 0);
+    const paidAmount = mockOrders.reduce((sum, o) => sum + o.paid, 0);
+    const pendingAmount = totalAmount - paidAmount;
+
     res.status(200).json({
       code: 0,
-      data: {
-        total: 0,
-        pending: 0,
-        completed: 0
+      summary: {
+        total_orders: totalOrders,
+        charged_orders: chargedOrders,
+        free_orders: freeOrders,
+        completed_orders: completedOrders,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        pending_amount: pendingAmount,
+        updated_at: new Date().toISOString()
       },
       message: 'success'
     });

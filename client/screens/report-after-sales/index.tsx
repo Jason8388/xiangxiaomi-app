@@ -11,30 +11,16 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 
 interface SummaryData {
   total_orders: number;
   charged_orders: number;
   free_orders: number;
-  pending_orders: number;
   completed_orders: number;
   total_amount: number;
+  paid_amount: number;
+  pending_amount: number;
   updated_at: string;
-}
-
-interface OrderReportItem {
-  order_id: number;
-  order_number: string;
-  order_name: string;
-  customer_name: string;
-  product_name: string;
-  order_type: string;
-  status: string;
-  owner: string;
-  amount: number;
-  created_date: string;
 }
 
 const FILTER_OPTIONS = [
@@ -49,22 +35,16 @@ const EXPORT_OPTIONS = [
   { label: 'PDF 导出', value: 'pdf', icon: 'file-pdf', color: '#E74C3C' },
 ];
 
-const TYPE_CONFIG = {
-  '收费': { color: '#1E88E5', icon: 'dollar-sign' },
-  '免费': { color: '#2ECC71', icon: 'hand-holding-heart' },
-};
-
-const STATUS_CONFIG = {
-  '待处理': { color: '#F39C12', icon: 'clock' },
-  '处理中': { color: '#3498DB', icon: 'cog' },
-  '待客户确认': { color: '#9B59B6', icon: 'clipboard-check' },
-  '已完成': { color: '#2ECC71', icon: 'check-circle' },
-  '已关闭': { color: '#95A5A6', icon: 'archive' },
-};
+// 统计卡片配置
+const STAT_CARDS = [
+  { key: 'total_orders', label: '总工单数', icon: 'clipboard-list', color: '#1E88E5', bgColor: 'rgba(30, 136, 229, 0.1)' },
+  { key: 'charged_orders', label: '收费工单数', icon: 'dollar-sign', color: '#2ECC71', bgColor: 'rgba(46, 204, 113, 0.1)' },
+  { key: 'free_orders', label: '免费工单数', icon: 'gift', color: '#9B59B6', bgColor: 'rgba(155, 89, 182, 0.1)' },
+  { key: 'completed_orders', label: '已完成工单数', icon: 'check-circle', color: '#27AE60', bgColor: 'rgba(39, 174, 96, 0.1)' },
+];
 
 export default function ReportAfterSales() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [details, setDetails] = useState<OrderReportItem[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -88,9 +68,9 @@ export default function ReportAfterSales() {
       const data = await response.json();
       if (response.ok) {
         setSummary(data.summary);
-        setDetails(data.details);
       }
     } catch (error) {
+      console.error('Load report data error:', error);
       Alert.alert('错误', '加载报表数据失败');
     } finally {
       setLoading(false);
@@ -102,16 +82,35 @@ export default function ReportAfterSales() {
     Alert.alert('提示', '导出功能待实现');
   };
 
-  const handleViewDetail = (orderId: number) => {
-    Alert.alert('提示', '查看工单详情功能待实现');
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('zh-CN');
+  };
+
+  const renderStatCard = (card: typeof STAT_CARDS[0], index: number) => {
+    const value = summary?.[card.key as keyof SummaryData] as number || 0;
+    return (
+      <View
+        key={card.key}
+        style={[
+          styles.statCard,
+          index % 2 === 0 ? styles.statCardLeft : styles.statCardRight,
+        ]}
+      >
+        <View style={[styles.statIconContainer, { backgroundColor: card.bgColor }]}>
+          <FontAwesome6 name={card.icon as any} size={22} color={card.color} />
+        </View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{card.label}</Text>
+      </View>
+    );
   };
 
   if (loading) {
     return (
       <Screen>
-        <PageHeader title="售后工单统计表" />
+        <PageHeader title="工单统计表" />
         <View style={styles.centerContainer}>
-          <Text>加载中...</Text>
+          <Text style={styles.loadingText}>加载中...</Text>
         </View>
       </Screen>
     );
@@ -119,50 +118,116 @@ export default function ReportAfterSales() {
 
   return (
     <Screen>
-      <PageHeader title="售后工单统计表" />
+      <PageHeader title="工单统计表" />
 
-      <ScrollView style={styles.container}>
-        {/* 统计概览 */}
-        <View style={styles.summarySection}>
-          <Text style={styles.summaryTitle}>统计概览</Text>
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="clipboard-list" size={28} color="#1E88E5" />
-              <Text style={styles.summaryValue}>{summary?.total_orders || 0}</Text>
-              <Text style={styles.summaryLabel}>工单总数</Text>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* 主要统计卡片 */}
+        <View style={styles.mainStatsSection}>
+          <View style={styles.mainStatCard}>
+            <View style={styles.mainStatIconWrap}>
+              <FontAwesome6 name="clipboard-list" size={36} color="#FFFFFF" />
             </View>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="dollar-sign" size={28} color="#2ECC71" />
-              <Text style={styles.summaryValue}>{summary?.charged_orders || 0}</Text>
-              <Text style={styles.summaryLabel}>收费工单</Text>
+            <View style={styles.mainStatContent}>
+              <Text style={styles.mainStatValue}>{summary?.total_orders || 0}</Text>
+              <Text style={styles.mainStatLabel}>工单总数</Text>
             </View>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="hand-holding-heart" size={28} color="#F39C12" />
-              <Text style={styles.summaryValue}>{summary?.free_orders || 0}</Text>
-              <Text style={styles.summaryLabel}>免费工单</Text>
+          </View>
+        </View>
+
+        {/* 工单数量统计 */}
+        <View style={styles.statsGridSection}>
+          <Text style={styles.sectionTitle}>工单数量统计</Text>
+          <View style={styles.statsGrid}>
+            {STAT_CARDS.map((card, index) => renderStatCard(card, index))}
+          </View>
+        </View>
+
+        {/* 金额统计 */}
+        <View style={styles.amountSection}>
+          <Text style={styles.sectionTitle}>金额统计</Text>
+
+          {/* 总收费金额 */}
+          <View style={styles.amountCard}>
+            <View style={[styles.amountIconContainer, { backgroundColor: 'rgba(243, 156, 18, 0.15)' }]}>
+              <FontAwesome6 name="coins" size={28} color="#F39C12" />
             </View>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="circle-check" size={28} color="#E74C3C" />
-              <Text style={styles.summaryValue}>{summary?.completed_orders || 0}</Text>
-              <Text style={styles.summaryLabel}>已完成</Text>
+            <View style={styles.amountInfo}>
+              <Text style={styles.amountLabel}>总收费金额</Text>
+              <Text style={styles.amountValue}>¥{formatCurrency(summary?.total_amount || 0)}</Text>
             </View>
           </View>
 
-          <View style={styles.amountCard}>
-            <FontAwesome6 name="coins" size={32} color="#F39C12" />
-            <View>
-              <Text style={styles.amountLabel}>总金额</Text>
-              <Text style={styles.amountValue}>
-                ¥{(summary?.total_amount || 0).toLocaleString()}
+          {/* 已回款与待回款 */}
+          <View style={styles.amountRow}>
+            <View style={[styles.amountSubCard, styles.amountSubCardLeft]}>
+              <View style={[styles.amountSubIcon, { backgroundColor: 'rgba(46, 204, 113, 0.15)' }]}>
+                <FontAwesome6 name="check-double" size={22} color="#2ECC71" />
+              </View>
+              <View style={styles.amountSubInfo}>
+                <Text style={styles.amountSubLabel}>已回款金额</Text>
+                <Text style={[styles.amountSubValue, { color: '#2ECC71' }]}>
+                  ¥{formatCurrency(summary?.paid_amount || 0)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.amountSubCard, styles.amountSubCardRight]}>
+              <View style={[styles.amountSubIcon, { backgroundColor: 'rgba(231, 76, 60, 0.15)' }]}>
+                <FontAwesome6 name="clock" size={22} color="#E74C3C" />
+              </View>
+              <View style={styles.amountSubInfo}>
+                <Text style={styles.amountSubLabel}>待回款金额</Text>
+                <Text style={[styles.amountSubValue, { color: '#E74C3C' }]}>
+                  ¥{formatCurrency(summary?.pending_amount || 0)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* 回款进度 */}
+        <View style={styles.progressSection}>
+          <Text style={styles.sectionTitle}>回款进度</Text>
+          <View style={styles.progressCard}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>回款完成率</Text>
+              <Text style={styles.progressPercent}>
+                {summary?.total_amount && summary.total_amount > 0
+                  ? Math.round((summary.paid_amount / summary.total_amount) * 100)
+                  : 0}%
               </Text>
             </View>
+            <View style={styles.progressBarContainer}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${
+                      summary?.total_amount && summary.total_amount > 0
+                        ? (summary.paid_amount / summary.total_amount) * 100
+                        : 0
+                    }%`,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.progressStats}>
+              <View style={styles.progressStatItem}>
+                <View style={[styles.progressDot, { backgroundColor: '#2ECC71' }]} />
+                <Text style={styles.progressStatLabel}>已回款</Text>
+                <Text style={[styles.progressStatValue, { color: '#2ECC71' }]}>
+                  ¥{formatCurrency(summary?.paid_amount || 0)}
+                </Text>
+              </View>
+              <View style={styles.progressStatItem}>
+                <View style={[styles.progressDot, { backgroundColor: '#E74C3C' }]} />
+                <Text style={styles.progressStatLabel}>待回款</Text>
+                <Text style={[styles.progressStatValue, { color: '#E74C3C' }]}>
+                  ¥{formatCurrency(summary?.pending_amount || 0)}
+                </Text>
+              </View>
+            </View>
           </View>
-
-          {summary && (
-            <Text style={styles.updateTime}>
-              更新时间：{new Date(summary.updated_at).toLocaleString()}
-            </Text>
-          )}
         </View>
 
         {/* 操作栏 */}
@@ -181,74 +246,16 @@ export default function ReportAfterSales() {
             onPress={() => setShowExportModal(true)}
           >
             <FontAwesome6 name="file-export" size={14} color="#FFFFFF" />
-            <Text style={styles.actionButtonText}>导出</Text>
+            <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>导出报表</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 明细列表 */}
-        <View style={styles.detailsSection}>
-          <Text style={styles.detailsTitle}>工单明细（{details.length}）</Text>
-          {details.map((item) => {
-            const typeConfig = TYPE_CONFIG[item.order_type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG['免费'];
-            const statusConfig = STATUS_CONFIG[item.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG['待处理'];
-            return (
-              <View key={item.order_id} style={styles.detailCard}>
-                <View style={styles.detailHeader}>
-                  <View style={styles.orderIcon}>
-                    <FontAwesome6 name="wrench" size={20} color="#1E88E5" />
-                  </View>
-                  <View style={styles.detailInfo}>
-                    <Text style={styles.orderName}>{item.order_name}</Text>
-                    <Text style={styles.orderNumber}>{item.order_number}</Text>
-                  </View>
-                  <View style={[styles.typeBadge, { backgroundColor: `${typeConfig.color}20` }]}>
-                    <FontAwesome6 name={typeConfig.icon as any} size={12} color={typeConfig.color} />
-                    <Text style={[styles.typeText, { color: typeConfig.color }]}>
-                      {item.order_type}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.statusRow}>
-                  <View style={[styles.statusBadge, { backgroundColor: `${statusConfig.color}20` }]}>
-                    <FontAwesome6 name={statusConfig.icon as any} size={12} color={statusConfig.color} />
-                    <Text style={[styles.statusText, { color: statusConfig.color }]}>
-                      {item.status}
-                    </Text>
-                  </View>
-                  {item.amount > 0 && (
-                    <Text style={styles.amount}>¥{item.amount.toLocaleString()}</Text>
-                  )}
-                </View>
-
-                <View style={styles.detailContent}>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="building" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>客户：</Text>
-                    <Text style={styles.detailValue}>{item.customer_name}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="box" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>产品：</Text>
-                    <Text style={styles.detailValue}>{item.product_name}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="user" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>负责人：</Text>
-                    <Text style={styles.detailValue}>{item.owner}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="calendar" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>创建日期：</Text>
-                    <Text style={styles.detailValue}>
-                      {new Date(item.created_date).toLocaleDateString()}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+        {/* 更新时间 */}
+        {summary?.updated_at && (
+          <Text style={styles.updateTime}>
+            更新时间：{new Date(summary.updated_at).toLocaleString('zh-CN')}
+          </Text>
+        )}
       </ScrollView>
 
       {/* 筛选弹窗 */}
@@ -314,11 +321,7 @@ export default function ReportAfterSales() {
                 style={styles.exportOptionItem}
                 onPress={() => handleExport(option.value)}
               >
-                <FontAwesome6
-                  name={option.icon as any}
-                  size={24}
-                  color={option.color}
-                />
+                <FontAwesome6 name={option.icon as any} size={24} color={option.color} />
                 <Text style={styles.exportOptionText}>{option.label}</Text>
               </TouchableOpacity>
             ))}
@@ -332,6 +335,7 @@ export default function ReportAfterSales() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
     padding: 16,
   },
   centerContainer: {
@@ -339,64 +343,230 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  summarySection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+  loadingText: {
+    fontSize: 14,
+    color: '#95A5A6',
   },
-  summaryTitle: {
+  mainStatsSection: {
+    marginBottom: 20,
+  },
+  mainStatCard: {
+    backgroundColor: '#1E88E5',
+    borderRadius: 20,
+    padding: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#1E88E5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  mainStatIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 20,
+  },
+  mainStatContent: {
+    flex: 1,
+  },
+  mainStatValue: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  mainStatLabel: {
     fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 4,
+  },
+  sectionTitle: {
+    fontSize: 17,
     fontWeight: '600',
     color: '#2D3436',
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  summaryGrid: {
+  statsGridSection: {
+    marginBottom: 20,
+  },
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 16,
   },
-  summaryCard: {
-    width: '47%',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
+  statCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  summaryValue: {
+  statCardLeft: {},
+  statCardRight: {},
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
     fontSize: 28,
     fontWeight: '700',
     color: '#2D3436',
-    marginTop: 8,
     marginBottom: 4,
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#636E72',
+  statLabel: {
+    fontSize: 13,
+    color: '#95A5A6',
+  },
+  amountSection: {
+    marginBottom: 20,
   },
   amountCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    backgroundColor: '#FFFBF0',
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  amountIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  amountInfo: {
+    flex: 1,
   },
   amountLabel: {
     fontSize: 14,
     color: '#636E72',
+    marginBottom: 4,
   },
   amountValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: '#F39C12',
   },
-  updateTime: {
+  amountRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  amountSubCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  amountSubCardLeft: {},
+  amountSubCardRight: {},
+  amountSubIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  amountSubInfo: {
+    flex: 1,
+  },
+  amountSubLabel: {
     fontSize: 12,
     color: '#95A5A6',
-    textAlign: 'center',
+    marginBottom: 2,
+  },
+  amountSubValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  progressSection: {
+    marginBottom: 20,
+  },
+  progressCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  progressLabel: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  progressPercent: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2D3436',
+  },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#2ECC71',
+    borderRadius: 5,
+  },
+  progressStats: {
+    flexDirection: 'row',
+  },
+  progressStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  progressStatLabel: {
+    fontSize: 12,
+    color: '#95A5A6',
+  },
+  progressStatValue: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   actionBar: {
     flexDirection: 'row',
@@ -409,9 +579,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
@@ -421,116 +591,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: '#1E88E5',
-    borderRadius: 8,
+    borderRadius: 12,
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#1E88E5',
     fontWeight: '500',
   },
-  detailsSection: {
-    marginBottom: 20,
-  },
-  detailsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2D3436',
-    marginBottom: 12,
-  },
-  detailCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
-  },
-  orderIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(30, 136, 229, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailInfo: {
-    flex: 1,
-  },
-  orderName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2D3436',
-    marginBottom: 4,
-  },
-  orderNumber: {
-    fontSize: 13,
+  updateTime: {
+    fontSize: 12,
     color: '#95A5A6',
-  },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  typeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  amount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F39C12',
-  },
-  detailContent: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    padding: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: '#636E72',
-  },
-  detailValue: {
-    fontSize: 12,
-    color: '#2D3436',
-    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 24,
   },
   modalOverlay: {
     flex: 1,
@@ -560,7 +634,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F5F7FA',
   },
