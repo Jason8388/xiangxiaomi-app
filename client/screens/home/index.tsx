@@ -91,7 +91,7 @@ const adminNavItems: NavigationItem[] = [
     title: '相册管理',
     icon: 'images',
     color: '#FF6B9D',
-    route: '/album',
+    route: '/gallery',
   },
   {
     id: 'file',
