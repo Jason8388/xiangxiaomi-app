@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { cachedFetch } from '@/utils/storage';
 
 interface KnowledgeCard {
   id: number;
@@ -31,8 +32,31 @@ export default function KnowledgeBase() {
   const [searchKeyword, setSearchKeyword] = useState('');
 
   useEffect(() => {
-    loadKnowledgeCards();
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const result = await cachedFetch<KnowledgeCard[]>('knowledge-list', async () => {
+          const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge`);
+          const data = await response.json();
+          if (response.ok) {
+            return Array.isArray(data) ? data : (data.data || []);
+          }
+          return [];
+        }, 'medium');
+        setCards(result);
+      } catch (error) {
+        console.error('Fetch knowledge cards error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
+
+  const handleSearch = () => {
+    // 搜索时清除缓存
+    loadKnowledgeCards(searchKeyword);
+  };
 
   const loadKnowledgeCards = async (keyword?: string) => {
     try {
@@ -47,17 +71,15 @@ export default function KnowledgeBase() {
       );
       const data = await response.json();
       if (response.ok) {
-        setCards(Array.isArray(data) ? data : (data.data || []));
+        const list = Array.isArray(data) ? data : (data.data || []);
+        setCards(list);
+        return list;
       }
     } catch (error) {
       console.error('Fetch knowledge cards error:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearch = () => {
-    loadKnowledgeCards(searchKeyword);
   };
 
   const handleCreate = () => {

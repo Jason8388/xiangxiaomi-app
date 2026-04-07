@@ -47,6 +47,7 @@ function RootLayoutInner() {
         }}
       >
         <Stack.Screen name="login" options={{ title: "" }} />
+        <Stack.Screen name="index" options={{ title: "" }} />
         <Stack.Screen name="(tabs)" options={{ title: "" }} />
         <Stack.Screen name="customer-detail" options={{ title: "" }} />
         <Stack.Screen name="work-order-detail" options={{ title: "" }} />

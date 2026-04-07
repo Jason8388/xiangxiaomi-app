@@ -71,14 +71,16 @@ export default function WorkOrdersScreen() {
   const router = useSafeRouter();
 
   useEffect(() => {
-    // 页面加载时并行获取所有数据
-    Promise.all([
-      cachedFetch('work-orders-list', fetchWorkOrders, 'short'),
-      cachedFetch('work-orders-stats', fetchStats, 'short'),
-      cachedFetch('customers-list', fetchCustomers, 'medium'),
-      cachedFetch('devices-list', fetchDevices, 'medium'),
-      cachedFetch('users-list', fetchUsers, 'medium'),
-    ]);
+    const loadData = async () => {
+      await Promise.all([
+        cachedFetch('work-orders-list', fetchWorkOrders, 'short'),
+        cachedFetch('work-orders-stats', fetchStats, 'short'),
+        cachedFetch('customers-list', fetchCustomers, 'medium'),
+        cachedFetch('devices-list', fetchDevices, 'medium'),
+        cachedFetch('users-list', fetchUsers, 'medium'),
+      ]);
+    };
+    loadData();
   }, []);
 
   useEffect(() => {

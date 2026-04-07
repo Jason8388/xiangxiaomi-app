@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../database/db';
+import pool, { USE_DATABASE } from '../database/db';
 
 const router = express.Router();
 
@@ -7,20 +7,23 @@ const router = express.Router();
 const memoryMaterials: any[] = [];
 let memoryMaterialId = 1;
 
-// 带超时的查询函数
-async function queryWithTimeout(query: string, params: any[] = [], timeout = 3000) {
-  try {
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Query timeout')), timeout);
-    });
-    const queryPromise = pool.query(query, params);
-    return await Promise.race([queryPromise, timeoutPromise]);
-  } catch (error: any) {
-    if (error.message === 'Query timeout') {
-      throw new Error('Database timeout');
-    }
-    throw error;
+// 带重试的查询函数
+async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {
+  if (!USE_DATABASE) {
+    throw new Error('Database not available');
   }
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
 }
 
 // 获取物料列表
@@ -45,7 +48,7 @@ router.get('/', async (req, res) => {
 
     query += ' ORDER BY id DESC';
 
-    const result = await queryWithTimeout(query, params);
+    const result = await queryWithRetry(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Get materials error, using memory storage:', error);
@@ -63,7 +66,7 @@ router.post('/', async (req, res) => {
     }
 
     try {
-      const result = await queryWithTimeout(
+      const result = await queryWithRetry(
         'INSERT INTO materials (name, code, category, unit, specification, min_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
         [name, code, category, unit, specification, min_stock || 0]
       );

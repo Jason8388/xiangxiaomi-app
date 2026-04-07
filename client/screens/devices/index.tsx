@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { cachedFetch, clearCache } from '@/utils/storage';
 
 const DEVICE_TYPES = [
   '智能测温',
@@ -80,16 +81,18 @@ export default function DeviceManagement() {
     const loadDevices = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`);
-        const data = await response.json();
-        if (response.ok) {
-          // 后端返回 { data: [], total: ... } 格式
-          const list = Array.isArray(data) ? data : (data.data || []);
-          const sorted = list.sort((a: Device, b: Device) =>
-            new Date(a.factory_date || 0).getTime() - new Date(b.factory_date || 0).getTime()
-          );
-          setDevices(sorted);
-        }
+        const result = await cachedFetch<Device[]>('devices-list', async () => {
+          const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`);
+          const data = await response.json();
+          if (response.ok) {
+            const list = Array.isArray(data) ? data : (data.data || []);
+            return list.sort((a: Device, b: Device) =>
+              new Date(a.factory_date || 0).getTime() - new Date(b.factory_date || 0).getTime()
+            );
+          }
+          return [];
+        }, 'medium');
+        setDevices(result);
       } catch (error) {
         console.error('Fetch devices error:', error);
       } finally {

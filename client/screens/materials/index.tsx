@@ -20,6 +20,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import MaterialTagSelector from '@/components/MaterialTagSelector';
+import { cachedFetch } from '@/utils/storage';
 
 interface Material {
   id: number;
@@ -72,13 +73,17 @@ export default function MaterialManagement() {
     const loadMaterials = async () => {
       try {
         setLoading(true);
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
-        );
-        const data = await response.json();
-        if (response.ok) {
-          setMaterials(data);
-        }
+        const result = await cachedFetch<Material[]>('materials-list', async () => {
+          const response = await fetch(
+            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+          );
+          const data = await response.json();
+          if (response.ok) {
+            return data;
+          }
+          return [];
+        }, 'medium');
+        setMaterials(result);
       } catch (error) {
         console.error('Fetch materials error:', error);
       } finally {

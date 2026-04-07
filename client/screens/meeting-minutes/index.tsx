@@ -14,7 +14,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { storage } from '@/utils/storage';
+import { storage, cachedFetch } from '@/utils/storage';
 
 interface MeetingMinute {
   id: number;
@@ -50,9 +50,14 @@ export default function MeetingMinutes() {
   const [selectedMinute, setSelectedMinute] = useState<MeetingMinute | null>(null);
 
   useEffect(() => {
-    loadUserInfo();
-    loadMeetingMinutes();
-    fetchTags();
+    const loadData = async () => {
+      await loadUserInfo();
+      await Promise.all([
+        cachedFetch('meeting-minutes-list', fetchMeetingMinutes, 'short'),
+        cachedFetch('meeting-tags-list', fetchTags, 'medium'),
+      ]);
+    };
+    loadData();
   }, []);
 
   const loadUserInfo = async () => {
@@ -63,6 +68,43 @@ export default function MeetingMinutes() {
       }
     } catch (error) {
       console.error('Load user error:', error);
+    }
+  };
+
+  const fetchMeetingMinutes = async (): Promise<MeetingMinute[]> => {
+    try {
+      setLoading(true);
+      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes?limit=10`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (response.ok) {
+        const list = Array.isArray(data) ? data.slice(0, 10) : (data.list || data.data || []);
+        setMinutes(list);
+        return list;
+      }
+      return [];
+    } catch (error) {
+      console.error('Fetch meeting minutes error:', error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTags = async (): Promise<Tag[]> => {
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/tags`
+      );
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setTags(data);
+        return data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Fetch tags error:', error);
+      return [];
     }
   };
 
@@ -80,27 +122,13 @@ export default function MeetingMinutes() {
       const response = await fetch(url);
       const data = await response.json();
       if (response.ok) {
-        // 如果返回的是数组直接使用，如果是对象取其中的列表
-        setMinutes(Array.isArray(data) ? data.slice(0, 10) : (data.list || data.data || []));
+        const list = Array.isArray(data) ? data.slice(0, 10) : (data.list || data.data || []);
+        setMinutes(list);
       }
     } catch (error) {
       console.error('Fetch meeting minutes error:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchTags = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/tags`
-      );
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setTags(data);
-      }
-    } catch (error) {
-      console.error('Fetch tags error:', error);
     }
   };
 

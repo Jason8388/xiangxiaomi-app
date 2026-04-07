@@ -114,7 +114,7 @@ export default function EmployeeManagement() {
     }
   };
 
-  const fetchDepartments = async (): Promise<Department[]> => {
+  const fetchDepartments = async (): Promise<void> => {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`);
       const data = await response.json();

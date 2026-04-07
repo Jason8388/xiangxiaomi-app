@@ -14,6 +14,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as SecureStore from 'expo-secure-store';
 import * as DocumentPicker from 'expo-document-picker';
+import { cachedFetch } from '@/utils/storage';
 
 interface FileTag {
   id: number;
@@ -52,9 +53,14 @@ export default function FilesScreen() {
   const router = useSafeRouter();
 
   useEffect(() => {
-    loadUserInfo();
-    fetchFiles();
-    fetchTags();
+    const loadData = async () => {
+      await loadUserInfo();
+      await Promise.all([
+        cachedFetch('files-list', fetchFilesList, 'medium'),
+        cachedFetch('files-tags-list', fetchTagsList, 'medium'),
+      ]);
+    };
+    loadData();
   }, []);
 
   const loadUserInfo = async () => {
@@ -65,6 +71,42 @@ export default function FilesScreen() {
       }
     } catch (error) {
       console.error('Load user error:', error);
+    }
+  };
+
+  const fetchFilesList = async (): Promise<FileItem[]> => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files`);
+      const data = await response.json();
+      if (Array.isArray(data.files)) {
+        setFiles(data.files);
+        return data.files;
+      } else if (Array.isArray(data)) {
+        setFiles(data);
+        return data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Fetch files error:', error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTagsList = async (): Promise<FileTag[]> => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags/list`);
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setTags(data);
+        return data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Fetch tags error:', error);
+      return [];
     }
   };
 
@@ -90,18 +132,6 @@ export default function FilesScreen() {
       console.error('Fetch files error:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchTags = async () => {
-    try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags/list`);
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setTags(data);
-      }
-    } catch (error) {
-      console.error('Fetch tags error:', error);
     }
   };
 
@@ -180,7 +210,7 @@ export default function FilesScreen() {
 
       if (response.ok) {
         Alert.alert('成功', '标签创建成功');
-        fetchTags();
+        fetchTagsList();
         setNewTagName('');
         // 自动选中新创建的标签
         if (selectedTagIds.length < 10) {

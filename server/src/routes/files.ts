@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import pool from '../database/db';
+import pool, { USE_DATABASE } from '../database/db';
 import { randomUUID } from 'crypto';
 
 const router = express.Router();
@@ -36,20 +36,23 @@ const getFileType = (mimeType: string): string => {
 const memoryFiles: any[] = [];
 let memoryFileId = 1;
 
-// 带超时的查询函数
-async function queryWithTimeout(query: string, params: any[] = [], timeout = 3000) {
-  try {
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Query timeout')), timeout);
-    });
-    const queryPromise = pool.query(query, params);
-    return await Promise.race([queryPromise, timeoutPromise]);
-  } catch (error: any) {
-    if (error.message === 'Query timeout') {
-      throw new Error('Database timeout');
-    }
-    throw error;
+// 带重试的查询函数
+async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {
+  if (!USE_DATABASE) {
+    throw new Error('Database not available');
   }
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
 }
 
 // 获取文件列表
@@ -89,7 +92,7 @@ router.get('/', async (req, res) => {
     params.push(Number(limit), offset);
 
     try {
-      const result = await queryWithTimeout(query, params);
+      const result = await queryWithRetry(query, params);
 
       // 获取总数
       let countQuery = 'SELECT COUNT(DISTINCT f.id) FROM files f WHERE 1=1';
@@ -107,7 +110,7 @@ router.get('/', async (req, res) => {
         countParams.push(file_type);
       }
 
-      const countResult = await queryWithTimeout(countQuery, countParams);
+      const countResult = await queryWithRetry(countQuery, countParams);
 
       res.json({
         files: result.rows,
@@ -150,7 +153,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-      const result = await queryWithTimeout(
+      const result = await queryWithRetry(
         `SELECT f.*, u.username as uploader_name,
                 COALESCE(
                   (SELECT json_agg(json_build_object('id', t.id, 'name', t.name))
@@ -204,7 +207,7 @@ router.post('/upload', upload.array('files', 5), async (req, res) => {
       const file_url = `/uploads/${fileName}`;
 
       try {
-        const result = await queryWithTimeout(
+        const result = await queryWithRetry(
           `INSERT INTO files (file_name, file_type, original_name, file_size, file_url, uploader_id, description)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING *`,
@@ -247,7 +250,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-      const result = await queryWithTimeout(
+      const result = await queryWithRetry(
         'DELETE FROM files WHERE id = $1 RETURNING id',
         [id]
       );
@@ -276,7 +279,7 @@ router.delete('/:id', async (req, res) => {
 router.get('/meta/tags', async (req, res) => {
   try {
     try {
-      const result = await queryWithTimeout('SELECT * FROM tags ORDER BY name');
+      const result = await queryWithRetry('SELECT * FROM tags ORDER BY name');
       res.json(result.rows);
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);

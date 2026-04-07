@@ -65,11 +65,18 @@ export default function ContractManagement() {
   const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
-    // 并行获取数据
-    Promise.all([
-      cachedFetch('contracts-list', fetchContracts, 'medium'),
-      cachedFetch('customers-list', fetchCustomers, 'medium'),
-    ]);
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        await Promise.all([
+          cachedFetch('contracts-list', fetchContracts, 'medium'),
+          cachedFetch('customers-list', fetchCustomers, 'medium'),
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -89,11 +96,9 @@ export default function ContractManagement() {
 
   const fetchContracts = async (): Promise<Contract[]> => {
     try {
-      setLoading(true);
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
       const data = await response.json();
       if (response.ok && Array.isArray(data)) {
-        // 按签订日期降序排序
         const sorted = data.sort((a: Contract, b: Contract) =>
           new Date(b.sign_date).getTime() - new Date(a.sign_date).getTime()
         );
@@ -104,8 +109,6 @@ export default function ContractManagement() {
     } catch (error) {
       console.error('Fetch contracts error:', error);
       return [];
-    } finally {
-      setLoading(false);
     }
   };
 
