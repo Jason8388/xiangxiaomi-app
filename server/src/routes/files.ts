@@ -3,7 +3,39 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
-import pool from '../database/db';
+import pool, { USE_DATABASE } from '../database/db';
+
+// 内存数据存储（包含预置数据）
+const fallbackData = [
+  {
+    id: 1,
+    file_name: '项目进度报告.xlsx',
+    original_name: '项目进度报告.xlsx',
+    file_type: 'xlsx',
+    file_size: 1024000,
+    category: '项目文档',
+    description: '2024年第一季度项目进度汇总',
+    uploaded_by: 1,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    tags: ['报表数据'],
+  },
+  {
+    id: 2,
+    file_name: '会议纪要.docx',
+    original_name: '会议纪要.docx',
+    file_type: 'docx',
+    file_size: 512000,
+    category: '会议记录',
+    description: '4月份项目例会纪要',
+    uploaded_by: 1,
+    created_at: new Date(Date.now() - 172800000).toISOString(),
+    tags: ['会议记录'],
+  },
+];
+
+// 初始化内存存储为预置数据
+let memoryFiles: any[] = [...fallbackData];
+let memoryFileId = 3;
 
 const router = express.Router();
 
@@ -53,32 +85,6 @@ const upload = multer({
 router.get('/', async (req, res) => {
   try {
     const { category, search } = req.query;
-
-    // Fallback 预置数据（数据库不可用时使用）
-    const fallbackData = [
-      {
-        id: 1,
-        file_name: '项目进度报告.xlsx',
-        original_name: '项目进度报告.xlsx',
-        file_type: 'xlsx',
-        file_size: 1024000,
-        category: '项目文档',
-        description: '2024年第一季度项目进度汇总',
-        uploaded_by: 1,
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        id: 2,
-        file_name: '会议纪要.docx',
-        original_name: '会议纪要.docx',
-        file_type: 'docx',
-        file_size: 512000,
-        category: '会议记录',
-        description: '4月份项目例会纪要',
-        uploaded_by: 1,
-        created_at: new Date(Date.now() - 172800000).toISOString(),
-      },
-    ];
 
     try {
       let query = 'SELECT * FROM files WHERE 1=1';
@@ -205,18 +211,76 @@ router.post('/', upload.single('file'), async (req, res) => {
   }
 });
 
+// 文件标签列表
+router.get('/tags/list', (req, res) => {
+  // 返回预设的标签列表
+  const tags = [
+    '合同文件', '技术文档', '操作手册', '培训资料',
+    '报表数据', '设计方案', '会议记录', '行政文件'
+  ];
+  res.json(tags);
+});
+
+// 标签统计
+router.get('/tags', (req, res) => {
+  try {
+    // 使用内存存储统计各标签的文件数量
+    const tagCounts: Record<string, number> = {
+      '合同文件': 0,
+      '技术文档': 0,
+      '操作手册': 0,
+      '培训资料': 0,
+      '报表数据': 0,
+      '设计方案': 0,
+      '会议记录': 0,
+      '行政文件': 0,
+    };
+    
+    memoryFiles.forEach(file => {
+      if (file.tags && Array.isArray(file.tags)) {
+        file.tags.forEach((tag: string) => {
+          if (tag in tagCounts) {
+            tagCounts[tag]++;
+          }
+        });
+      }
+    });
+
+    const result = Object.entries(tagCounts).map(([name, count]) => ({
+      name,
+      count,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error('Get tag stats error:', error);
+    res.status(500).json({ error: '获取标签统计失败' });
+  }
+});
+
 // 获取文件详情
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query('SELECT * FROM files WHERE id = $1', [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '文件不存在' });
+    // 优先使用内存存储
+    const fileId = parseInt(id);
+    const file = memoryFiles.find(f => f.id === fileId);
+    if (file) {
+      return res.json(file);
     }
 
-    res.json(result.rows[0]);
+    // 数据库模式
+    try {
+      const result = await pool.query('SELECT * FROM files WHERE id = $1', [id]);
+      if (result.rows.length > 0) {
+        return res.json(result.rows[0]);
+      }
+    } catch (dbError) {
+      console.log('DB error, using memory storage for file detail');
+    }
+
+    return res.status(404).json({ error: '文件不存在' });
   } catch (error) {
     console.error('Get file error:', error);
     res.status(500).json({ error: '获取文件详情失败' });

@@ -132,12 +132,19 @@ export default function FileDetailScreen() {
   };
 
   const getFileIcon = (fileType: string) => {
-    switch (fileType) {
+    // 处理文件扩展名格式
+    const normalizedType = fileType?.replace('.', '').toLowerCase();
+    switch (normalizedType) {
       case 'excel':
+      case 'xlsx':
+      case 'xls':
         return 'file-excel';
       case 'ppt':
+      case 'pptx':
         return 'file-powerpoint';
       case 'word':
+      case 'docx':
+      case 'doc':
         return 'file-word';
       case 'pdf':
         return 'file-pdf';
@@ -147,12 +154,19 @@ export default function FileDetailScreen() {
   };
 
   const getFileColor = (fileType: string) => {
-    switch (fileType) {
+    // 处理文件扩展名格式
+    const normalizedType = fileType?.replace('.', '').toLowerCase();
+    switch (normalizedType) {
       case 'excel':
+      case 'xlsx':
+      case 'xls':
         return '#00B894';
       case 'ppt':
+      case 'pptx':
         return '#FDCB6E';
       case 'word':
+      case 'docx':
+      case 'doc':
         return '#1E88E5';
       case 'pdf':
         return '#FF6B6B';
@@ -186,7 +200,7 @@ export default function FileDetailScreen() {
   };
 
   const fileTags = file?.tags || [];
-  const availableTags = allTags.filter(tag => !fileTags.find((ft: any) => ft.id === tag.id));
+  const availableTags = allTags.filter(tag => !fileTags.find((ft: any) => ft === tag || ft.name === tag));
 
   if (loading) {
     return (
@@ -285,13 +299,13 @@ export default function FileDetailScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>上传时间</Text>
             <Text style={styles.infoValue}>
-              {formatDate(file.upload_time)} {formatTime(file.upload_time)}
+              {formatDate(file.upload_time || file.created_at)} {formatTime(file.upload_time || file.created_at)}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>下载次数</Text>
-            <Text style={styles.infoValue}>{file.download_count} 次</Text>
+            <Text style={styles.infoValue}>{file.download_count || 0} 次</Text>
           </View>
 
           {file.description && (
