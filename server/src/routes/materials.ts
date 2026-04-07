@@ -170,16 +170,29 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT * FROM materials WHERE id = $1', [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '物料不存在' });
+    try {
+      const result = await pool.query('SELECT * FROM materials WHERE id = $1', [id]);
+      if (result.rows.length === 0) {
+        // 尝试从内存数据中查找
+        const memoryMaterial = memoryMaterials.find(m => m.id === parseInt(id));
+        if (memoryMaterial) {
+          return res.json({ code: 0, data: memoryMaterial, message: 'success' });
+        }
+        return res.status(404).json({ code: 1, error: '物料不存在' });
+      }
+      res.json({ code: 0, data: result.rows[0], message: 'success' });
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      // 从内存数据中查找
+      const memoryMaterial = memoryMaterials.find(m => m.id === parseInt(id));
+      if (memoryMaterial) {
+        return res.json({ code: 0, data: memoryMaterial, message: 'success' });
+      }
+      return res.status(404).json({ code: 1, error: '物料不存在' });
     }
-
-    res.json(result.rows[0]);
   } catch (error) {
     console.error('Get material error:', error);
-    res.status(500).json({ error: '服务器错误' });
+    res.status(500).json({ code: 1, error: '服务器错误' });
   }
 });
 
