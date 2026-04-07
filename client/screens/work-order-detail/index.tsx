@@ -340,6 +340,38 @@ export default function WorkOrderDetailScreen() {
     }
   };
 
+  // 上传报价单照片或共识凭证
+  const handleUploadMedia = async (field: 'quoted_price_doc' | 'consensus_docs' | 'work_order_docs' | 'site_completion_docs') => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('提示', '需要相册权限才能上传');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        if (isCreateMode) {
+          setOrder((prev: any) => ({ ...prev, [field]: uri }));
+        } else if (order) {
+          setOrder({ ...order, [field]: uri });
+          // 保存到服务器
+          fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: uri }),
+          });
+        }
+      }
+    } catch (error) {
+      Alert.alert('错误', '上传失败');
+    }
+  };
+
   const handleSelectConfirm = async () => {
     if (!order) return;
     try {
@@ -826,11 +858,25 @@ export default function WorkOrderDetailScreen() {
                   {renderInputRow('物料需求', 'material_requirements', '请输入物料需求')}
                   {renderInfoRow('质保期状态', order.warranty_status || '', 'warranty_status')}
                   {renderInfoRow('是否收费', order.is_charged ? '收费' : '免费', 'is_charged')}
-                  {renderNumberRow('报价金额', 'quoted_price', '元')}
+                  {renderNumberRow('收费金额', 'quoted_price', '元')}
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>上传报价单照片</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('quoted_price')}>
+                      <FontAwesome6 name="upload" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.quoted_price_doc ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
+                  </View>
                   <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('consensus_date', order.consensus_date || '')}>
                     <Text style={styles.dateLabel}>共识日期</Text>
                     <Text style={styles.dateValue}>{order.consensus_date || '点击选择日期'}</Text>
                   </TouchableOpacity>
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>客户共识凭证</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('consensus_docs')}>
+                      <FontAwesome6 name="upload" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.consensus_docs ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               ) : (
                 <>
@@ -839,18 +885,24 @@ export default function WorkOrderDetailScreen() {
                   {renderInfoRow('物料需求', order.material_requirements || '', 'material_requirements')}
                   {renderInfoRow('质保期状态', order.warranty_status || '', 'warranty_status')}
                   {renderInfoRow('是否收费', order.is_charged ? '收费' : '免费', 'is_charged')}
-                  {renderInfoRow('报价金额', order.quoted_price ? String(order.quoted_price) : '', '', '元')}
+                  {renderInfoRow('收费金额', order.quoted_price ? String(order.quoted_price) : '', '', '元')}
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>上传报价单照片</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('quoted_price')}>
+                      <FontAwesome6 name="upload" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.quoted_price_doc ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
+                  </View>
                   <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('consensus_date', order.consensus_date || '')}>
                     <Text style={styles.dateLabel}>服务方案客户共识日期</Text>
                     <Text style={styles.dateValue}>{order.consensus_date || '点击选择日期'}</Text>
                   </TouchableOpacity>
-                  <View style={styles.docRow}>
-                    <Text style={styles.docLabel}>报价单：</Text>
-                    <TouchableOpacity style={styles.uploadBtn}><FontAwesome6 name="upload" size={14} color="#6C63FF" /><Text style={styles.uploadText}>{order.service_docs ? '已上传' : '上传'}</Text></TouchableOpacity>
-                  </View>
-                  <View style={styles.docRow}>
-                    <Text style={styles.docLabel}>共识凭证：</Text>
-                    <TouchableOpacity style={styles.uploadBtn}><FontAwesome6 name="upload" size={14} color="#6C63FF" /><Text style={styles.uploadText}>{order.consensus_docs ? '已上传' : '上传'}</Text></TouchableOpacity>
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>客户共识凭证</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('consensus_docs')}>
+                      <FontAwesome6 name="upload" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.consensus_docs ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
                   </View>
                 </>
               )}
@@ -883,13 +935,19 @@ export default function WorkOrderDetailScreen() {
                   </TouchableOpacity>
                   {renderInfoRow('实际工时投入', order.actual_hours ? String(order.actual_hours) : '', '', '天')}
                   {renderInfoRow('派工单签字人', order.work_order_signer || '', 'work_order_signer')}
-                  <View style={styles.docRow}>
-                    <Text style={styles.docLabel}>派工单照片：</Text>
-                    <TouchableOpacity style={styles.uploadBtn}><FontAwesome6 name="camera" size={14} color="#6C63FF" /><Text style={styles.uploadText}>{order.work_order_docs ? '已上传' : '上传'}</Text></TouchableOpacity>
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>派工单照片</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('work_order_docs')}>
+                      <FontAwesome6 name="camera" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.work_order_docs ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.docRow}>
-                    <Text style={styles.docLabel}>现场照片：</Text>
-                    <TouchableOpacity style={styles.uploadBtn}><FontAwesome6 name="camera" size={14} color="#6C63FF" /><Text style={styles.uploadText}>{order.site_completion_docs ? '已上传' : '上传'}</Text></TouchableOpacity>
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>现场照片</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('site_completion_docs')}>
+                      <FontAwesome6 name="camera" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.site_completion_docs ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
                   </View>
                 </>
               )}
@@ -1156,4 +1214,6 @@ const styles = StyleSheet.create({
   photoList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photoItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, gap: 6 },
   photoText: { fontSize: 12, color: '#636E72' },
+  uploadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  uploadLabel: { fontSize: 13, color: '#636E72', flex: 1 },
 });
