@@ -238,7 +238,18 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM customers WHERE id = $1', [id]);
+    
+    if (USE_DATABASE) {
+      await pool.query('DELETE FROM customers WHERE id = $1', [id]);
+    } else {
+      // 内存存储模式
+      const index = memoryCustomers.findIndex(c => c.id === parseInt(id));
+      if (index === -1) {
+        return res.status(404).json({ error: '客户不存在' });
+      }
+      memoryCustomers.splice(index, 1);
+    }
+    
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('Delete customer error:', error);
