@@ -1,9 +1,19 @@
 import express from 'express';
+import multer from 'multer';
 import { randomUUID } from 'crypto';
 import pool from '../database/db';
-import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsersList, memoryUsers } from '../database/memory-storage';
+import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsersArray, memoryUsersList } from '../database/memory-storage';
 
 const router = express.Router();
+
+// 配置文件上传
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 限制5MB
+  },
+});
 
 // 使用内存存储（用于演示，数据库连接超时）
 const USE_MEMORY_STORAGE = true;
@@ -131,6 +141,175 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: '服务器错误，请稍后重试' });
+  }
+});
+
+// 获取当前用户资料（需要session验证）
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未登录或登录已过期' });
+    }
+
+    const sessionId = authHeader.substring(7);
+    
+    // 从内存存储中查找session
+    const { memorySessions } = await import('../database/memory-storage');
+    const session = memorySessions.find((s: any) => s.session_id === sessionId && s.is_active);
+    
+    if (!session) {
+      return res.status(401).json({ error: '会话无效或已过期' });
+    }
+
+    // 查找用户
+    const user = memoryUsersList.find((u: any) => u.id === session.user_id);
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // 不返回密码
+    const { password: _, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error('Get user profile error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 更新当前用户资料
+router.put('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未登录或登录已过期' });
+    }
+
+    const sessionId = authHeader.substring(7);
+    
+    // 从内存存储中查找session
+    const { memorySessions } = await import('../database/memory-storage');
+    const session = memorySessions.find((s: any) => s.session_id === sessionId && s.is_active);
+    
+    if (!session) {
+      return res.status(401).json({ error: '会话无效或已过期' });
+    }
+
+    const { name, signature, old_password, new_password } = req.body;
+    const userId = session.user_id;
+
+    // 查找用户
+    const userIndex = memoryUsersList.findIndex((u: any) => u.id === userId);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // 如果要修改密码
+    if (new_password) {
+      if (!old_password) {
+        return res.status(400).json({ error: '请输入原密码' });
+      }
+      if (memoryUsersList[userIndex].password !== old_password) {
+        return res.status(400).json({ error: '原密码错误' });
+      }
+      if (new_password.length < 6) {
+        return res.status(400).json({ error: '新密码长度不能少于6位' });
+      }
+      memoryUsersList[userIndex].password = new_password;
+    }
+
+    // 更新其他字段
+    if (name !== undefined) {
+      memoryUsersList[userIndex].name = name;
+    }
+    if (signature !== undefined) {
+      memoryUsersList[userIndex].signature = signature;
+    }
+    memoryUsersList[userIndex].updated_at = new Date().toISOString();
+
+    // 同时更新所有内存中的用户列表
+    const updateInAllLists = (list: any[]) => {
+      const idx = list.findIndex(u => u.id === userId);
+      if (idx !== -1) {
+        if (name !== undefined) list[idx].name = name;
+        if (signature !== undefined) list[idx].signature = signature;
+        if (new_password) list[idx].password = new_password;
+      }
+    };
+    updateInAllLists(memoryUsersList);
+    updateInAllLists(memoryUsersArray);
+
+    // 不返回密码
+    const { password: _, ...userWithoutPassword } = memoryUsersList[userIndex];
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error('Update user profile error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 上传用户头像
+router.post('/me/avatar', upload.single('avatar'), async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未登录或登录已过期' });
+    }
+
+    const sessionId = authHeader.substring(7);
+    
+    // 从内存存储中查找session
+    const { memorySessions } = await import('../database/memory-storage');
+    const session = memorySessions.find((s: any) => s.session_id === sessionId && s.is_active);
+    
+    if (!session) {
+      return res.status(401).json({ error: '会话无效或已过期' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: '请选择要上传的头像图片' });
+    }
+
+    // 验证文件类型
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: '仅支持 JPG、PNG、GIF、WebP 格式的图片' });
+    }
+
+    // 生成文件名
+    const ext = req.file.mimetype.split('/')[1];
+    const filename = `avatar_${session.user_id}_${Date.now()}.${ext}`;
+    
+    // 将文件保存到临时目录或对象存储
+    // 这里简化为使用 base64 存储（实际应该上传到对象存储）
+    const base64 = req.file.buffer.toString('base64');
+    const avatarUrl = `data:${req.file.mimetype};base64,${base64}`;
+
+    // 更新用户头像
+    const userIndex = memoryUsersList.findIndex((u: any) => u.id === session.user_id);
+    if (userIndex !== -1) {
+      memoryUsersList[userIndex].avatar = avatarUrl;
+      memoryUsersList[userIndex].updated_at = new Date().toISOString();
+
+      // 同时更新所有内存中的用户列表
+      const updateAvatar = (list: any[]) => {
+        const idx = list.findIndex(u => u.id === session.user_id);
+        if (idx !== -1) {
+          list[idx].avatar = avatarUrl;
+        }
+      };
+      updateAvatar(memoryUsersList);
+      updateAvatar(memoryUsersArray);
+    }
+
+    res.json({ 
+      success: true, 
+      avatar: avatarUrl,
+      message: '头像上传成功' 
+    });
+  } catch (error) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({ error: '服务器错误' });
   }
 });
 

@@ -10,28 +10,36 @@ export const memoryUsers = {
     phone: '15392966668',
     department_id: 1,
     department_name: '五金事业部',
+    avatar: null,
+    signature: null,
     is_disabled: false,
     created_at: new Date(),
     updated_at: new Date(),
   },
 };
 
-// 导出内存用户列表（数组格式）
-export const memoryUsersList = [
+// 导出的内存用户数组（用于列表查询）
+export const memoryUsersArray = [
   {
     id: 1,
     username: 'admin',
+    password: 'mc6668',
     name: '管理员',
     role: 'admin',
     position: '管理员',
     phone: '15392966668',
     department_id: 1,
     department_name: '五金事业部',
+    avatar: null,
+    signature: null,
     is_disabled: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
 ];
+
+// 内存用户数组的引用（用于动态更新）
+export let memoryUsersList = [...memoryUsersArray];
 
 // 导出内存部门列表
 export const memoryDepartments = [

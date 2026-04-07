@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, StyleSheet, Image } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -59,7 +59,7 @@ export default function ProfileScreen() {
       title: '账号设置',
       subtitle: '修改密码、个人信息',
       color: '#6C63FF',
-      onPress: () => Alert.alert('提示', '账号设置功能开发中'),
+      onPress: () => router.push('/account-settings'),
     },
     {
       icon: 'circle-question',
@@ -103,7 +103,11 @@ export default function ProfileScreen() {
           <View style={styles.accountCard}>
             <View style={styles.accountHeader}>
               <View style={styles.avatarContainer}>
-                <FontAwesome6 name="user" size={32} color="#6C63FF" />
+                {user?.avatar ? (
+                  <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+                ) : (
+                  <FontAwesome6 name="user" size={32} color="#6C63FF" />
+                )}
               </View>
               <View style={styles.accountInfo}>
                 <Text style={styles.accountName}>{user?.name || '未登录'}</Text>
@@ -113,13 +117,20 @@ export default function ProfileScreen() {
               </View>
             </View>
             <View style={styles.accountDetails}>
-              <View style={styles.detailItem}>
-                <FontAwesome6 name="phone" size={14} color="#636E72" />
-                <Text style={styles.detailText}>{user?.username || '-'}</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <FontAwesome6 name="briefcase" size={14} color="#636E72" />
-                <Text style={styles.detailText}>{user?.position || '-'}</Text>
+              {user?.signature ? (
+                <View style={styles.signatureContainer}>
+                  <Text style={styles.signatureText}>"{user.signature}"</Text>
+                </View>
+              ) : null}
+              <View style={styles.detailRow}>
+                <View style={styles.detailItem}>
+                  <FontAwesome6 name="phone" size={14} color="#636E72" />
+                  <Text style={styles.detailText}>{user?.phone || '-'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <FontAwesome6 name="briefcase" size={14} color="#636E72" />
+                  <Text style={styles.detailText}>{user?.position || '-'}</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -273,6 +284,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   accountInfo: {
     flex: 1,
@@ -288,6 +305,26 @@ const styles = StyleSheet.create({
     color: '#636E72',
   },
   accountDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F3',
+  },
+  signatureContainer: {
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6C63FF',
+  },
+  signatureText: {
+    fontSize: 13,
+    color: '#636E72',
+    fontStyle: 'italic',
+  },
+  detailRow: {
     flexDirection: 'row',
     gap: 24,
   },
