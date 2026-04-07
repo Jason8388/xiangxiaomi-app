@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Alert,
   TextInput,
   Modal,
+  FlatList,
+  StyleSheet,
+  ListRenderItem,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -15,6 +18,20 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as DocumentPicker from 'expo-document-picker';
 import { getSecureItem } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
+import { createFormDataFile } from '@/utils';
+
+// 预计算的文件类型配置（避免每次渲染时计算）
+const FILE_TYPE_CONFIG = {
+  excel: { icon: 'file-excel', color: '#00B894' },
+  xlsx: { icon: 'file-excel', color: '#00B894' },
+  xls: { icon: 'file-excel', color: '#00B894' },
+  ppt: { icon: 'file-powerpoint', color: '#FDCB6E' },
+  pptx: { icon: 'file-powerpoint', color: '#FDCB6E' },
+  word: { icon: 'file-word', color: '#1E88E5' },
+  docx: { icon: 'file-word', color: '#1E88E5' },
+  doc: { icon: 'file-word', color: '#1E88E5' },
+  pdf: { icon: 'file-pdf', color: '#FF6B6B' },
+};
 
 interface FileTag {
   id: number;
@@ -36,6 +53,124 @@ interface FileItem {
   tags: FileTag[];
 }
 
+// 文件图标颜色配置缓存
+const getFileConfig = (fileType: string) => {
+  const normalizedType = fileType?.replace('.', '').toLowerCase();
+  return FILE_TYPE_CONFIG[normalizedType as keyof typeof FILE_TYPE_CONFIG] || { icon: 'file', color: '#B2BEC3' };
+};
+
+// 格式化文件大小（带缓存）
+const formatFileSizeCache: Record<number, string> = {};
+const formatFileSize = (bytes: number): string => {
+  if (formatFileSizeCache[bytes]) return formatFileSizeCache[bytes];
+  let result: string;
+  if (bytes < 1024) result = bytes + ' B';
+  else if (bytes < 1024 * 1024) result = (bytes / 1024).toFixed(1) + ' KB';
+  else result = (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  formatFileSizeCache[bytes] = result;
+  return result;
+};
+
+// 格式化日期（带缓存）
+const formatDateCache: Record<string, string> = {};
+const formatDate = (dateStr: string): string => {
+  if (!dateStr) return '';
+  if (formatDateCache[dateStr]) return formatDateCache[dateStr];
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const result = `${year}-${month}-${day}`;
+  formatDateCache[dateStr] = result;
+  return result;
+};
+
+// 文件卡片组件（使用 React.memo 避免不必要的重渲染）
+interface FileCardProps {
+  file: FileItem;
+  isSelectMode: boolean;
+  selectedFiles: number[];
+  onPress: (file: FileItem) => void;
+  onSelect: (fileId: number) => void;
+  onEditTags: (file: FileItem) => void;
+  onDownload: (file: FileItem) => void;
+}
+
+const FileCard = React.memo<FileCardProps>(({ file, isSelectMode, selectedFiles, onPress, onSelect, onEditTags, onDownload }) => {
+  const fileConfig = getFileConfig(file.file_type);
+  const fileSize = formatFileSize(file.file_size);
+  const fileDate = formatDate(file.upload_time);
+  const isSelected = selectedFiles.includes(file.id);
+
+  return (
+    <TouchableOpacity
+      onPress={() => isSelectMode ? onSelect(file.id) : onPress(file)}
+      style={styles.fileCard}
+      activeOpacity={0.7}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        {/* 选择框 */}
+        {isSelectMode && (
+          <TouchableOpacity
+            onPress={() => onSelect(file.id)}
+            style={{ marginRight: 12 }}
+          >
+            <FontAwesome6
+              name={isSelected ? 'square-check' : 'square'}
+              size={24}
+              color={isSelected ? '#1E88E5' : '#B2BEC3'}
+            />
+          </TouchableOpacity>
+        )}
+
+        {/* 文件图标 */}
+        <View style={[styles.fileIcon, { backgroundColor: `${fileConfig.color}20` }]}>
+          <FontAwesome6 name={fileConfig.icon as any} size={32} color={fileConfig.color} />
+        </View>
+
+        {/* 文件信息 */}
+        <View style={{ flex: 1, marginLeft: 16 }}>
+          <Text style={styles.fileName} numberOfLines={1}>
+            {file.original_name}
+          </Text>
+          <Text style={styles.fileMeta}>
+            {fileSize} · {fileDate}
+          </Text>
+          {file.tags && file.tags.length > 0 && (
+            <View style={styles.fileTags}>
+              {file.tags.slice(0, 3).map((tag: any) => (
+                <View
+                  key={tag.id}
+                  style={[styles.fileTag, { borderColor: tag.color }]}
+                >
+                  <Text style={[styles.fileTagText, { color: tag.color }]}>
+                    {tag.name}
+                  </Text>
+                </View>
+              ))}
+              {file.tags.length > 3 && (
+                <Text style={styles.moreTagsText}>+{file.tags.length - 3}</Text>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* 下载和标签编辑按钮 */}
+      {!isSelectMode && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => onEditTags(file)} style={styles.tagEditButton}>
+            <FontAwesome6 name="tags" size={18} color="#9B59B6" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onDownload(file)} style={styles.downloadButton}>
+            <FontAwesome6 name="download" size={20} color="#1E88E5" />
+          </TouchableOpacity>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
+
 export default function FilesScreen() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [tags, setTags] = useState<FileTag[]>([]);
@@ -52,17 +187,22 @@ export default function FilesScreen() {
   const [newTagName, setNewTagName] = useState('');
   const router = useSafeRouter();
 
+  // 初始加载
   useEffect(() => {
-    const loadData = async () => {
-      await loadUserInfo();
-      await Promise.all([
-        fetchFilesList(),
-        fetchTagsList(),
-      ]);
-    };
-    loadData();
+    loadUserInfo();
+    fetchFilesList();
+    fetchTagsList();
   }, []);
 
+  // 页面返回时刷新数据
+  useFocusEffect(
+    useCallback(() => {
+      fetchFilesList();
+      fetchTagsList();
+    }, [])
+  );
+
+  // 加载用户信息
   const loadUserInfo = async () => {
     try {
       const userStr = await getSecureItem('user');
@@ -74,19 +214,15 @@ export default function FilesScreen() {
     }
   };
 
+  // 获取文件列表
   const fetchFilesList = async (): Promise<FileItem[]> => {
     try {
       setLoading(true);
       const response = await fetch(`${getApiBaseUrl()}/api/v1/files`);
       const data = await response.json();
-      if (Array.isArray(data.files)) {
-        setFiles(data.files);
-        return data.files;
-      } else if (Array.isArray(data)) {
-        setFiles(data);
-        return data;
-      }
-      return [];
+      const fileList = Array.isArray(data.files) ? data.files : Array.isArray(data) ? data : [];
+      setFiles(fileList);
+      return fileList;
     } catch (error) {
       console.error('Fetch files error:', error);
       return [];
@@ -95,22 +231,26 @@ export default function FilesScreen() {
     }
   };
 
+  // 获取标签列表
   const fetchTagsList = async (): Promise<FileTag[]> => {
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/files/tags/list`);
       const data = await response.json();
-      if (Array.isArray(data)) {
-        setTags(data);
-        return data;
-      }
-      return [];
+      const tagList = Array.isArray(data) ? data.map((name: string, index: number) => ({
+        id: index + 1,
+        name,
+        color: ['#1E88E5', '#00B894', '#F39C12', '#9B59B6', '#E74C3C', '#2ECC71', '#3498DB', '#E91E63'][index % 8],
+      })) : [];
+      setTags(tagList);
+      return tagList;
     } catch (error) {
       console.error('Fetch tags error:', error);
       return [];
     }
   };
 
-  const fetchFiles = async (tagId?: number, fileType?: string) => {
+  // 筛选文件（带 useCallback 稳定引用）
+  const fetchFiles = useCallback(async (tagId?: number, fileType?: string) => {
     setLoading(true);
     try {
       let url = `${getApiBaseUrl()}/api/v1/files`;
@@ -122,24 +262,30 @@ export default function FilesScreen() {
 
       const response = await fetch(url);
       const data = await response.json();
-
-      if (Array.isArray(data.files)) {
-        setFiles(data.files);
-      } else if (Array.isArray(data)) {
-        setFiles(data);
-      }
+      const fileList = Array.isArray(data.files) ? data.files : Array.isArray(data) ? data : [];
+      setFiles(fileList);
     } catch (error) {
       console.error('Fetch files error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchText]);
 
-  const handleSearch = () => {
+  // 使用 useMemo 缓存筛选后的文件类型选项
+  const fileTypeOptions = useMemo(() => [
+    { type: 'excel', label: 'Excel', icon: 'file-excel', color: '#00B894' },
+    { type: 'ppt', label: 'PPT', icon: 'file-powerpoint', color: '#FDCB6E' },
+    { type: 'word', label: 'Word', icon: 'file-word', color: '#1E88E5' },
+    { type: 'pdf', label: 'PDF', icon: 'file-pdf', color: '#FF6B6B' },
+  ], []);
+
+  // 搜索处理
+  const handleSearch = useCallback(() => {
     fetchFiles(selectedTag || undefined);
-  };
+  }, [fetchFiles, selectedTag]);
 
-  const handleTagFilter = (tagId: number) => {
+  // 标签筛选
+  const handleTagFilter = useCallback((tagId: number) => {
     if (selectedTag === tagId) {
       setSelectedTag(null);
       fetchFiles();
@@ -147,74 +293,69 @@ export default function FilesScreen() {
       setSelectedTag(tagId);
       fetchFiles(tagId);
     }
-  };
+  }, [selectedTag, fetchFiles]);
 
-  const handleSelectFile = (fileId: number) => {
-    if (selectedFiles.includes(fileId)) {
-      setSelectedFiles(selectedFiles.filter(id => id !== fileId));
-    } else {
-      setSelectedFiles([...selectedFiles, fileId]);
-    }
-  };
+  // 选择文件
+  const handleSelectFile = useCallback((fileId: number) => {
+    setSelectedFiles(prev =>
+      prev.includes(fileId) ? prev.filter(id => id !== fileId) : [...prev, fileId]
+    );
+  }, []);
 
-  const handleSelectAll = () => {
-    if (selectedFiles.length === files.length) {
-      setSelectedFiles([]);
-    } else {
-      setSelectedFiles(files.map(f => f.id));
-    }
-  };
+  // 全选
+  const handleSelectAll = useCallback(() => {
+    setSelectedFiles(prev =>
+      prev.length === files.length ? [] : files.map(f => f.id)
+    );
+  }, [files]);
 
-  // 打开标签编辑弹窗
-  const handleEditTags = (file: FileItem) => {
+  // 编辑标签
+  const handleEditTags = useCallback((file: FileItem) => {
     setEditingFile(file);
     setSelectedTagIds(file.tags?.map(t => t.id) || []);
     setNewTagName('');
     setTagModalVisible(true);
-  };
+  }, []);
 
-  // 切换标签选中状态
-  const toggleTagSelection = (tagId: number) => {
-    if (selectedTagIds.includes(tagId)) {
-      setSelectedTagIds(selectedTagIds.filter(id => id !== tagId));
-    } else {
-      if (selectedTagIds.length >= 10) {
-        Alert.alert('提示', '每个文件最多只能添加10个标签');
-        return;
+  // 切换标签选中
+  const toggleTagSelection = useCallback((tagId: number) => {
+    setSelectedTagIds(prev => {
+      if (prev.includes(tagId)) {
+        return prev.filter(id => id !== tagId);
+      } else {
+        if (prev.length >= 10) {
+          Alert.alert('提示', '每个文件最多只能添加10个标签');
+          return prev;
+        }
+        return [...prev, tagId];
       }
-      setSelectedTagIds([...selectedTagIds, tagId]);
-    }
-  };
+    });
+  }, []);
 
-  // 创建新标签
-  const handleCreateTag = async () => {
+  // 创建标签
+  const handleCreateTag = useCallback(async () => {
     if (!newTagName.trim()) {
       Alert.alert('提示', '请输入标签名称');
       return;
     }
 
     try {
-      const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/files/tags`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newTagName.trim(),
-            color: getRandomColor(),
-          }),
-        }
-      );
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newTagName.trim(),
+          color: ['#1E88E5', '#00B894', '#F39C12', '#9B59B6', '#E74C3C', '#2ECC71', '#3498DB'][Math.floor(Math.random() * 7)],
+        }),
+      });
 
       const data = await response.json();
-
       if (response.ok) {
         Alert.alert('成功', '标签创建成功');
         fetchTagsList();
         setNewTagName('');
-        // 自动选中新创建的标签
         if (selectedTagIds.length < 10) {
-          setSelectedTagIds([...selectedTagIds, data.id]);
+          setSelectedTagIds(prev => [...prev, data.id]);
         }
       } else {
         throw new Error(data.error || '创建失败');
@@ -222,30 +363,18 @@ export default function FilesScreen() {
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
-  };
+  }, [newTagName, selectedTagIds]);
 
-  // 获取随机颜色
-  const getRandomColor = () => {
-    const colors = ['#1E88E5', '#00B894', '#F39C12', '#9B59B6', '#E74C3C', '#2ECC71', '#3498DB'];
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
-
-  // 保存标签修改
-  const handleSaveTags = async () => {
+  // 保存标签
+  const handleSaveTags = useCallback(async () => {
     if (!editingFile) return;
-
     try {
-      const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/files/${editingFile.id}/tags`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tag_ids: selectedTagIds }),
-        }
-      );
-
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/${editingFile.id}/tags`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag_ids: selectedTagIds }),
+      });
       const data = await response.json();
-
       if (response.ok) {
         Alert.alert('成功', '标签更新成功');
         setTagModalVisible(false);
@@ -256,10 +385,10 @@ export default function FilesScreen() {
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
-  };
+  }, [editingFile, selectedTagIds, selectedTag, selectedFileType, fetchFiles]);
 
   // 文件类型筛选
-  const handleFileTypeFilter = (type: string | null) => {
+  const handleFileTypeFilter = useCallback((type: string | null) => {
     const tagId = selectedTag ?? undefined;
     if (selectedFileType === type) {
       setSelectedFileType(null);
@@ -268,11 +397,11 @@ export default function FilesScreen() {
       setSelectedFileType(type);
       fetchFiles(tagId, type ?? undefined);
     }
-  };
+  }, [selectedFileType, selectedTag, fetchFiles]);
 
-  const handleUpload = async () => {
+  // 上传文件
+  const handleUpload = useCallback(async () => {
     try {
-      // 支持多次调用选择文件
       const result = await DocumentPicker.getDocumentAsync({
         type: [
           'application/vnd.ms-excel',
@@ -283,53 +412,44 @@ export default function FilesScreen() {
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'application/pdf',
         ],
-        // Expo DocumentPicker不支持多选，只能一次选一个
       });
 
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        return;
-      }
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
 
-      // 检查文件大小（50MB）
       const file = result.assets[0];
       if (file.size && file.size > 50 * 1024 * 1024) {
         Alert.alert('提示', `${file.name} 超过50MB限制，无法上传`);
         return;
       }
 
-      // 构建FormData
       const formData = new FormData();
-      formData.append('files', {
-        uri: file.uri,
-        name: file.name,
-        type: file.mimeType || 'application/octet-stream',
-      } as any);
+      const fileObj = await createFormDataFile(
+        file.uri,
+        file.name,
+        file.mimeType || 'application/octet-stream'
+      );
+      formData.append('files', fileObj as any);
       formData.append('uploader_id', user?.id || '1');
 
       const response = await fetch(`${getApiBaseUrl()}/api/v1/files/upload`, {
         method: 'POST',
         body: formData,
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '上传失败');
-      }
-
+      if (!response.ok) throw new Error(data.error || '上传失败');
       Alert.alert('成功', data.message || '文件上传成功');
       fetchFiles(selectedTag || undefined);
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
-  };
+  }, [user?.id, selectedTag, fetchFiles]);
 
-  const handleBatchDelete = async () => {
+  // 批量删除
+  const handleBatchDelete = useCallback(async () => {
     if (selectedFiles.length === 0) {
       Alert.alert('提示', '请选择要删除的文件');
       return;
     }
-
     if (user?.role !== 'admin') {
       Alert.alert('提示', '只有管理员可以批量删除文件');
       return;
@@ -345,18 +465,10 @@ export default function FilesScreen() {
             const response = await fetch(`${getApiBaseUrl()}/api/v1/files/batch`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ids: selectedFiles,
-                user_id: user.id,
-              }),
+              body: JSON.stringify({ ids: selectedFiles, user_id: user.id }),
             });
-
             const data = await response.json();
-
-            if (!response.ok) {
-              throw new Error(data.error || '删除失败');
-            }
-
+            if (!response.ok) throw new Error(data.error || '删除失败');
             Alert.alert('成功', data.message);
             setSelectedFiles([]);
             setIsSelectMode(false);
@@ -367,69 +479,52 @@ export default function FilesScreen() {
         },
       },
     ]);
-  };
+  }, [selectedFiles, user?.role, user?.id, selectedTag, fetchFiles]);
 
-  const handleFileDetail = (file: any) => {
+  // 查看详情
+  const handleFileDetail = useCallback((file: FileItem) => {
     router.push('/file-detail', { id: file.id });
-  };
+  }, [router]);
 
-  const handleDownload = async (file: any) => {
+  // 下载
+  const handleDownload = useCallback(async (file: FileItem) => {
     try {
-      await fetch(`${getApiBaseUrl()}/api/v1/files/download/${file.id}`, {
-        method: 'POST',
-      });
-
+      await fetch(`${getApiBaseUrl()}/api/v1/files/download/${file.id}`, { method: 'POST' });
       Alert.alert('提示', '下载记录已更新');
-      fetchFiles(selectedTag || undefined);
     } catch (error) {
       Alert.alert('错误', '下载失败');
     }
-  };
+  }, []);
 
-  const getFileIcon = (fileType: string) => {
-    switch (fileType) {
-      case 'excel':
-        return 'file-excel';
-      case 'ppt':
-        return 'file-powerpoint';
-      case 'word':
-        return 'file-word';
-      case 'pdf':
-        return 'file-pdf';
-      default:
-        return 'file';
-    }
-  };
+  // 渲染文件卡片
+  const renderFileItem: ListRenderItem<FileItem> = useCallback(({ item }) => (
+    <FileCard
+      file={item}
+      isSelectMode={isSelectMode}
+      selectedFiles={selectedFiles}
+      onPress={handleFileDetail}
+      onSelect={handleSelectFile}
+      onEditTags={handleEditTags}
+      onDownload={handleDownload}
+    />
+  ), [isSelectMode, selectedFiles, handleFileDetail, handleSelectFile, handleEditTags, handleDownload]);
 
-  const getFileColor = (fileType: string) => {
-    switch (fileType) {
-      case 'excel':
-        return '#00B894';
-      case 'ppt':
-        return '#FDCB6E';
-      case 'word':
-        return '#1E88E5';
-      case 'pdf':
-        return '#FF6B6B';
-      default:
-        return '#B2BEC3';
-    }
-  };
+  // 空列表组件
+  const renderEmptyComponent = useCallback(() => (
+    <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+      <FontAwesome6 name="folder-open" size={48} color="#DFE6E9" />
+      <Text style={{ fontSize: 14, color: '#636E72', marginTop: 16 }}>
+        暂无文件
+      </Text>
+    </View>
+  ), []);
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // 加载组件
+  const renderLoadingComponent = useCallback(() => (
+    <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+      <Text style={{ fontSize: 14, color: '#636E72' }}>加载中...</Text>
+    </View>
+  ), []);
 
   return (
     <Screen>
@@ -452,10 +547,7 @@ export default function FilesScreen() {
         }
       />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 24 }}
-      >
+      <View style={styles.container}>
         {/* 搜索框 */}
         <View style={styles.searchContainer}>
           <FontAwesome6 name="magnifying-glass" size={18} color="#B2BEC3" style={{ marginRight: 8 }} />
@@ -474,12 +566,7 @@ export default function FilesScreen() {
 
         {/* 文件类型筛选 */}
         <View style={styles.fileTypeFilter}>
-          {[
-            { type: 'excel', label: 'Excel', icon: 'file-excel', color: '#00B894' },
-            { type: 'ppt', label: 'PPT', icon: 'file-powerpoint', color: '#FDCB6E' },
-            { type: 'word', label: 'Word', icon: 'file-word', color: '#1E88E5' },
-            { type: 'pdf', label: 'PDF', icon: 'file-pdf', color: '#FF6B6B' },
-          ].map((item) => (
+          {fileTypeOptions.map((item) => (
             <TouchableOpacity
               key={item.type}
               onPress={() => handleFileTypeFilter(item.type)}
@@ -493,12 +580,7 @@ export default function FilesScreen() {
                 size={16}
                 color={selectedFileType === item.type ? '#FFF' : item.color}
               />
-              <Text
-                style={[
-                  styles.fileTypeText,
-                  selectedFileType === item.type && { color: '#FFF' },
-                ]}
-              >
+              <Text style={[styles.fileTypeText, selectedFileType === item.type && { color: '#FFF' }]}>
                 {item.label}
               </Text>
             </TouchableOpacity>
@@ -506,37 +588,32 @@ export default function FilesScreen() {
         </View>
 
         {/* 标签筛选 */}
-        <View style={{ marginBottom: 24 }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity
-              onPress={() => { setSelectedTag(null); fetchFiles(); }}
-              style={[styles.tagChip, !selectedTag && styles.tagChipActive]}
-            >
-              <Text style={[styles.tagChipText, !selectedTag && styles.tagChipTextActive]}>
-                全部
-              </Text>
-            </TouchableOpacity>
-            {tags.map((tag) => (
+        <View style={styles.tagFilterContainer}>
+          <FlatList
+            horizontal
+            data={[{ id: 0, name: '全部', color: '#636E72' }, ...tags]}
+            keyExtractor={(item) => item.id.toString()}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => (
               <TouchableOpacity
-                key={tag.id}
-                onPress={() => handleTagFilter(tag.id)}
+                onPress={() => item.id === 0 ? handleTagFilter(0) : handleTagFilter(item.id)}
                 style={[
                   styles.tagChip,
-                  selectedTag === tag.id && styles.tagChipActive,
-                  { borderColor: tag.color },
+                  (item.id === 0 ? !selectedTag : selectedTag === item.id) && styles.tagChipActive,
+                  item.id !== 0 && { borderColor: item.color },
                 ]}
               >
                 <Text
                   style={[
                     styles.tagChipText,
-                    selectedTag === tag.id && styles.tagChipTextActive,
+                    (item.id === 0 ? !selectedTag : selectedTag === item.id) && styles.tagChipTextActive,
                   ]}
                 >
-                  {tag.name} ({tag.count})
+                  {item.name}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            )}
+          />
         </View>
 
         {/* 选择模式操作 */}
@@ -556,104 +633,25 @@ export default function FilesScreen() {
           </View>
         )}
 
-        {/* 文件列表 */}
-        {loading ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <Text style={{ fontSize: 14, color: '#636E72' }}>加载中...</Text>
-          </View>
-        ) : files.length === 0 ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <FontAwesome6 name="folder-open" size={48} color="#DFE6E9" />
-            <Text style={{ fontSize: 14, color: '#636E72', marginTop: 16 }}>
-              暂无文件
-            </Text>
-          </View>
-        ) : (
-          files.map((file) => (
-            <TouchableOpacity
-              key={file.id}
-              onPress={() => isSelectMode ? handleSelectFile(file.id) : handleFileDetail(file)}
-              style={styles.fileCard}
-              activeOpacity={0.7}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                {/* 选择框 */}
-                {isSelectMode && (
-                  <TouchableOpacity
-                    onPress={() => handleSelectFile(file.id)}
-                    style={{ marginRight: 12 }}
-                  >
-                    <FontAwesome6
-                      name={selectedFiles.includes(file.id) ? 'square-check' : 'square'}
-                      size={24}
-                      color={selectedFiles.includes(file.id) ? '#1E88E5' : '#B2BEC3'}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {/* 文件图标 */}
-                <View
-                  style={[
-                    styles.fileIcon,
-                    { backgroundColor: `${getFileColor(file.file_type)}20` },
-                  ]}
-                >
-                  <FontAwesome6
-                    name={getFileIcon(file.file_type) as any}
-                    size={32}
-                    color={getFileColor(file.file_type)}
-                  />
-                </View>
-
-                {/* 文件信息 */}
-                <View style={{ flex: 1, marginLeft: 16 }}>
-                  <Text style={styles.fileName} numberOfLines={1}>
-                    {file.original_name}
-                  </Text>
-                  <Text style={styles.fileMeta}>
-                    {formatFileSize(file.file_size)} · {formatDate(file.upload_time)}
-                  </Text>
-                  {file.tags && file.tags.length > 0 && (
-                    <View style={styles.fileTags}>
-                      {file.tags.slice(0, 3).map((tag: any) => (
-                        <View
-                          key={tag.id}
-                          style={[styles.fileTag, { borderColor: tag.color }]}
-                        >
-                          <Text style={[styles.fileTagText, { color: tag.color }]}>
-                            {tag.name}
-                          </Text>
-                        </View>
-                      ))}
-                      {file.tags.length > 3 && (
-                        <Text style={styles.moreTagsText}>+{file.tags.length - 3}</Text>
-                      )}
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* 下载和标签编辑按钮 */}
-              {!isSelectMode && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <TouchableOpacity
-                    onPress={() => handleEditTags(file)}
-                    style={styles.tagEditButton}
-                  >
-                    <FontAwesome6 name="tags" size={18} color="#9B59B6" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDownload(file)}
-                    style={styles.downloadButton}
-                  >
-                    <FontAwesome6 name="download" size={20} color="#1E88E5" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+        {/* 文件列表 - 使用 FlatList 实现虚拟化 */}
+        <FlatList
+          data={files}
+          renderItem={renderFileItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={loading ? renderLoadingComponent : renderEmptyComponent}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          removeClippedSubviews={true}
+          getItemLayout={(data, index) => ({
+            length: 88,
+            offset: 88 * index,
+            index,
+          })}
+        />
+      </View>
 
       {/* 标签编辑弹窗 */}
       <Modal
@@ -673,12 +671,12 @@ export default function FilesScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <View style={styles.modalBody}>
               <Text style={styles.selectedCountText}>
                 已选择 {selectedTagIds.length}/10 个标签
               </Text>
 
-              {/* 现有标签选择 */}
+              {/* 标签网格 */}
               <View style={styles.tagGrid}>
                 {tags.map((tag) => (
                   <TouchableOpacity
@@ -718,15 +716,12 @@ export default function FilesScreen() {
                     onChangeText={setNewTagName}
                     maxLength={20}
                   />
-                  <TouchableOpacity
-                    style={styles.createTagButton}
-                    onPress={handleCreateTag}
-                  >
+                  <TouchableOpacity style={styles.createTagButton} onPress={handleCreateTag}>
                     <FontAwesome6 name="plus" size={18} color="#FFF" />
                   </TouchableOpacity>
                 </View>
               </View>
-            </ScrollView>
+            </View>
 
             <View style={styles.modalFooter}>
               <TouchableOpacity
@@ -749,273 +744,271 @@ export default function FilesScreen() {
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: '#F5F7FA',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchContainer: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: '#F5F7FA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
+    marginHorizontal: 24,
+    marginTop: 16,
+    height: 48,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#2D3436',
+    fontSize: 16,
+    color: '#1F2937',
   },
   searchButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: '#1E88E5',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fileTypeFilter: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     gap: 8,
   },
   fileTypeChip: {
-    flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#F5F7FA',
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    gap: 4,
   },
   fileTypeText: {
     fontSize: 12,
     color: '#636E72',
-    fontWeight: '500' as const,
+  },
+  tagFilterContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 16,
   },
   tagChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
-    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   tagChipActive: {
     backgroundColor: '#1E88E5',
-    borderColor: '#1E88E5',
   },
   tagChipText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#636E72',
   },
   tagChipTextActive: {
     color: '#FFFFFF',
   },
   selectModeContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    backgroundColor: 'rgba(30, 136, 229, 0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
     paddingVertical: 12,
-    marginBottom: 16,
+    backgroundColor: '#F0F9FF',
   },
   selectAllButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   selectAllText: {
     fontSize: 14,
     color: '#1E88E5',
-    marginLeft: 8,
-    fontWeight: '600' as const,
   },
   selectedCountText: {
     fontSize: 14,
     color: '#636E72',
   },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
   fileCard: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   fileIcon: {
-    width: 64,
-    height: 64,
+    width: 56,
+    height: 56,
     borderRadius: 12,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fileName: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: '#2D3436',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1F2937',
     marginBottom: 4,
   },
   fileMeta: {
-    fontSize: 12,
-    color: '#B2BEC3',
-    marginBottom: 8,
+    fontSize: 13,
+    color: '#9CA3AF',
   },
   fileTags: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
     gap: 6,
   },
   fileTag: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
     borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.8)',
   },
   fileTagText: {
-    fontSize: 10,
+    fontSize: 11,
   },
   moreTagsText: {
-    fontSize: 10,
-    color: '#B2BEC3',
-  },
-  downloadButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(30, 136, 229, 0.1)',
-    marginLeft: 12,
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginLeft: 4,
   },
   tagEditButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+    borderRadius: 8,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end' as const,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '85%' as const,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
   },
   modalHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F4',
+    borderBottomColor: '#E5E7EB',
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#2D3436',
-    flex: 1,
-    marginRight: 16,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   modalBody: {
-    padding: 16,
-    maxHeight: 400,
+    padding: 20,
   },
   tagGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   tagOption: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#DFE6E9',
-    backgroundColor: '#F5F7FA',
+    borderColor: '#E5E7EB',
+    gap: 6,
   },
   tagOptionText: {
     fontSize: 14,
-    color: '#636E72',
+    color: '#4B5563',
   },
   createTagSection: {
     marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F3F4',
   },
   createTagLabel: {
     fontSize: 14,
-    fontWeight: '500' as const,
-    color: '#636E72',
-    marginBottom: 12,
+    color: '#6B7280',
+    marginBottom: 10,
   },
   createTagRow: {
-    flexDirection: 'row' as const,
-    gap: 12,
+    flexDirection: 'row',
+    gap: 10,
   },
   createTagInput: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#2D3436',
+    height: 44,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: '#1F2937',
   },
   createTagButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: '#1E88E5',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalFooter: {
-    flexDirection: 'row' as const,
-    padding: 16,
+    flexDirection: 'row',
     gap: 12,
+    padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#F1F3F4',
+    borderTopColor: '#E5E7EB',
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center' as const,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButton: {
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#F3F4F6',
   },
   cancelButtonText: {
     fontSize: 16,
-    color: '#636E72',
+    color: '#6B7280',
+    fontWeight: '500',
   },
   saveButton: {
     backgroundColor: '#1E88E5',
@@ -1023,6 +1016,6 @@ const styles = {
   saveButtonText: {
     fontSize: 16,
     color: '#FFFFFF',
-    fontWeight: '600' as const,
+    fontWeight: '500',
   },
-};
+});
