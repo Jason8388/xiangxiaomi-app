@@ -4,8 +4,57 @@ import pool, { USE_DATABASE } from '../database/db';
 const router = express.Router();
 
 // 内存数据存储（用于数据库不可用时）
-const memoryCustomers: any[] = [];
-let memoryCustomerId = 1;
+const memoryCustomers: any[] = [
+  {
+    id: 1,
+    name: '示例科技有限公司',
+    contact_person: '张三',
+    contact_phone: '13800138001',
+    address: '北京市朝阳区科技园区A座',
+    email: 'zhangsan@example.com',
+    industry: 'IT行业',
+    level: 'A',
+    source: '线上推广',
+    status: '正常',
+    device_count: 5,
+    contract_count: 2,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    name: '华联实业集团',
+    contact_person: '李四',
+    contact_phone: '13800138002',
+    address: '上海市浦东新区金融中心B栋',
+    email: 'lisi@example.com',
+    industry: '金融服务',
+    level: 'A',
+    source: '客户介绍',
+    status: '正常',
+    device_count: 12,
+    contract_count: 5,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    name: '东方制造有限公司',
+    contact_person: '王五',
+    contact_phone: '13800138003',
+    address: '深圳市南山区科技园C座',
+    email: 'wangwu@example.com',
+    industry: '制造业',
+    level: 'B',
+    source: '行业展会',
+    status: '正常',
+    device_count: 8,
+    contract_count: 3,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+let memoryCustomerId = 4;
 
 // 带超时的查询函数
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {
