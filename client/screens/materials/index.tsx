@@ -109,8 +109,21 @@ export default function MaterialManagement() {
     }
   }, [searchKeyword, materials]);
 
+  // 生成二维码ID
+  const generateQRCodeId = () => {
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const qrId = `M${timestamp}${random}`;
+    setFormData({ ...formData, qr_code_id: qrId });
+    Alert.alert('生成成功', `二维码ID: ${qrId}`);
+  };
+
   const handleAdd = () => {
     setEditingMaterial(null);
+    // 自动生成二维码ID
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const qrId = `M${timestamp}${random}`;
     setFormData({
       material_number: '',
       material_name: '',
@@ -122,7 +135,7 @@ export default function MaterialManagement() {
       supplier: '',
       unit_price: '',
       material_photo: '',
-      qr_code_id: '',
+      qr_code_id: qrId,  // 自动生成二维码ID
       remarks: '',
       tags: [],
     });
@@ -752,15 +765,22 @@ export default function MaterialManagement() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>二维码ID</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="请输入或自动生成二维码ID"
-                  value={formData.qr_code_id}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, qr_code_id: text })
-                  }
-                />
+                <Text style={styles.formLabel}>二维码ID（系统自动生成）</Text>
+                <View style={styles.qrCodeContainer}>
+                  <View style={styles.qrCodeDisplay}>
+                    <FontAwesome6 name="qrcode" size={24} color="#1E88E5" />
+                    <Text style={styles.qrCodeText}>
+                      {formData.qr_code_id || '点击下方按钮生成'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.regenerateButton}
+                    onPress={generateQRCodeId}
+                  >
+                    <FontAwesome6 name="sync" size={14} color="#FFF" />
+                    <Text style={styles.regenerateText}>重新生成</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.formGroup}>
@@ -1143,6 +1163,43 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: 16,
+  },
+  qrCodeContainer: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 10,
+    padding: 16,
+    gap: 12,
+  },
+  qrCodeDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  qrCodeText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1E88E5',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  regenerateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#1E88E5',
+    borderRadius: 8,
+  },
+  regenerateText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '500',
   },
   formRow: {
     flexDirection: 'row',
