@@ -105,7 +105,7 @@ const adminNavItems: NavigationItem[] = [
     title: '会议纪要',
     icon: 'comments',
     color: '#27AE60',
-    route: '/meetings',
+    route: '/meeting-minutes',
   },
   {
     id: 'reminder',
