@@ -70,7 +70,7 @@ export default function OrganizationScreen() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/organization`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/organization`);
       const data = await res.json();
       if (res.ok) {
         setOrgData(data);
@@ -101,12 +101,33 @@ export default function OrganizationScreen() {
     }
   };
 
+  // API 基础 URL - 优先使用环境变量，否则根据当前域名推断
+const getApiBaseUrl = () => {
+  // 优先使用环境变量
+  const envUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (envUrl) return envUrl;
+  
+  // 如果在浏览器环境，根据当前域名推断 API 地址
+  if (typeof window !== 'undefined' && window.location) {
+    const origin = window.location.origin;
+    // 如果前端使用 https，API 端口改为 443；如果 http，端口为 9091
+    const protocol = origin.startsWith('https') ? 'https' : 'http';
+    const hostname = origin.replace(/^https?:\/\//, '').split(':')[0];
+    // 返回本地 API 地址（端口映射到 9091）
+    return `http://localhost:9091`;
+  }
+  
+  return 'http://localhost:9091';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
         setLoading(true);
         try {
-          const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/organization`);
+          const res = await fetch(`${API_BASE_URL}/api/v1/organization`);
           const data = await res.json();
           if (res.ok) {
             setOrgData(data);

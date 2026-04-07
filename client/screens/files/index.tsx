@@ -55,8 +55,8 @@ export default function FilesScreen() {
     const loadData = async () => {
       await loadUserInfo();
       await Promise.all([
-        cachedFetch('files-list', fetchFilesList, 'medium'),
-        cachedFetch('files-tags-list', fetchTagsList, 'medium'),
+        fetchFilesList(),
+        fetchTagsList(),
       ]);
     };
     loadData();
