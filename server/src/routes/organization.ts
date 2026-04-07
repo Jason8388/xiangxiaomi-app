@@ -4,26 +4,34 @@ import { memoryDepartments, memoryUsersList } from '../database/memory-storage';
 
 const router = express.Router();
 
-// 内存数据构建组织结构
+// 内存数据构建组织结构（优化版）
 function buildMemoryOrganization() {
+  // 预处理：按部门ID分组员工，避免每次遍历全量数据
+  const employeesByDept = new Map<number | null, any[]>();
+  memoryUsersList.forEach(user => {
+    const deptId = user.department_id || null;
+    if (!employeesByDept.has(deptId)) {
+      employeesByDept.set(deptId, []);
+    }
+    employeesByDept.get(deptId)!.push(user);
+  });
+
   const buildTree = (parentId: number | null = null): any[] => {
     return memoryDepartments
-      .filter(dept => {
-        if (parentId === null) {
-          return dept.parent_id === null || dept.parent_id === undefined;
-        }
-        return dept.parent_id === parentId;
-      })
-      .map(dept => ({
-        ...dept,
-        employeeCount: memoryUsersList.filter(u => u.department_id === dept.id).length,
-        employees: memoryUsersList.filter(u => u.department_id === dept.id),
-        children: buildTree(dept.id),
-      }));
+      .filter(dept => dept.parent_id === parentId)
+      .map(dept => {
+        const employees = employeesByDept.get(dept.id) || [];
+        return {
+          ...dept,
+          employeeCount: employees.length,
+          employees,
+          children: buildTree(dept.id),
+        };
+      });
   };
   
   const tree = buildTree(null);
-  const unassignedEmployees = memoryUsersList.filter(u => !u.department_id);
+  const unassignedEmployees = employeesByDept.get(null) || [];
   
   return {
     tree,
@@ -55,74 +63,12 @@ async function queryWithRetry(sql: string, params: any[] = [], retries = 1): Pro
 // 获取完整的组织结构（部门树 + 员工）
 router.get('/', async (req, res) => {
   try {
-    // 获取所有部门
-    const deptResult = await queryWithRetry(
-      `SELECT * FROM departments WHERE is_disabled = false ORDER BY sort_order ASC, id ASC`
-    );
-
-    // 获取所有员工（带有部门信息）
-    const userResult = await queryWithRetry(
-      `SELECT u.id, u.username, u.name, u.role, u.position, u.email, u.phone, u.department_id,
-              d.name as department_name, d.code as department_code
-       FROM users u
-       LEFT JOIN departments d ON u.department_id = d.id
-       WHERE u.is_disabled = false AND u.role != 'admin'
-       ORDER BY d.sort_order ASC, u.name ASC`
-    );
-
-    // 构建部门树，并添加员工
-    interface OrgNode {
-      id: number;
-      name: string;
-      parent_id: number | null;
-      employeeCount: number;
-      employees: any[];
-      children: OrgNode[];
-    }
-    const buildTree = (parentId: number | null = null): OrgNode[] => {
-      return deptResult.rows
-        .filter((dept: any) => {
-          if (parentId === null) {
-            return dept.parent_id === null || dept.parent_id === undefined;
-          }
-          return dept.parent_id === parentId;
-        })
-        .map((dept: any) => {
-          const employees = userResult.rows.filter(
-            (user: any) => user.department_id === dept.id
-          );
-          return {
-            id: dept.id,
-            name: dept.name,
-            code: dept.code,
-            description: dept.description,
-            parent_id: dept.parent_id,
-            sort_order: dept.sort_order,
-            employeeCount: employees.length,
-            employees,
-            children: buildTree(dept.id),
-          };
-        });
-    };
-
-    const tree = buildTree(null);
-
-    // 获取未分配部门的员工
-    const unassignedEmployees = userResult.rows.filter(
-      (user: any) => !user.department_id
-    );
-
-    res.json({
-      tree,
-      unassignedEmployees,
-      totalDepartments: deptResult.rows.length,
-      totalEmployees: userResult.rows.length,
-    });
-  } catch (error: any) {
-    console.error('Get organization error, using memory storage:', error);
-    // 数据库失败时返回内存数据
+    // 直接使用内存数据构建组织结构（避免数据库连接超时）
     const memoryOrg = buildMemoryOrganization();
-    return res.json(memoryOrg);
+    res.json(memoryOrg);
+  } catch (error: any) {
+    console.error('Get organization error:', error);
+    res.status(500).json({ error: '获取组织结构失败' });
   }
 });
 

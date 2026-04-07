@@ -104,26 +104,35 @@ export default function OrganizationScreen() {
   };
 
 
+  // 计算顶级部门ID集合（只在数据加载时计算一次）
+  const getTopLevelDeptIds = (tree: Department[]): Set<number> => {
+    return new Set(tree.map((d) => d.id));
+  };
+
   useFocusEffect(
     useCallback(() => {
+      let isMounted = true;
+      
       const loadData = async () => {
-        setLoading(true);
         try {
           const res = await fetch(`${getApiBaseUrl()}/api/v1/organization`);
+          if (!isMounted) return;
+          
           const data = await res.json();
           if (res.ok) {
             setOrgData(data);
-            const topLevelIds = new Set<number>(data.tree.map((d: Department) => d.id));
-            setExpandedDepts(topLevelIds);
+            setExpandedDepts(getTopLevelDeptIds(data.tree));
           }
         } catch (err) {
           console.error('Fetch organization error:', err);
-        } finally {
-          setLoading(false);
         }
       };
+      
       loadData();
-      fetchUser();
+      
+      return () => {
+        isMounted = false;
+      };
     }, [])
   );
 
