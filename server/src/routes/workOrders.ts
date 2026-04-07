@@ -22,28 +22,60 @@ function generateOrderNo() {
 router.get('/stats', async (req, res) => {
   if (!USE_DATABASE) {
     const totalWorkOrders = memoryWorkOrders.length;
-    const todayWorkOrders = memoryWorkOrders.filter(w => {
-      const today = new Date().toDateString();
-      return new Date(w.created_at).toDateString() === today;
-    }).length;
+    const chargedWorkOrders = memoryWorkOrders.filter(w => w.is_charged).length;
+    const performanceAmount = memoryWorkOrders
+      .filter(w => w.is_charged)
+      .reduce((sum, w) => sum + (w.quoted_price || 0), 0);
+    const pendingPaymentAmount = memoryWorkOrders
+      .filter(w => w.is_charged && w.implementation_complete_date && !w.actual_payment_date)
+      .reduce((sum, w) => sum + (w.quoted_price || 0), 0);
+    const paidAmount = memoryWorkOrders
+      .filter(w => w.actual_payment_date)
+      .reduce((sum, w) => sum + (w.paid_amount || 0), 0);
     
     return res.json({
-      total: totalWorkOrders,
-      today: todayWorkOrders,
-      pending: memoryWorkOrders.filter(w => w.task_phase === '需求阶段').length,
-      inProgress: memoryWorkOrders.filter(w => w.task_phase === '实施阶段').length,
-      completed: memoryWorkOrders.filter(w => w.task_phase === '关单存档').length,
+      totalWorkOrders,
+      chargedWorkOrders,
+      performanceAmount,
+      pendingPaymentAmount,
+      paidAmount,
     });
   }
 
   try {
+    // 总工单数
     const totalResult = await pool.query('SELECT COUNT(*) as total FROM work_orders');
+    const totalWorkOrders = parseInt(totalResult.rows[0].total);
+
+    // 总收费工单数
+    const chargedResult = await pool.query('SELECT COUNT(*) as total FROM work_orders WHERE is_charged = true');
+    const chargedWorkOrders = parseInt(chargedResult.rows[0].total);
+
+    // 售后业绩金额（收费工单对应金额总额）
+    const performanceResult = await pool.query('SELECT COALESCE(SUM(quoted_amount), 0) as total FROM work_orders WHERE is_charged = true AND quoted_amount > 0');
+    const performanceAmount = parseFloat(performanceResult.rows[0].total);
+
+    // 售后待收款金额（已完成实施但未回款的收费工单）
+    const pendingPaymentResult = await pool.query(`
+      SELECT COALESCE(SUM(quoted_amount), 0) as total 
+      FROM work_orders 
+      WHERE is_charged = true 
+        AND quoted_amount > 0
+        AND implementation_complete_date IS NOT NULL 
+        AND actual_payment_date IS NULL
+    `);
+    const pendingPaymentAmount = parseFloat(pendingPaymentResult.rows[0].total);
+
+    // 售后已收款金额
+    const paidResult = await pool.query('SELECT COALESCE(SUM(paid_amount), 0) as total FROM work_orders WHERE paid_amount > 0');
+    const paidAmount = parseFloat(paidResult.rows[0].total);
+
     res.json({
-      total: parseInt(totalResult.rows[0].total),
-      today: 0,
-      pending: 0,
-      inProgress: 0,
-      completed: 0,
+      totalWorkOrders,
+      chargedWorkOrders,
+      performanceAmount,
+      pendingPaymentAmount,
+      paidAmount,
     });
   } catch (error) {
     console.error('Get work order stats error:', error);
