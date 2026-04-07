@@ -199,8 +199,7 @@ export default function EmployeeManagement() {
 
       Alert.alert('成功', '员工创建成功');
       setAddModalVisible(false);
-      clearCache('users-list');
-      fetchUsers();
+      loadData(); // 刷新数据
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
@@ -234,8 +233,7 @@ export default function EmployeeManagement() {
 
       Alert.alert('成功', '更新成功');
       setEditModalVisible(false);
-      clearCache('users-list');
-      fetchUsers();
+      loadData(); // 刷新数据
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
@@ -286,8 +284,7 @@ export default function EmployeeManagement() {
 
       Alert.alert('成功', disable ? '账号已禁用' : '账号已启用');
       setDisableModalVisible(false);
-      clearCache('users-list');
-      fetchUsers();
+      loadData();
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
@@ -310,8 +307,7 @@ export default function EmployeeManagement() {
 
             if (response.ok) {
               Alert.alert('成功', '删除成功');
-              clearCache('users-list');
-              fetchUsers();
+              loadData();
             } else {
               const data = await response.json();
               throw new Error(data.error || '删除失败');
