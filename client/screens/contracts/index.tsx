@@ -50,6 +50,8 @@ export default function ContractManagement() {
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [customerSelectorVisible, setCustomerSelectorVisible] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerSearchKeyword, setCustomerSearchKeyword] = useState('');
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [formData, setFormData] = useState({
     contract_number: '',
     contract_name: '',
@@ -93,6 +95,22 @@ export default function ContractManagement() {
       setFilteredContracts(contracts);
     }
   }, [searchKeyword, contracts]);
+
+  // 客户搜索过滤
+  useEffect(() => {
+    if (customerSearchKeyword.trim()) {
+      const keyword = customerSearchKeyword.toLowerCase();
+      const filtered = customers.filter(
+        (c) =>
+          c.name.toLowerCase().includes(keyword) ||
+          (c.contact_person && c.contact_person.toLowerCase().includes(keyword)) ||
+          (c.contact_phone && c.contact_phone.includes(keyword))
+      );
+      setFilteredCustomers(filtered);
+    } else {
+      setFilteredCustomers(customers);
+    }
+  }, [customerSearchKeyword, customers]);
 
   const fetchContracts = async (): Promise<Contract[]> => {
     try {
@@ -142,6 +160,12 @@ export default function ContractManagement() {
       tags: [],
     });
     setTagInput('');
+    setCustomerSearchKeyword('');
+    setFilteredCustomers([]);
+    // 加载客户列表
+    fetchCustomers().then((list) => {
+      setFilteredCustomers(list);
+    });
     setModalVisible(true);
   };
 
@@ -523,13 +547,32 @@ export default function ContractManagement() {
               </TouchableOpacity>
             </View>
 
+            {/* 客户搜索框 */}
+            <View style={styles.customerSearchBar}>
+              <FontAwesome6 name="search" size={16} color="#95A5A6" />
+              <TextInput
+                style={styles.customerSearchInput}
+                value={customerSearchKeyword}
+                onChangeText={setCustomerSearchKeyword}
+                placeholder="搜索客户名称、联系人或电话..."
+                placeholderTextColor="#B2BEC3"
+              />
+              {customerSearchKeyword.length > 0 && (
+                <TouchableOpacity onPress={() => setCustomerSearchKeyword('')}>
+                  <FontAwesome6 name="times-circle" size={16} color="#95A5A6" />
+                </TouchableOpacity>
+              )}
+            </View>
+
             <ScrollView style={styles.modalBody}>
-              {customers.length === 0 ? (
+              {filteredCustomers.length === 0 ? (
                 <View style={styles.centerContainer}>
-                  <Text style={styles.emptyText}>暂无客户数据</Text>
+                  <Text style={styles.emptyText}>
+                    {customers.length === 0 ? '暂无客户数据' : '未找到匹配的客户'}
+                  </Text>
                 </View>
               ) : (
-                customers.map((customer) => (
+                filteredCustomers.map((customer) => (
                   <TouchableOpacity
                     key={customer.id}
                     style={styles.customerItem}
@@ -903,5 +946,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2C3E50',
     flex: 1,
+  },
+  customerSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  customerSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2C3E50',
+    paddingVertical: 0,
   },
 });
