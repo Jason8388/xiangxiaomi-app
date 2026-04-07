@@ -6,13 +6,23 @@ const router = express.Router();
 
 // 内存数据构建组织结构
 function buildMemoryOrganization() {
-  const tree = memoryDepartments.map(dept => ({
-    ...dept,
-    employeeCount: memoryUsersList.filter(u => u.department_id === dept.id).length,
-    employees: memoryUsersList.filter(u => u.department_id === dept.id),
-    children: [],
-  }));
+  const buildTree = (parentId: number | null = null): any[] => {
+    return memoryDepartments
+      .filter(dept => {
+        if (parentId === null) {
+          return dept.parent_id === null || dept.parent_id === undefined;
+        }
+        return dept.parent_id === parentId;
+      })
+      .map(dept => ({
+        ...dept,
+        employeeCount: memoryUsersList.filter(u => u.department_id === dept.id).length,
+        employees: memoryUsersList.filter(u => u.department_id === dept.id),
+        children: buildTree(dept.id),
+      }));
+  };
   
+  const tree = buildTree(null);
   const unassignedEmployees = memoryUsersList.filter(u => !u.department_id);
   
   return {
@@ -71,13 +81,23 @@ router.get('/', async (req, res) => {
     }
     const buildTree = (parentId: number | null = null): OrgNode[] => {
       return deptResult.rows
-        .filter((dept: any) => dept.parent_id === parentId)
+        .filter((dept: any) => {
+          if (parentId === null) {
+            return dept.parent_id === null || dept.parent_id === undefined;
+          }
+          return dept.parent_id === parentId;
+        })
         .map((dept: any) => {
           const employees = userResult.rows.filter(
             (user: any) => user.department_id === dept.id
           );
           return {
-            ...dept,
+            id: dept.id,
+            name: dept.name,
+            code: dept.code,
+            description: dept.description,
+            parent_id: dept.parent_id,
+            sort_order: dept.sort_order,
             employeeCount: employees.length,
             employees,
             children: buildTree(dept.id),
