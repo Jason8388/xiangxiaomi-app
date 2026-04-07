@@ -142,50 +142,22 @@ export default function WorkOrderDetailScreen() {
   // 任务阶段选项
   const taskPhaseOptions = ['需求阶段', '实施阶段', '回款阶段', '关单存档', '异常状态'];
 
-  // 任务进度选项（根据工单类型变化）
-  const getTaskProgressOptions = (type: string) => {
-    switch (type) {
-      case '收费工单':
-        return [
-          '10%收到服务需求',
-          '20%确定方案与报价',
-          '30%客户方案和报价共识',
-          '40%完成实施准备',
-          '50%完成实施',
-          '60%完成客户确认',
-          '70%完成对账',
-          '80%完成开票和送达',
-          '90%完成回款',
-          '100%完成资料归档',
-          '已关单',
-          '挂起暂停',
-          '终止',
-        ];
-      case '免费工单':
-        return [
-          '10%收到服务需求',
-          '30%确定方案与计划',
-          '50%完成实施准备',
-          '70%完成实施',
-          '90%完成客户确认',
-          '100%完成资料归档',
-          '已关单',
-          '挂起暂停',
-          '终止',
-        ];
-      case '待定工单':
-        return [
-          '10%收到服务需求',
-          '20%确定方案与报价',
-          '30%客户方案和报价共识',
-          '已关单',
-          '挂起暂停',
-          '终止',
-        ];
-      default:
-        return [];
-    }
-  };
+  // 任务进度选项（统一选项）
+  const taskProgressOptions = [
+    '10%收到服务需求',
+    '20%确定方案与报价',
+    '30%客户方案和报价共识',
+    '40%完成实施准备',
+    '50%完成实施',
+    '60%完成客户确认',
+    '70%完成对账',
+    '80%完成开票和送达',
+    '90%完成回款',
+    '100%完成资料归档',
+    '已关单',
+    '挂起暂停',
+    '终止',
+  ];
 
   // 任务状态选项
   const taskStatusOptions = ['计划中', '延期风险', '已延期', '关单完成', '挂起或暂停'];
@@ -243,8 +215,7 @@ export default function WorkOrderDetailScreen() {
       setSelectTitle('选择任务阶段');
       setSelectModalVisible(true);
     } else if (field === 'task_progress') {
-      const type = order?.work_order_type || '免费工单';
-      setSelectOptions(getTaskProgressOptions(type));
+      setSelectOptions(taskProgressOptions);
       setSelectTitle('选择任务进度');
       setSelectModalVisible(true);
     } else if (field === 'task_status') {
