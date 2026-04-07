@@ -69,7 +69,7 @@ export default function MeetingMinutes() {
   const loadMeetingMinutes = async (keyword?: string, tagId?: number) => {
     try {
       setLoading(true);
-      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes?limit=10`;
+      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes?limit=10`;
       if (keyword) {
         url += `&keyword=${encodeURIComponent(keyword)}`;
       }
@@ -93,7 +93,7 @@ export default function MeetingMinutes() {
   const fetchTags = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/tags`
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/tags`
       );
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -125,11 +125,11 @@ export default function MeetingMinutes() {
   };
 
   const handleEdit = (minuteId: number) => {
-    router.push('/meeting-minute-edit', { id: minuteId });
+    router.push('/meeting-minute-create', { id: minuteId });
   };
 
   const handleViewDetail = (minuteId: number) => {
-    router.push('/meeting-minute-detail', { id: minuteId });
+    router.push('/meeting-minute-create', { id: minuteId, view: 'detail' });
   };
 
   const handleDeletePress = (minute: MeetingMinute) => {
@@ -148,7 +148,7 @@ export default function MeetingMinutes() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${selectedMinute.id}`,
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/${selectedMinute.id}`,
         {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },

@@ -11,10 +11,10 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { storage } from '@/utils/storage';
 
@@ -29,12 +29,6 @@ interface FormData {
   tags: string[];
 }
 
-interface Tag {
-  id: number;
-  name: string;
-  color: string;
-}
-
 const TAG_COLORS = [
   '#6C63FF', '#FF6B6B', '#00B894', '#F39C12', '#3498DB',
   '#9B59B6', '#1ABC9C', '#E74C3C', '#2ECC71', '#E91E63',
@@ -46,10 +40,9 @@ export default function MeetingMinuteCreate() {
   const [isEdit, setIsEdit] = useState(!!id);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     meeting_name: '',
-    meeting_date: new Date().toISOString(),
+    meeting_date: '',
     meeting_location: '',
     attendees: '',
     recorder: '',
@@ -57,15 +50,12 @@ export default function MeetingMinuteCreate() {
     summary: '',
     tags: [],
   });
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [tagModalVisible, setTagModalVisible] = useState(false);
-  const [existingTags, setExistingTags] = useState<Tag[]>([]);
   const [newTagName, setNewTagName] = useState('');
   const [selectedColor, setSelectedColor] = useState(TAG_COLORS[0]);
 
   useEffect(() => {
     loadUserInfo();
-    fetchTags();
     if (id) {
       loadMeetingMinute();
     }
@@ -77,7 +67,6 @@ export default function MeetingMinuteCreate() {
       if (userStr) {
         const userData = JSON.parse(userStr);
         setUser(userData);
-        // 自动填充记录人
         if (!id) {
           setFormData(prev => ({ ...prev, recorder: userData.name || '' }));
         }
@@ -87,41 +76,24 @@ export default function MeetingMinuteCreate() {
     }
   };
 
-  const fetchTags = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/tags`
-      );
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setExistingTags(data);
-      }
-    } catch (error) {
-      console.error('Fetch tags error:', error);
-    }
-  };
-
   const loadMeetingMinute = async () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${id}`
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/${id}`
       );
       const data = await response.json();
       if (response.ok) {
         setFormData({
           meeting_name: data.meeting_name || '',
-          meeting_date: data.meeting_date || new Date().toISOString(),
+          meeting_date: data.meeting_date ? data.meeting_date.split('T')[0] : '',
           meeting_location: data.meeting_location || '',
           attendees: data.attendees || '',
           recorder: data.recorder || '',
           key_points: data.key_points || '',
           summary: data.summary || '',
-          tags: data.tags?.map((t: any) => t.name || t) || [],
+          tags: Array.isArray(data.tags) ? data.tags.map((t: any) => t.tag || t) : [],
         });
-        if (data.meeting_date) {
-          setSelectedDate(new Date(data.meeting_date));
-        }
       }
     } catch (error) {
       console.error('Load meeting minute error:', error);
@@ -131,9 +103,12 @@ export default function MeetingMinuteCreate() {
   };
 
   const handleSubmit = async () => {
-    // 表单验证
     if (!formData.meeting_name.trim()) {
       Alert.alert('提示', '请输入会议名称');
+      return;
+    }
+    if (!formData.meeting_date.trim()) {
+      Alert.alert('提示', '请选择会议日期');
       return;
     }
     if (!formData.meeting_location.trim()) {
@@ -156,15 +131,14 @@ export default function MeetingMinuteCreate() {
     try {
       setLoading(true);
       const url = isEdit
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${id}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes`;
+        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/${id}`
+        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes`;
 
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          meeting_date: new Date(formData.meeting_date).toISOString(),
           user_id: user?.id,
         }),
       });
@@ -182,24 +156,6 @@ export default function MeetingMinuteCreate() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDateChange = (event: any, date?: Date) => {
-    setShowDatePicker(false);
-    if (date) {
-      setSelectedDate(date);
-      setFormData(prev => ({
-        ...prev,
-        meeting_date: date.toISOString(),
-      }));
-    }
-  };
-
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   };
 
   const toggleTag = (tagName: string) => {
@@ -242,6 +198,7 @@ export default function MeetingMinuteCreate() {
       tags: [...prev.tags, tagName],
     }));
     setNewTagName('');
+    setTagModalVisible(false);
   };
 
   const removeTag = (tagName: string) => {
@@ -253,26 +210,17 @@ export default function MeetingMinuteCreate() {
 
   return (
     <Screen>
-      <PageHeader
-        title={isEdit ? '修改会议纪要' : '新增会议纪要'}
-      />
+      <PageHeader title={isEdit ? '修改会议纪要' : '新增会议纪要'} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView style={styles.container} contentContainerStyle={styles.containerContent}>
           {/* 会议名称 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              会议名称 <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>会议名称 <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={styles.input}
               value={formData.meeting_name}
-              onChangeText={(text) =>
-                setFormData(prev => ({ ...prev, meeting_name: text }))
-              }
+              onChangeText={(text) => setFormData(prev => ({ ...prev, meeting_name: text }))}
               placeholder="请输入会议名称"
               placeholderTextColor="#B2BEC3"
             />
@@ -280,37 +228,21 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议日期 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              会议日期 <Text style={styles.required}>*</Text>
-            </Text>
-            <TouchableOpacity
-              style={styles.dateInput}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <FontAwesome6 name="calendar" size={16} color="#636E72" />
-              <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="default"
-                onChange={handleDateChange}
-              />
-            )}
+            <SmartDateInput
+              label="会议日期"
+              value={formData.meeting_date}
+              onChange={(date) => setFormData(prev => ({ ...prev, meeting_date: date }))}
+              placeholder="请选择会议日期"
+            />
           </View>
 
           {/* 会议地点 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              会议地点 <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>会议地点 <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={styles.input}
               value={formData.meeting_location}
-              onChangeText={(text) =>
-                setFormData(prev => ({ ...prev, meeting_location: text }))
-              }
+              onChangeText={(text) => setFormData(prev => ({ ...prev, meeting_location: text }))}
               placeholder="请输入会议地点"
               placeholderTextColor="#B2BEC3"
             />
@@ -318,15 +250,11 @@ export default function MeetingMinuteCreate() {
 
           {/* 参会人 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              参会人 <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>参会人 <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.attendees}
-              onChangeText={(text) =>
-                setFormData(prev => ({ ...prev, attendees: text }))
-              }
+              onChangeText={(text) => setFormData(prev => ({ ...prev, attendees: text }))}
               placeholder="请输入参会人，多人以逗号分隔"
               placeholderTextColor="#B2BEC3"
               multiline
@@ -337,15 +265,11 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议记录人 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              会议记录人 <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>会议记录人 <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={styles.input}
               value={formData.recorder}
-              onChangeText={(text) =>
-                setFormData(prev => ({ ...prev, recorder: text }))
-              }
+              onChangeText={(text) => setFormData(prev => ({ ...prev, recorder: text }))}
               placeholder="请输入会议记录人姓名"
               placeholderTextColor="#B2BEC3"
             />
@@ -353,15 +277,11 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议要点 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              会议要点 <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>会议要点 <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={[styles.input, styles.textAreaLarge]}
               value={formData.key_points}
-              onChangeText={(text) =>
-                setFormData(prev => ({ ...prev, key_points: text }))
-              }
+              onChangeText={(text) => setFormData(prev => ({ ...prev, key_points: text }))}
               placeholder="请输入会议要点"
               placeholderTextColor="#B2BEC3"
               multiline
@@ -376,9 +296,7 @@ export default function MeetingMinuteCreate() {
             <TextInput
               style={[styles.input, styles.textAreaLarge]}
               value={formData.summary}
-              onChangeText={(text) =>
-                setFormData(prev => ({ ...prev, summary: text }))
-              }
+              onChangeText={(text) => setFormData(prev => ({ ...prev, summary: text }))}
               placeholder="请输入会议结论"
               placeholderTextColor="#B2BEC3"
               multiline
@@ -394,7 +312,6 @@ export default function MeetingMinuteCreate() {
               <Text style={styles.tagCount}>{formData.tags.length}/10</Text>
             </View>
 
-            {/* 已选标签 */}
             {formData.tags.length > 0 && (
               <View style={styles.selectedTags}>
                 {formData.tags.map((tag, index) => (
@@ -410,7 +327,6 @@ export default function MeetingMinuteCreate() {
               </View>
             )}
 
-            {/* 添加标签按钮 */}
             <TouchableOpacity
               style={styles.addTagButton}
               onPress={() => setTagModalVisible(true)}
@@ -449,77 +365,42 @@ export default function MeetingMinuteCreate() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
-              {/* 新建标签 */}
-              <View style={styles.newTagSection}>
-                <Text style={styles.sectionLabel}>新建标签</Text>
-                <View style={styles.newTagInput}>
-                  <TextInput
-                    style={styles.tagInput}
-                    value={newTagName}
-                    onChangeText={setNewTagName}
-                    placeholder="输入标签名称"
-                    placeholderTextColor="#B2BEC3"
-                    maxLength={10}
-                  />
-                  <TouchableOpacity
-                    style={styles.colorPicker}
-                    onPress={() => {
-                      const currentIndex = TAG_COLORS.indexOf(selectedColor);
-                      const nextIndex = (currentIndex + 1) % TAG_COLORS.length;
-                      setSelectedColor(TAG_COLORS[nextIndex]);
-                    }}
-                  >
-                    <View style={[styles.colorDot, { backgroundColor: selectedColor }]} />
-                    <FontAwesome6 name="chevron-down" size={12} color="#636E72" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.createTagButton}
-                    onPress={handleCreateTag}
-                  >
-                    <Text style={styles.createTagButtonText}>创建</Text>
-                  </TouchableOpacity>
-                </View>
+            <View style={styles.newTagSection}>
+              <Text style={styles.sectionLabel}>新建标签</Text>
+              <View style={styles.newTagInput}>
+                <TextInput
+                  style={styles.tagInput}
+                  value={newTagName}
+                  onChangeText={setNewTagName}
+                  placeholder="输入标签名称"
+                  placeholderTextColor="#B2BEC3"
+                  maxLength={10}
+                />
+                <TouchableOpacity
+                  style={styles.colorPicker}
+                  onPress={() => {
+                    const currentIndex = TAG_COLORS.indexOf(selectedColor);
+                    const nextIndex = (currentIndex + 1) % TAG_COLORS.length;
+                    setSelectedColor(TAG_COLORS[nextIndex]);
+                  }}
+                >
+                  <View style={[styles.colorDot, { backgroundColor: selectedColor }]} />
+                  <FontAwesome6 name="chevron-down" size={12} color="#636E72" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.createTagButton}
+                  onPress={handleCreateTag}
+                >
+                  <Text style={styles.createTagButtonText}>创建</Text>
+                </TouchableOpacity>
               </View>
-
-              {/* 已有标签 */}
-              {existingTags.length > 0 && (
-                <View style={styles.existingTagSection}>
-                  <Text style={styles.sectionLabel}>选择已有标签</Text>
-                  <View style={styles.tagGrid}>
-                    {existingTags.map((tag) => (
-                      <TouchableOpacity
-                        key={tag.id}
-                        style={[
-                          styles.tagOption,
-                          formData.tags.includes(tag.name) && styles.tagOptionSelected,
-                          { borderColor: tag.color },
-                        ]}
-                        onPress={() => toggleTag(tag.name)}
-                      >
-                        <Text
-                          style={[
-                            styles.tagOptionText,
-                            formData.tags.includes(tag.name) && styles.tagOptionTextSelected,
-                          ]}
-                        >
-                          {tag.name}
-                        </Text>
-                        {formData.tags.includes(tag.name) && (
-                          <FontAwesome6 name="check" size={10} color="#FFFFFF" />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </ScrollView>
+            </View>
 
             <TouchableOpacity
-              style={styles.doneButton}
+              style={styles.closeModalButton}
               onPress={() => setTagModalVisible(false)}
             >
-              <Text style={styles.doneButtonText}>完成</Text>
+              <Text style={styles.closeModalButtonText}>关闭</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -531,43 +412,32 @@ export default function MeetingMinuteCreate() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#F8F9FA',
   },
   containerContent: {
     padding: 16,
-    paddingBottom: 40,
   },
   formGroup: {
-    marginBottom: 20,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#2D3436',
     marginBottom: 8,
   },
   required: {
-    color: '#E74C3C',
-  },
-  tagCount: {
-    fontSize: 12,
-    color: '#636E72',
+    color: '#FF6B6B',
   },
   input: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 16,
     color: '#2D3436',
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: '#DFE6E9',
   },
   textArea: {
     height: 60,
@@ -577,20 +447,15 @@ const styles = StyleSheet.create({
     height: 120,
     paddingTop: 12,
   },
-  dateInput: {
+  labelRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    marginBottom: 8,
   },
-  dateText: {
-    fontSize: 15,
-    color: '#2D3436',
+  tagCount: {
+    fontSize: 12,
+    color: '#636E72',
   },
   selectedTags: {
     flexDirection: 'row',
@@ -601,45 +466,46 @@ const styles = StyleSheet.create({
   selectedTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: '#6C63FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#6C63FF',
+    gap: 6,
   },
   selectedTagText: {
-    fontSize: 13,
     color: '#FFFFFF',
+    fontSize: 14,
   },
   addTagButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: '#F0F0FF',
+    paddingVertical: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#6C63FF',
     borderStyle: 'dashed',
+    gap: 6,
   },
   addTagText: {
-    fontSize: 14,
     color: '#6C63FF',
+    fontSize: 14,
   },
   submitButton: {
     backgroundColor: '#6C63FF',
-    borderRadius: 12,
     paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
   },
   submitButtonDisabled: {
-    opacity: 0.6,
+    backgroundColor: '#B2BEC3',
   },
   submitButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   modalOverlay: {
     flex: 1,
@@ -650,10 +516,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
-    maxHeight: '70%',
+    padding: 24,
+    maxHeight: '50%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -663,47 +527,42 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#2D3436',
   },
   modalBody: {
-    marginBottom: 20,
+    flex: 1,
   },
   newTagSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#2D3436',
+    color: '#636E72',
     marginBottom: 12,
   },
   newTagInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   tagInput: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     color: '#2D3436',
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
   },
   colorPicker: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderRadius: 8,
+    gap: 6,
   },
   colorDot: {
     width: 16,
@@ -712,54 +571,42 @@ const styles = StyleSheet.create({
   },
   createTagButton: {
     backgroundColor: '#6C63FF',
-    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    borderRadius: 8,
   },
   createTagButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
   existingTagSection: {
-    marginBottom: 20,
+    marginTop: 16,
   },
   tagGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   tagOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#F5F7FA',
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: '#DFE6E9',
   },
   tagOptionSelected: {
-    backgroundColor: '#6C63FF',
-    borderColor: '#6C63FF',
+    backgroundColor: '#F0F0FF',
   },
-  tagOptionText: {
-    fontSize: 13,
-    color: '#636E72',
-  },
-  tagOptionTextSelected: {
-    color: '#FFFFFF',
-  },
-  doneButton: {
-    backgroundColor: '#6C63FF',
-    borderRadius: 12,
+  closeModalButton: {
+    backgroundColor: '#F8F9FA',
     paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
+    marginTop: 20,
   },
-  doneButtonText: {
+  closeModalButtonText: {
+    color: '#636E72',
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
 });

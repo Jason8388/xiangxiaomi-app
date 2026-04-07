@@ -47,7 +47,7 @@ app.use('/api/v1/version-rollback', versionRollbackRoutes);
 app.use('/api/v1/departments', departmentRoutes);
 app.use('/api/v1/reminders', reminderRoutes);
 app.use('/api/v1/organization', organizationRoutes);
-app.use('/api/v1/minutes', meetingMinutesRoutes);
+app.use('/api/v1/meeting-minutes', meetingMinutesRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');
