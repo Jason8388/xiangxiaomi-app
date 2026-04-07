@@ -44,6 +44,7 @@ interface FormData {
   content: string;
   tags: string[];
   attachments: string[];
+  creator: string;
 }
 
 const DEFAULT_TAGS = [
@@ -76,6 +77,7 @@ export default function KnowledgeCreate() {
     content: '',
     tags: [],
     attachments: [],
+    creator: '',
   });
   const [newTag, setNewTag] = useState('');
 
@@ -109,6 +111,7 @@ export default function KnowledgeCreate() {
           content: data.content,
           tags: data.tags || [],
           attachments: data.attachments || [],
+          creator: data.creator || '',
         });
         // 加载附件信息
         if (data.attachments && Array.isArray(data.attachments)) {
@@ -285,6 +288,7 @@ export default function KnowledgeCreate() {
       formDataObj.append('title', formData.title);
       formDataObj.append('content', formData.content);
       formDataObj.append('tags', JSON.stringify(formData.tags));
+      formDataObj.append('creator', formData.creator);
       formDataObj.append('author_id', currentUser?.id?.toString() || '0');
 
       // 添加附件
@@ -378,15 +382,12 @@ export default function KnowledgeCreate() {
                 创建人
               </Text>
             </View>
-            <View style={styles.creatorInfo}>
-              <FontAwesome6 name="circle-user" size={20} color="#3498DB" />
-              <Text style={styles.creatorName}>
-                {currentUser?.name || '未知用户'}
-              </Text>
-              {currentUser?.position && (
-                <Text style={styles.creatorPosition}> - {currentUser.position}</Text>
-              )}
-            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="请输入创建人姓名"
+              value={formData.creator}
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, creator: text }))}
+            />
           </View>
 
           {/* 创建日期 */}
