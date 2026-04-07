@@ -103,8 +103,16 @@ export default function OrganizationScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      cachedFetch('organization-tree', fetchOrganization, 'medium');
-      fetchUser();
+      const loadData = async () => {
+        setLoading(true);
+        try {
+          await cachedFetch('organization-tree', fetchOrganization, 'medium');
+        } finally {
+          setLoading(false);
+        }
+        fetchUser();
+      };
+      loadData();
     }, [])
   );
 
