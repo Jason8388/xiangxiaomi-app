@@ -24,7 +24,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('提示', '请输入用户名和密码');
+      Alert.alert('提示', '请输入用户名/手机号和密码');
       return;
     }
 
@@ -80,7 +80,7 @@ export default function LoginScreen() {
 
           <View style={{ width: '100%', marginBottom: 16 }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: '#636E72', marginBottom: 8, marginLeft: 4 }}>
-              用户名
+              用户名 / 手机号
             </Text>
             <TextInput
               style={{
@@ -94,10 +94,11 @@ export default function LoginScreen() {
                 borderWidth: 1,
                 borderColor: '#DFE6E9',
               }}
-              placeholder="请输入用户名"
+              placeholder="请输入用户名或手机号"
               placeholderTextColor="#B2BEC3"
               value={username}
               onChangeText={setUsername}
+              keyboardType="default"
               autoCapitalize="none"
             />
           </View>

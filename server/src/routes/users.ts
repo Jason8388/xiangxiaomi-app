@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import pool from '../database/db';
-import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsersArray, memoryUsersList } from '../database/memory-storage';
+import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsers, memoryUsersArray, memoryUsersList } from '../database/memory-storage';
 
 const router = express.Router();
 
@@ -73,9 +73,10 @@ router.post('/login', async (req, res) => {
 
       while (retryCount < maxRetries) {
         try {
+          // 支持用户名或手机号登录
           const result = await pool.query(
-            'SELECT * FROM users WHERE username = $1',
-            [username]
+            'SELECT * FROM users WHERE username = $1 OR phone = $1',
+            [loginId]
           );
 
           if (result.rows.length === 0) {
