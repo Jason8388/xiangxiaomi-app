@@ -4,8 +4,73 @@ import pool, { USE_DATABASE } from '../database/db';
 const router = express.Router();
 
 // 内存数据存储
-const memoryMaterials: any[] = [];
-let memoryMaterialId = 1;
+const memoryMaterials: any[] = [
+  {
+    id: 1,
+    qr_code_id: 'M1A2B3C4D5E6',
+    name: '标准螺丝 M8x30',
+    code: 'MAT-001',
+    category: '紧固件',
+    unit: '盒',
+    spec: 'M8*30mm 不锈钢',
+    min_stock: 100,
+    current_stock: 250,
+    location: 'A区-01-01',
+    supplier: '华东五金',
+    price: 15.50,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    qr_code_id: 'M7G8H9I0J1K',
+    name: '工业润滑油 5L',
+    code: 'MAT-002',
+    category: '润滑剂',
+    unit: '桶',
+    spec: '5L/桶 长城牌',
+    min_stock: 20,
+    current_stock: 45,
+    location: 'B区-02-03',
+    supplier: '石化物资',
+    price: 128.00,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    qr_code_id: 'ML2N3O4P5Q6',
+    name: '防护手套',
+    code: 'MAT-003',
+    category: '劳保用品',
+    unit: '副',
+    spec: '加厚耐磨款 L码',
+    min_stock: 500,
+    current_stock: 1200,
+    location: 'C区-03-02',
+    supplier: '劳保商城',
+    price: 8.00,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    qr_code_id: 'MR7S8T9U0V1',
+    name: '电缆线 2.5平方',
+    code: 'MAT-004',
+    category: '电气材料',
+    unit: '米',
+    spec: '100米/卷 阻燃型',
+    min_stock: 50,
+    current_stock: 80,
+    location: 'D区-04-01',
+    supplier: '电线电缆厂',
+    price: 3.20,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+let memoryMaterialId = 5;
 
 // 带重试的查询函数
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {

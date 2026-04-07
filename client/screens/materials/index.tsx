@@ -79,7 +79,25 @@ export default function MaterialManagement() {
           );
           const data = await response.json();
           if (response.ok) {
-            return data;
+            // 字段兼容处理：后端返回的字段名可能与前端不一致
+            const materials = Array.isArray(data) ? data : (data.data || []);
+            return materials.map((m: any) => ({
+              id: m.id,
+              material_number: m.code || m.material_number || '',
+              material_name: m.name || m.material_name || '',
+              material_spec: m.spec || m.material_spec || '',
+              material_unit: m.unit || m.material_unit || '',
+              category: m.category || '',
+              stock_quantity: m.current_stock ?? m.stock_quantity ?? 0,
+              warning_stock: m.min_stock ?? m.warning_stock ?? 0,
+              supplier: m.supplier || '',
+              unit_price: m.price ?? m.unit_price ?? 0,
+              material_photo: m.photo || m.material_photo || '',
+              qr_code: m.qr_code || '',
+              qr_code_id: m.qr_code_id || m.qrcode_id || '',
+              remarks: m.remarks || m.note || '',
+              tags: m.tags || [],
+            }));
           }
           return [];
         }, 'medium');
