@@ -5,31 +5,58 @@
 
 /**
  * 获取 API Base URL
- * 优先级：
- * 1. 环境变量 EXPO_PUBLIC_BACKEND_BASE_URL
- * 2. Web 环境回退到 localhost:9091
- * 3. Native 环境使用 localhost:9091
+ * 
+ * 问题：在沙箱环境中，前端和后端通过代理服务器共享端口
+ * 前端服务器（5000）代理 /api 路径到后端（9091）
+ * 
+ * 解决方案：
+ * - 本地开发：使用 http://localhost:9091
+ * - 沙箱/生产：使用相对路径（由前端服务器代理）
  */
 export function getApiBaseUrl(): string {
-  const envUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  // Web 环境
+  if (typeof window !== 'undefined' && window.location) {
+    const currentHost = window.location.hostname;
+    
+    // 本地开发检测（localhost/127.0.0.1）
+    const isLocalDev = currentHost === 'localhost' || 
+                       currentHost === '127.0.0.1' ||
+                       currentHost.includes('.local');
+    
+    if (isLocalDev) {
+      // 本地开发：直接使用 localhost:9091
+      const envUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+      if (envUrl && !envUrl.startsWith('https://')) {
+        console.log('[API] Local dev - using:', envUrl);
+        return envUrl;
+      }
+      console.log('[API] Local dev - using localhost:9091');
+      return 'http://localhost:9091';
+    }
+    
+    // 沙箱/生产环境：使用相对路径（前端服务器已配置代理）
+    // 注意：此时浏览器的 window.location 可能返回外部域名
+    // 但 API 请求应该使用相对路径，让代理服务器处理
+    console.log('[API] Production/Sandbox - using relative path');
+    return '';
+  }
   
+  // Native 环境
+  const envUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
   if (envUrl) {
     return envUrl;
   }
   
-  // Web 环境回退
-  if (typeof window !== 'undefined' && window.location) {
-    return 'http://localhost:9091';
-  }
-  
-  // 默认回退
   return 'http://localhost:9091';
 }
 
 /**
  * 构建完整的 API URL
- * @param path API 路径，例如 /api/v1/users
  */
 export function apiUrl(path: string): string {
-  return `${getApiBaseUrl()}${path.startsWith('/') ? path : '/' + path}`;
+  const base = getApiBaseUrl();
+  if (!base) {
+    return path.startsWith('/') ? path : '/' + path;
+  }
+  return `${base}${path.startsWith('/') ? path : '/' + path}`;
 }
