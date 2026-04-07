@@ -443,6 +443,49 @@ export const memoryDepartments = [
     is_disabled: false,
   },
 ];
+// 预置合同数据
+export const memoryContracts = [
+  {
+    id: 1,
+    contract_no: 'HT-2026-001',
+    title: 'IT设备采购合同',
+    customer_id: 1,
+    customer_name: '北京科技有限公司',
+    amount: 150000,
+    sign_date: '2026-01-15',
+    start_date: '2026-01-20',
+    end_date: '2026-12-31',
+    status: 'active',
+    created_at: '2026-01-15T10:00:00.000Z',
+  },
+  {
+    id: 2,
+    contract_no: 'HT-2026-002',
+    title: '软件运维服务合同',
+    customer_id: 2,
+    customer_name: '上海贸易集团',
+    amount: 80000,
+    sign_date: '2026-02-01',
+    start_date: '2026-02-01',
+    end_date: '2027-01-31',
+    status: 'active',
+    created_at: '2026-02-01T10:00:00.000Z',
+  },
+  {
+    id: 3,
+    contract_no: 'HT-2026-003',
+    title: '网络设备升级项目',
+    customer_id: 3,
+    customer_name: '深圳电子实业',
+    amount: 250000,
+    sign_date: '2026-03-10',
+    start_date: '2026-03-15',
+    end_date: '2026-09-15',
+    status: 'pending',
+    created_at: '2026-03-10T10:00:00.000Z',
+  },
+];
+
 
 // 预置会议纪要数据
 export const memoryMeetingMinutes = [

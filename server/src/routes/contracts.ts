@@ -1,11 +1,12 @@
 import express from 'express';
 import pool, { USE_DATABASE } from '../database/db';
+import { memoryContracts as preloadedContracts } from '../database/memory-storage';
 
 const router = express.Router();
 
-// 内存数据存储
-const memoryContracts: any[] = [];
-let memoryContractId = 1;
+// 内存数据存储 - 使用预置数据
+const memoryContracts: any[] = [...preloadedContracts];
+let memoryContractId = preloadedContracts.length > 0 ? Math.max(...preloadedContracts.map(c => c.id)) + 1 : 1;
 
 // 带重试的查询函数
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {
