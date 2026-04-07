@@ -69,6 +69,22 @@ export default function MaterialManagement() {
     tags: [] as string[],
   });
   const [tempPhotoUri, setTempPhotoUri] = useState('');
+  const [warningModalVisible, setWarningModalVisible] = useState(false);
+  const [warningMaterials, setWarningMaterials] = useState<Material[]>([]);
+
+  // 计算预警物料数量（库存低于预警值的物料）
+  const warningMaterialCount = materials.filter(
+    m => m.warning_stock && m.stock_quantity < m.warning_stock
+  ).length;
+
+  // 显示预警物料明细
+  const handleShowWarningDetails = () => {
+    const warningList = materials.filter(
+      m => m.warning_stock && m.stock_quantity < m.warning_stock
+    );
+    setWarningMaterials(warningList);
+    setWarningModalVisible(true);
+  };
 
   useEffect(() => {
     const loadMaterials = async () => {
@@ -535,6 +551,16 @@ export default function MaterialManagement() {
             <Text style={styles.statLabel}>库存总量</Text>
           </View>
         </View>
+        <TouchableOpacity style={styles.warningStatCard} onPress={handleShowWarningDetails}>
+          <FontAwesome6 name="triangle-exclamation" size={20} color="#E74C3C" />
+          <View style={styles.statContent}>
+            <Text style={[styles.statValue, warningMaterialCount > 0 && styles.warningValue]}>
+              {warningMaterialCount}
+            </Text>
+            <Text style={styles.statLabel}>预警物料</Text>
+          </View>
+          <FontAwesome6 name="chevron-right" size={14} color="#95A5A6" />
+        </TouchableOpacity>
       </View>
 
       {/* 搜索栏 */}
@@ -988,6 +1014,84 @@ export default function MaterialManagement() {
         </View>
       </Modal>
 
+      {/* 预警物料明细弹窗 */}
+      <Modal
+        visible={warningModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setWarningModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <FontAwesome6 name="triangle-exclamation" size={18} color="#E74C3C" />
+                <Text style={styles.modalTitle}>预警物料明细</Text>
+              </View>
+              <TouchableOpacity onPress={() => setWarningModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {warningMaterials.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <FontAwesome6 name="check-circle" size={48} color="#2ECC71" />
+                  <Text style={styles.emptyText}>暂无预警物料</Text>
+                  <Text style={styles.emptySubtext}>所有物料库存充足</Text>
+                </View>
+              ) : (
+                warningMaterials.map((material) => (
+                  <View key={material.id} style={styles.warningCard}>
+                    <View style={styles.warningHeader}>
+                      <FontAwesome6 name="box" size={16} color="#1E88E5" />
+                      <Text style={styles.warningName}>{material.material_name}</Text>
+                    </View>
+                    <View style={styles.warningInfo}>
+                      <View style={styles.warningRow}>
+                        <Text style={styles.warningLabel}>物料编号：</Text>
+                        <Text style={styles.warningValue}>{material.material_number}</Text>
+                      </View>
+                      <View style={styles.warningRow}>
+                        <Text style={styles.warningLabel}>规格型号：</Text>
+                        <Text style={styles.warningValue}>{material.material_spec || '-'}</Text>
+                      </View>
+                      <View style={styles.warningRow}>
+                        <Text style={styles.warningLabel}>当前库存：</Text>
+                        <Text style={[styles.warningValue, styles.lowStock]}>
+                          {material.stock_quantity} {material.material_unit}
+                        </Text>
+                      </View>
+                      <View style={styles.warningRow}>
+                        <Text style={styles.warningLabel}>预警阈值：</Text>
+                        <Text style={styles.warningValue}>
+                          {material.warning_stock} {material.material_unit}
+                        </Text>
+                      </View>
+                      <View style={styles.warningRow}>
+                        <Text style={styles.warningLabel}>缺少数量：</Text>
+                        <Text style={[styles.warningValue, styles.missingStock]}>
+                          {Math.max(0, (material.warning_stock || 0) - material.stock_quantity)} {material.material_unit}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setWarningModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>关闭</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* 标签选择器 */}
       <MaterialTagSelector
         visible={tagSelectorVisible}
@@ -1031,6 +1135,80 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: '#636E72',
+  },
+  warningStatCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  warningValue: {
+    color: '#E74C3C',
+    fontWeight: 'bold',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#2ECC71',
+    marginTop: 12,
+    fontWeight: 'bold',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#95A5A6',
+    marginTop: 4,
+  },
+  warningCard: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#E74C3C',
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  warningName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    flex: 1,
+  },
+  warningInfo: {
+    gap: 4,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  warningLabel: {
+    fontSize: 13,
+    color: '#636E72',
+    width: 80,
+  },
+  lowStock: {
+    color: '#E74C3C',
+    fontWeight: 'bold',
+  },
+  missingStock: {
+    color: '#E74C3C',
+    fontWeight: 'bold',
   },
   searchBar: {
     flexDirection: 'row',
