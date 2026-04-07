@@ -204,8 +204,8 @@ export default function ReportCustomer() {
 
         {/* 明细列表 */}
         <View style={styles.detailsSection}>
-          <Text style={styles.detailsTitle}>客户明细（{details.length}）</Text>
-          {details.map((item) => (
+          <Text style={styles.detailsTitle}>客户明细（{details?.length || 0}）</Text>
+          {(details || []).map((item) => (
             <View key={item.customer_id} style={styles.detailCard}>
               <View style={styles.detailHeader}>
                 <FontAwesome6 name="building" size={20} color="#1E88E5" />
@@ -224,19 +224,19 @@ export default function ReportCustomer() {
               </View>
               <View style={styles.detailStats}>
                 <View style={styles.statItem}>
-                  <FontAwesome6 name="file-contract" size="14" color="#3498DB" />
+                  <FontAwesome6 name="file-contract" size={14} color="#3498DB" />
                   <Text style={styles.statLabel}>合同</Text>
                   <Text style={styles.statValue}>{item.contract_count}</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                  <FontAwesome6 name="microchip" size="14" color="#2ECC71" />
+                  <FontAwesome6 name="microchip" size={14} color="#2ECC71" />
                   <Text style={styles.statLabel}>设备</Text>
                   <Text style={styles.statValue}>{item.device_count}</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                  <FontAwesome6 name="screwdriver-wrench" size="14" color="#E67E22" />
+                  <FontAwesome6 name="screwdriver-wrench" size={14} color="#E67E22" />
                   <Text style={styles.statLabel}>售后</Text>
                   <Text style={styles.statValue}>{item.after_sales_count}</Text>
                 </View>
