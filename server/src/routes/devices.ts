@@ -52,6 +52,23 @@ router.get('/', async (req, res) => {
     const limitNum = Math.min(parseInt(limit as string) || 100, 200);
     const offset = (pageNum - 1) * limitNum;
 
+    if (USE_MEMORY_STORAGE) {
+      // 使用内存存储
+      let filtered = [...memoryDevices];
+      if (customer_id) {
+        filtered = filtered.filter(d => d.customer_id === parseInt(customer_id as string));
+      }
+      const total = filtered.length;
+      const paginated = filtered.slice(offset, offset + limitNum);
+      res.json({
+        data: paginated,
+        total,
+        page: pageNum,
+        limit: limitNum,
+      });
+      return;
+    }
+
     let query = 'SELECT d.*, cu.name as customer_name, c.contract_no FROM devices d LEFT JOIN customers cu ON d.customer_id = cu.id LEFT JOIN contracts c ON d.contract_id = c.id';
     let countQuery = 'SELECT COUNT(*) as total FROM devices d';
     const params: any[] = [];
@@ -79,8 +96,14 @@ router.get('/', async (req, res) => {
       limit: limitNum,
     });
   } catch (error) {
-    console.error('Get devices error:', error);
-    res.status(500).json({ error: '服务器错误' });
+    console.error('Get devices error, using memory storage:', error);
+    // 数据库失败时返回内存数据
+    res.json({
+      data: memoryDevices,
+      total: memoryDevices.length,
+      page: 1,
+      limit: 100,
+    });
   }
 });
 

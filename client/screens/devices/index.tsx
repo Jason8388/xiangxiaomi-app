@@ -83,8 +83,10 @@ export default function DeviceManagement() {
         const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`);
         const data = await response.json();
         if (response.ok) {
-          const sorted = data.sort((a: Device, b: Device) =>
-            new Date(a.factory_date).getTime() - new Date(b.factory_date).getTime()
+          // 后端返回 { data: [], total: ... } 格式
+          const list = Array.isArray(data) ? data : (data.data || []);
+          const sorted = list.sort((a: Device, b: Device) =>
+            new Date(a.factory_date || 0).getTime() - new Date(b.factory_date || 0).getTime()
           );
           setDevices(sorted);
         }
