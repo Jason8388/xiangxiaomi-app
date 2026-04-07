@@ -103,7 +103,20 @@ router.get('/', async (req, res) => {
       const result = await pool.query(query, params);
 
       if (result.rows.length > 0) {
-        res.json(result.rows);
+        // 解析 tags 字段
+        const rows = result.rows.map(row => {
+          if (row.tags && typeof row.tags === 'string') {
+            try {
+              row.tags = JSON.parse(row.tags);
+            } catch {
+              row.tags = [];
+            }
+          } else if (!row.tags) {
+            row.tags = [];
+          }
+          return row;
+        });
+        res.json(rows);
       } else {
         res.json(fallbackData);
       }
@@ -124,7 +137,17 @@ router.post('/', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '请选择要上传的文件' });
     }
 
-    const { category, description } = req.body;
+    const { category, description, tags, uploader_name } = req.body;
+    
+    // 解析标签
+    let parsedTags: string[] = [];
+    if (tags) {
+      try {
+        parsedTags = JSON.parse(tags);
+      } catch {
+        parsedTags = [];
+      }
+    }
 
     // 获取文件扩展名
     const fileExt = path.extname(req.file.originalname).toLowerCase().replace('.', '');
@@ -138,13 +161,15 @@ router.post('/', upload.single('file'), async (req, res) => {
       file_size: req.file.size,
       category: category || '未分类',
       description: description || '',
+      tags: parsedTags,
+      uploader_name: uploader_name || '未知',
       created_at: new Date().toISOString(),
     };
 
     try {
       const result = await pool.query(
-        `INSERT INTO files (file_name, original_name, file_path, file_size, file_type, category, description, uploaded_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO files (file_name, original_name, file_path, file_size, file_type, category, description, tags, uploader_name, uploaded_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           req.file.filename,
@@ -154,11 +179,22 @@ router.post('/', upload.single('file'), async (req, res) => {
           fileExt,
           category || '未分类',
           description || '',
+          JSON.stringify(parsedTags),
+          uploader_name || '',
           req.body.uploaded_by || 1,
         ]
       );
 
-      res.json(result.rows[0]);
+      // 解析 tags 和 uploader_name 返回
+      const row = result.rows[0];
+      if (row.tags && typeof row.tags === 'string') {
+        try {
+          row.tags = JSON.parse(row.tags);
+        } catch {
+          row.tags = [];
+        }
+      }
+      res.json(row);
     } catch (dbError) {
       console.log('Using fallback response due to DB error');
       res.json(fallbackResponse);
