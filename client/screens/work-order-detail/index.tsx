@@ -55,6 +55,7 @@ interface WorkOrderDetail {
   // 服务方案
   service_plan?: string;
   plan_hours?: number;
+  planned_completion_date?: string;
   material_requirements?: string;
   warranty_status?: string;
   is_charged?: boolean;
@@ -169,6 +170,7 @@ export default function WorkOrderDetailScreen() {
     requirement_photos: [],
     service_plan: '',
     plan_hours: 0,
+    planned_completion_date: '',
     material_requirements: '',
     warranty_status: '',
     is_charged: false,
@@ -243,6 +245,7 @@ export default function WorkOrderDetailScreen() {
         demand_date: data.demand_date || '',
         service_plan: data.service_plan || '',
         plan_hours: data.plan_hours || 0,
+        planned_completion_date: data.planned_completion_date || '',
         material_requirements: data.material_requirements || '',
         warranty_status: data.warranty_status || '',
         is_charged: data.is_charged || false,
@@ -911,6 +914,10 @@ export default function WorkOrderDetailScreen() {
                 <>
                   {renderInputRow('服务方案说明', 'service_plan', '请输入服务方案说明')}
                   {renderNumberRow('计划工时', 'plan_hours', '天')}
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('planned_completion_date', order.planned_completion_date || '')}>
+                    <Text style={styles.dateLabel}>计划完成日期</Text>
+                    <Text style={styles.dateValue}>{order.planned_completion_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
                   {renderInputRow('物料需求', 'material_requirements', '请输入物料需求')}
                   {renderInfoRow('质保期状态', order.warranty_status || '', 'warranty_status')}
                   {renderInfoRow('是否收费', order.is_charged ? '收费' : '免费', 'is_charged')}
@@ -941,6 +948,10 @@ export default function WorkOrderDetailScreen() {
                 <>
                   {renderInfoRow('服务方案说明', order.service_plan || '', 'service_plan')}
                   {renderInfoRow('计划工时', order.plan_hours ? String(order.plan_hours) : '', '', '天')}
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('planned_completion_date', order.planned_completion_date || '')}>
+                    <Text style={styles.dateLabel}>计划完成日期</Text>
+                    <Text style={styles.dateValue}>{order.planned_completion_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
                   {renderInfoRow('物料需求', order.material_requirements || '', 'material_requirements')}
                   {renderInfoRow('质保期状态', order.warranty_status || '', 'warranty_status')}
                   {renderInfoRow('是否收费', order.is_charged ? '收费' : '免费', 'is_charged')}

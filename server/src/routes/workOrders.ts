@@ -183,6 +183,7 @@ router.post('/', async (req, res) => {
       // 服务方案
       service_plan, // 服务方案说明
       plan_hours, // 计划工时
+      planned_completion_date, // 计划完成日期
       material_requirements, // 物料需求
       warranty_status, // 质保期状态
       is_charged, // 是否收费
@@ -225,6 +226,7 @@ router.post('/', async (req, res) => {
         demand_date: demand_date || null,
         service_plan: service_plan || '',
         plan_hours: plan_hours || 0,
+        planned_completion_date: planned_completion_date || null,
         material_requirements: material_requirements || '',
         warranty_status: warranty_status || '',
         is_charged: is_charged || false,
@@ -255,18 +257,18 @@ router.post('/', async (req, res) => {
       `INSERT INTO work_orders (
         order_no, title, task_no, customer_id, customer_name, task_leader, implementation_entity,
         task_phase, task_progress, task_status, contacts, demand_date,
-        service_plan, plan_hours, material_requirements, warranty_status, is_charged, quoted_price,
+        service_plan, plan_hours, planned_completion_date, material_requirements, warranty_status, is_charged, quoted_price,
         service_docs, consensus_docs, consensus_date,
         implementer, implementation_complete_date, actual_hours, work_order_docs, site_completion_docs, work_order_signer,
         invoice_application, invoice_completed, invoice_delivered, planned_payment_date, actual_payment_date,
         created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
       RETURNING *`,
       [
         woNo, title || '', task_no || woNo, customer_id, customer_name || '', task_leader || '', implementation_entity || '',
         task_phase || '需求阶段', task_progress || '10%收到服务需求', task_status || '计划中',
         JSON.stringify(contacts || []), demand_date || null,
-        service_plan || '', plan_hours || 0, material_requirements || '', warranty_status || '', is_charged || false, quoted_price || 0,
+        service_plan || '', plan_hours || 0, planned_completion_date || null, material_requirements || '', warranty_status || '', is_charged || false, quoted_price || 0,
         service_docs || '', consensus_docs || '', consensus_date || null,
         implementer || '', implementation_complete_date || null, actual_hours || 0, work_order_docs || '', site_completion_docs || '', work_order_signer || '',
         invoice_application || '', invoice_completed || '', invoice_delivered || '', planned_payment_date || null, actual_payment_date || null,
@@ -348,6 +350,7 @@ router.put('/:id', async (req, res) => {
     // 服务方案
     if (updates.service_plan !== undefined) { fields.push(`service_plan = $${paramCount++}`); values.push(updates.service_plan); }
     if (updates.plan_hours !== undefined) { fields.push(`plan_hours = $${paramCount++}`); values.push(updates.plan_hours); }
+    if (updates.planned_completion_date !== undefined) { fields.push(`planned_completion_date = $${paramCount++}`); values.push(updates.planned_completion_date); }
     if (updates.material_requirements !== undefined) { fields.push(`material_requirements = $${paramCount++}`); values.push(updates.material_requirements); }
     if (updates.warranty_status !== undefined) { fields.push(`warranty_status = $${paramCount++}`); values.push(updates.warranty_status); }
     if (updates.is_charged !== undefined) { fields.push(`is_charged = $${paramCount++}`); values.push(updates.is_charged); }
