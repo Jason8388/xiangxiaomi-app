@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -160,7 +161,7 @@ export default function DeviceHistory() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`
+        `${getApiBaseUrl()}/api/v1/devices/${deviceId}/history-detail`
       );
       const data = await response.json();
       if (response.ok) {
@@ -197,7 +198,7 @@ export default function DeviceHistory() {
         attachments: JSON.stringify(attachments),
       };
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`,
+        `${getApiBaseUrl()}/api/v1/devices/${deviceId}/history-detail`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -227,7 +228,7 @@ export default function DeviceHistory() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`,
+              `${getApiBaseUrl()}/api/v1/devices/${deviceId}/history-detail`,
               { method: 'DELETE' }
             );
             if (response.ok) {
@@ -277,7 +278,7 @@ export default function DeviceHistory() {
       } as any);
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/upload`,
+        `${getApiBaseUrl()}/api/v1/files/upload`,
         {
           method: 'POST',
           body: formData,

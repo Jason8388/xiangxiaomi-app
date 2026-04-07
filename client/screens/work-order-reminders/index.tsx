@@ -43,7 +43,7 @@ export default function WorkOrderReminders() {
   const loadReminders = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-order-reminders`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/work-order-reminders`);
       const data = await response.json();
       setReminders(data);
     } catch (error) {
@@ -55,7 +55,7 @@ export default function WorkOrderReminders() {
 
   const markAsRead = async (id: number) => {
     try {
-      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-order-reminders/${id}/read`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/work-order-reminders/${id}/read`, {
         method: 'PUT',
       });
       loadReminders();
@@ -68,7 +68,7 @@ export default function WorkOrderReminders() {
     try {
       const unreadReminders = reminders.filter(r => !r.is_read);
       for (const reminder of unreadReminders) {
-        await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-order-reminders/${reminder.id}/read`, {
+        await fetch(`${getApiBaseUrl()}/api/v1/work-order-reminders/${reminder.id}/read`, {
           method: 'PUT',
         });
       }

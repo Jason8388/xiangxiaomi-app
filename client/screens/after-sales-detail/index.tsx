@@ -11,6 +11,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface Contact {
   id: number;
@@ -107,7 +108,7 @@ export default function AfterSalesDetail() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/after-sales/orders/${id}`
+        `${getApiBaseUrl()}/api/v1/after-sales/orders/${id}`
       );
       const data = await response.json();
       if (response.ok) {

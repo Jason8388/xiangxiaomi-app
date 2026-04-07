@@ -10,6 +10,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface LedgerItem {
   id: number;
@@ -41,13 +42,13 @@ export default function CustomerLedger() {
         let endpoint = '';
         switch (type) {
           case 'contract':
-            endpoint = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${customerId}/contracts`;
+            endpoint = `${getApiBaseUrl()}/api/v1/customers/${customerId}/contracts`;
             break;
           case 'device':
-            endpoint = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${customerId}/devices`;
+            endpoint = `${getApiBaseUrl()}/api/v1/customers/${customerId}/devices`;
             break;
           case 'workorder':
-            endpoint = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${customerId}/work-orders`;
+            endpoint = `${getApiBaseUrl()}/api/v1/customers/${customerId}/work-orders`;
             break;
         }
 

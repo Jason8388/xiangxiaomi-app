@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getApiBaseUrl } from '@/utils/api';
 
 export default function QueryScreen() {
   const [searchText, setSearchText] = useState('');
@@ -18,7 +19,7 @@ export default function QueryScreen() {
     setLoading(true);
     try {
       const endpoint = `/api/v1/${searchType}`;
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}${endpoint}`);
+      const response = await fetch(`${getApiBaseUrl()}${endpoint}`);
       const data = await response.json();
 
       if (Array.isArray(data)) {

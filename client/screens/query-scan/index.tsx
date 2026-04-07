@@ -11,6 +11,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 export default function QueryScan() {
   const router = useSafeRouter();
@@ -60,7 +61,7 @@ export default function QueryScan() {
       } else {
         // 尝试从后端查询
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/qrcode/resolve`,
+          `${getApiBaseUrl()}/api/v1/qrcode/resolve`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

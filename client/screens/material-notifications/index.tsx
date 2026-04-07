@@ -12,6 +12,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface NotificationRecipient {
   user_id: number;
@@ -50,7 +51,7 @@ export default function MaterialNotifications() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-notifications`
+        `${getApiBaseUrl()}/api/v1/material-notifications`
       );
       const data = await response.json();
       if (response.ok) {
@@ -66,7 +67,7 @@ export default function MaterialNotifications() {
   const loadAvailableUsers = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`
+        `${getApiBaseUrl()}/api/v1/users`
       );
       const data = await response.json();
       if (response.ok) {
@@ -96,7 +97,7 @@ export default function MaterialNotifications() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-notifications`,
+        `${getApiBaseUrl()}/api/v1/material-notifications`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -124,7 +125,7 @@ export default function MaterialNotifications() {
   const handleMarkAsRead = async (notificationId: number) => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-notifications/${notificationId}/read`,
+        `${getApiBaseUrl()}/api/v1/material-notifications/${notificationId}/read`,
         {
           method: 'POST',
         }
@@ -140,7 +141,7 @@ export default function MaterialNotifications() {
   const handleConfirm = async (notificationId: number) => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-notifications/${notificationId}/confirm`,
+        `${getApiBaseUrl()}/api/v1/material-notifications/${notificationId}/confirm`,
         {
           method: 'POST',
         }

@@ -11,6 +11,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface SummaryData {
   total_devices: number;
@@ -72,7 +73,7 @@ export default function ReportDevice() {
       }
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reports/devices?${params.toString()}`
+        `${getApiBaseUrl()}/api/v1/reports/devices?${params.toString()}`
       );
       const data = await response.json();
       if (response.ok) {

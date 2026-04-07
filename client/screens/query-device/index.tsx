@@ -40,7 +40,7 @@ export default function QueryDevice() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/query/devices?keyword=${encodeURIComponent(searchKeyword)}`
+        `${getApiBaseUrl()}/api/v1/query/devices?keyword=${encodeURIComponent(searchKeyword)}`
       );
       const data = await response.json();
       if (response.ok) {

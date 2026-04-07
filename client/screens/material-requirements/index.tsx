@@ -16,6 +16,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface MaterialRequirementItem {
   material_id: number;
@@ -63,7 +64,7 @@ export default function MaterialRequirements() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements`
+        `${getApiBaseUrl()}/api/v1/material-requirements`
       );
       const data = await response.json();
       if (response.ok) {
@@ -79,7 +80,7 @@ export default function MaterialRequirements() {
   const loadAvailableMaterials = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+        `${getApiBaseUrl()}/api/v1/materials`
       );
       const data = await response.json();
       if (response.ok) {
@@ -105,7 +106,7 @@ export default function MaterialRequirements() {
     try {
       const response = editingRequirement
         ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${editingRequirement.id}`,
+            `${getApiBaseUrl()}/api/v1/material-requirements/${editingRequirement.id}`,
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -113,7 +114,7 @@ export default function MaterialRequirements() {
             }
           )
         : await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements`,
+            `${getApiBaseUrl()}/api/v1/material-requirements`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -144,7 +145,7 @@ export default function MaterialRequirements() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${requirement.id}`,
+              `${getApiBaseUrl()}/api/v1/material-requirements/${requirement.id}`,
               {
                 method: 'DELETE',
               }
@@ -187,7 +188,7 @@ export default function MaterialRequirements() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${selectedRequirement.id}/materials`,
+        `${getApiBaseUrl()}/api/v1/material-requirements/${selectedRequirement.id}/materials`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -220,7 +221,7 @@ export default function MaterialRequirements() {
       if (Platform.OS === 'web') {
         // Web 端实现
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${requirement.id}/download`,
+          `${getApiBaseUrl()}/api/v1/material-requirements/${requirement.id}/download`,
           {
             method: 'GET',
           }
@@ -244,7 +245,7 @@ export default function MaterialRequirements() {
       } else {
         // 移动端实现
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${requirement.id}/download`
+          `${getApiBaseUrl()}/api/v1/material-requirements/${requirement.id}/download`
         );
         const data = await response.text();
 

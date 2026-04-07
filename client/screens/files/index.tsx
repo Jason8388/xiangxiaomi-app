@@ -14,6 +14,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as DocumentPicker from 'expo-document-picker';
 import { getSecureItem } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface FileTag {
   id: number;
@@ -76,7 +77,7 @@ export default function FilesScreen() {
   const fetchFilesList = async (): Promise<FileItem[]> => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files`);
       const data = await response.json();
       if (Array.isArray(data.files)) {
         setFiles(data.files);
@@ -96,7 +97,7 @@ export default function FilesScreen() {
 
   const fetchTagsList = async (): Promise<FileTag[]> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags/list`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/tags/list`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setTags(data);
@@ -112,7 +113,7 @@ export default function FilesScreen() {
   const fetchFiles = async (tagId?: number, fileType?: string) => {
     setLoading(true);
     try {
-      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files`;
+      let url = `${getApiBaseUrl()}/api/v1/files`;
       const params = new URLSearchParams();
       if (searchText) params.append('search', searchText);
       if (tagId) params.append('tag_id', tagId.toString());
@@ -194,7 +195,7 @@ export default function FilesScreen() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags`,
+        `${getApiBaseUrl()}/api/v1/files/tags`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -235,7 +236,7 @@ export default function FilesScreen() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/${editingFile.id}/tags`,
+        `${getApiBaseUrl()}/api/v1/files/${editingFile.id}/tags`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -305,7 +306,7 @@ export default function FilesScreen() {
       } as any);
       formData.append('uploader_id', user?.id || '1');
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/upload`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -341,7 +342,7 @@ export default function FilesScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/batch`, {
+            const response = await fetch(`${getApiBaseUrl()}/api/v1/files/batch`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -374,7 +375,7 @@ export default function FilesScreen() {
 
   const handleDownload = async (file: any) => {
     try {
-      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/download/${file.id}`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/files/download/${file.id}`, {
         method: 'POST',
       });
 

@@ -11,6 +11,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
@@ -63,7 +64,7 @@ export default function MeetingMinuteDetail() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/minutes/${id}`
+        `${getApiBaseUrl()}/api/v1/minutes/${id}`
       );
       const data = await response.json();
       if (response.ok) {

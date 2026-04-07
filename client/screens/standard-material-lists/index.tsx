@@ -16,6 +16,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface MaterialItem {
   material_id: number;
@@ -57,7 +58,7 @@ export default function StandardMaterialList() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists`
+        `${getApiBaseUrl()}/api/v1/standard-material-lists`
       );
       const data = await response.json();
       if (response.ok) {
@@ -73,7 +74,7 @@ export default function StandardMaterialList() {
   const loadAvailableMaterials = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+        `${getApiBaseUrl()}/api/v1/materials`
       );
       const data = await response.json();
       if (response.ok) {
@@ -99,7 +100,7 @@ export default function StandardMaterialList() {
     try {
       const response = editingList
         ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${editingList.id}`,
+            `${getApiBaseUrl()}/api/v1/standard-material-lists/${editingList.id}`,
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -107,7 +108,7 @@ export default function StandardMaterialList() {
             }
           )
         : await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists`,
+            `${getApiBaseUrl()}/api/v1/standard-material-lists`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -138,7 +139,7 @@ export default function StandardMaterialList() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${list.id}`,
+              `${getApiBaseUrl()}/api/v1/standard-material-lists/${list.id}`,
               {
                 method: 'DELETE',
               }
@@ -173,7 +174,7 @@ export default function StandardMaterialList() {
       if (Platform.OS === 'web') {
         // Web 端实现
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${list.id}/download`,
+          `${getApiBaseUrl()}/api/v1/standard-material-lists/${list.id}/download`,
           {
             method: 'GET',
           }
@@ -197,7 +198,7 @@ export default function StandardMaterialList() {
       } else {
         // 移动端实现
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${list.id}/download`
+          `${getApiBaseUrl()}/api/v1/standard-material-lists/${list.id}/download`
         );
         const data = await response.text();
 

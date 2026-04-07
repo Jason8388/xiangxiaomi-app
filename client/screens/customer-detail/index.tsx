@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface Customer {
   id: number;
@@ -53,7 +54,7 @@ export default function CustomerDetail() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${id}`
+        `${getApiBaseUrl()}/api/v1/customers/${id}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -100,7 +101,7 @@ export default function CustomerDetail() {
       if (modalType === 'address') {
         // 新增地址
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${id}/addresses`,
+          `${getApiBaseUrl()}/api/v1/customers/${id}/addresses`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -117,7 +118,7 @@ export default function CustomerDetail() {
       } else if (modalType === 'contact') {
         // 新增联系人
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${id}/contacts`,
+          `${getApiBaseUrl()}/api/v1/customers/${id}/contacts`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -134,7 +135,7 @@ export default function CustomerDetail() {
       } else if (modalType === 'edit') {
         // 编辑客户信息
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${id}`,
+          `${getApiBaseUrl()}/api/v1/customers/${id}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

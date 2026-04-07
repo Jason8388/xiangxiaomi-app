@@ -4,7 +4,8 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { cachedFetch, clearCache } from '@/utils/storage';
+import { getSecureItem } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface WorkOrder {
   id: number;
@@ -76,11 +77,11 @@ export default function WorkOrdersScreen() {
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
-        cachedFetch('work-orders-list', fetchWorkOrders, 'short'),
-        cachedFetch('work-orders-stats', fetchStats, 'short'),
-        cachedFetch('customers-list', fetchCustomers, 'medium'),
-        cachedFetch('devices-list', fetchDevices, 'medium'),
-        cachedFetch('users-list', fetchUsers, 'medium'),
+        fetchWorkOrders(),
+        fetchStats(),
+        fetchCustomers(),
+        fetchDevices(),
+        fetchUsers(),
       ]);
     };
     loadData();
@@ -107,7 +108,7 @@ export default function WorkOrdersScreen() {
 
   const fetchWorkOrders = async (): Promise<WorkOrder[]> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/work-orders`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setWorkOrders(data);
@@ -123,7 +124,7 @@ export default function WorkOrdersScreen() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/stats`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/work-orders/stats`);
       const data = await response.json();
       if (data) {
         setStats(data);
@@ -135,7 +136,7 @@ export default function WorkOrdersScreen() {
 
   const fetchCustomers = async (): Promise<any[]> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setCustomers(data);
@@ -150,7 +151,7 @@ export default function WorkOrdersScreen() {
 
   const fetchDevices = async (): Promise<any[]> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/devices`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setDevices(data);
@@ -165,7 +166,7 @@ export default function WorkOrdersScreen() {
 
   const fetchUsers = async (): Promise<any[]> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/users`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setUsers(data);
@@ -179,7 +180,6 @@ export default function WorkOrdersScreen() {
   };
 
   const handleAdd = () => {
-    clearCache();
     router.push('/work-order-detail', { id: 'new' });
   };
 
@@ -209,15 +209,13 @@ export default function WorkOrdersScreen() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+              `${getApiBaseUrl()}/api/v1/work-orders/${order.id}`,
               {
                 method: 'DELETE',
               }
             );
             if (response.ok) {
               Alert.alert('成功', '删除成功');
-              clearCache('work-orders-list');
-              clearCache('work-orders-stats');
               fetchWorkOrders();
               fetchStats();
             } else {
@@ -248,7 +246,7 @@ export default function WorkOrdersScreen() {
     try {
       const response = editingOrder
         ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${editingOrder.id}`,
+            `${getApiBaseUrl()}/api/v1/work-orders/${editingOrder.id}`,
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -264,7 +262,7 @@ export default function WorkOrdersScreen() {
               }),
             }
           )
-        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`, {
+        : await fetch(`${getApiBaseUrl()}/api/v1/work-orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -289,8 +287,6 @@ export default function WorkOrdersScreen() {
       }
 
       setModalVisible(false);
-      clearCache('work-orders-list');
-      clearCache('work-orders-stats');
       fetchWorkOrders();
       fetchStats();
       Alert.alert('成功', editingOrder ? '修改成功' : '创建成功');
@@ -302,7 +298,7 @@ export default function WorkOrdersScreen() {
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${orderId}`,
+        `${getApiBaseUrl()}/api/v1/work-orders/${orderId}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -314,8 +310,6 @@ export default function WorkOrdersScreen() {
         throw new Error('更新失败');
       }
 
-      clearCache('work-orders-list');
-      clearCache('work-orders-stats');
       fetchWorkOrders();
       Alert.alert('成功', '工单状态已更新');
     } catch (error: any) {

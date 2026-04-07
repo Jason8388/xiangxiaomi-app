@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform
 import { Screen } from '@/components/Screen';
 import { setSecureItem } from '@/utils/storage';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 import Constants from 'expo-constants';
 
 export default function LoginScreen() {
@@ -29,7 +30,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

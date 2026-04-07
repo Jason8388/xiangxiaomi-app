@@ -20,7 +20,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import MaterialTagSelector from '@/components/MaterialTagSelector';
-import { cachedFetch } from '@/utils/storage';
+
+import { getApiBaseUrl } from '@/utils/api';
 
 interface Material {
   id: number;
@@ -73,9 +74,9 @@ export default function MaterialManagement() {
     const loadMaterials = async () => {
       try {
         setLoading(true);
-        const result = await cachedFetch<Material[]>('materials-list', async () => {
+        const result = await (async () => {
           const response = await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+            `${getApiBaseUrl()}/api/v1/materials`
           );
           const data = await response.json();
           if (response.ok) {
@@ -100,7 +101,7 @@ export default function MaterialManagement() {
             }));
           }
           return [];
-        }, 'medium');
+        })();
         setMaterials(result);
       } catch (error) {
         console.error('Fetch materials error:', error);
@@ -242,7 +243,7 @@ export default function MaterialManagement() {
           } as any);
 
           const uploadRes = await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/upload`,
+            `${getApiBaseUrl()}/api/v1/upload`,
             {
               method: 'POST',
               body: formDataPhoto,
@@ -267,14 +268,14 @@ export default function MaterialManagement() {
 
       const response = editingMaterial
         ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/${editingMaterial.id}`,
+            `${getApiBaseUrl()}/api/v1/materials/${editingMaterial.id}`,
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             }
           )
-        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`, {
+        : await fetch(`${getApiBaseUrl()}/api/v1/materials`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -287,7 +288,7 @@ export default function MaterialManagement() {
         setModalVisible(false);
         setLoading(true);
         const loadResponse = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+          `${getApiBaseUrl()}/api/v1/materials`
         );
         const loadData = await loadResponse.json();
         if (loadResponse.ok) {
@@ -311,7 +312,7 @@ export default function MaterialManagement() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/${material.id}`,
+              `${getApiBaseUrl()}/api/v1/materials/${material.id}`,
               {
                 method: 'DELETE',
               }
@@ -321,7 +322,7 @@ export default function MaterialManagement() {
               Alert.alert('成功', '删除成功');
               setLoading(true);
               const loadResponse = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+                `${getApiBaseUrl()}/api/v1/materials`
               );
               const loadData = await loadResponse.json();
               if (loadResponse.ok) {
@@ -358,7 +359,7 @@ export default function MaterialManagement() {
       } as any);
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/batch-import`,
+        `${getApiBaseUrl()}/api/v1/materials/batch-import`,
         {
           method: 'POST',
           body: formData,
@@ -371,7 +372,7 @@ export default function MaterialManagement() {
         Alert.alert('成功', `成功导入 ${data.imported_count} 条物料记录`);
         setLoading(true);
         const loadResponse = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials`
+          `${getApiBaseUrl()}/api/v1/materials`
         );
         const loadData = await loadResponse.json();
         if (loadResponse.ok) {
@@ -390,7 +391,7 @@ export default function MaterialManagement() {
   const handleDownloadTemplate = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/template`
+        `${getApiBaseUrl()}/api/v1/materials/template`
       );
 
       if (!response.ok) {
@@ -442,7 +443,7 @@ export default function MaterialManagement() {
       if (Platform.OS === 'web') {
         // Web 端实现
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/batch-export`,
+          `${getApiBaseUrl()}/api/v1/materials/batch-export`,
           {
             method: 'GET',
           }
@@ -466,7 +467,7 @@ export default function MaterialManagement() {
       } else {
         // 移动端实现
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/batch-export`
+          `${getApiBaseUrl()}/api/v1/materials/batch-export`
         );
         const data = await response.text();
 
@@ -495,7 +496,7 @@ export default function MaterialManagement() {
     try {
       setSelectedMaterial(material);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/${material.id}/qrcode`,
+        `${getApiBaseUrl()}/api/v1/materials/${material.id}/qrcode`,
         {
           method: 'POST',
         }

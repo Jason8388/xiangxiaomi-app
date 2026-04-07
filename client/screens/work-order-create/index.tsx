@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { Screen } from '@/components/Screen';
+import { getApiBaseUrl } from '@/utils/api';
 import { PageHeader } from '@/components/PageHeader';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 
@@ -58,7 +59,7 @@ export default function WorkOrderCreate() {
   useEffect(() => {
     const loadCustomers = async () => {
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
         const data = await response.json();
         if (Array.isArray(data)) {
           setCustomers(data);
@@ -156,7 +157,7 @@ export default function WorkOrderCreate() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`,
+        `${getApiBaseUrl()}/api/v1/work-orders`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

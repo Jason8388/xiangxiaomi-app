@@ -13,6 +13,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getApiBaseUrl } from '@/utils/api';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
@@ -70,7 +71,7 @@ export default function DeviceDetailPage() {
       try {
         setLoading(true);
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${id}`
+          `${getApiBaseUrl()}/api/v1/devices/${id}`
         );
         const data = await response.json();
         if (response.ok) {
@@ -92,7 +93,7 @@ export default function DeviceDetailPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${id}`
+        `${getApiBaseUrl()}/api/v1/devices/${id}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -170,7 +171,7 @@ export default function DeviceDetailPage() {
     try {
       if (modalType === 'edit') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${id}`,
+          `${getApiBaseUrl()}/api/v1/devices/${id}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -186,7 +187,7 @@ export default function DeviceDetailPage() {
         }
       } else if (modalType === 'qr') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${id}/bind-qr`,
+          `${getApiBaseUrl()}/api/v1/devices/${id}/bind-qr`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

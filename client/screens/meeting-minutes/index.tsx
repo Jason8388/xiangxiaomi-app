@@ -14,7 +14,8 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { storage, cachedFetch } from '@/utils/storage';
+import { storage } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface MeetingMinute {
   id: number;
@@ -53,8 +54,8 @@ export default function MeetingMinutes() {
     const loadData = async () => {
       await loadUserInfo();
       await Promise.all([
-        cachedFetch('meeting-minutes-list', fetchMeetingMinutes, 'short'),
-        cachedFetch('meeting-tags-list', fetchTags, 'medium'),
+        fetchMeetingMinutes(),
+        fetchTags(),
       ]);
     };
     loadData();
@@ -74,7 +75,7 @@ export default function MeetingMinutes() {
   const fetchMeetingMinutes = async (): Promise<MeetingMinute[]> => {
     try {
       setLoading(true);
-      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes?limit=10`;
+      let url = `${getApiBaseUrl()}/api/v1/meeting-minutes?limit=10`;
       const response = await fetch(url);
       const data = await response.json();
       if (response.ok) {
@@ -94,7 +95,7 @@ export default function MeetingMinutes() {
   const fetchTags = async (): Promise<Tag[]> => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/tags`
+        `${getApiBaseUrl()}/api/v1/meeting-minutes/tags`
       );
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -111,7 +112,7 @@ export default function MeetingMinutes() {
   const loadMeetingMinutes = async (keyword?: string, tagId?: number) => {
     try {
       setLoading(true);
-      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes?limit=10`;
+      let url = `${getApiBaseUrl()}/api/v1/meeting-minutes?limit=10`;
       if (keyword) {
         url += `&keyword=${encodeURIComponent(keyword)}`;
       }
@@ -176,7 +177,7 @@ export default function MeetingMinutes() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/${selectedMinute.id}`,
+        `${getApiBaseUrl()}/api/v1/meeting-minutes/${selectedMinute.id}`,
         {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },

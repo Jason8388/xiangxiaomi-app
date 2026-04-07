@@ -13,10 +13,11 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
+import { getApiBaseUrl } from '@/utils/api';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { cachedFetch, clearCache } from '@/utils/storage';
+
 
 const DEVICE_TYPES = [
   '智能测温',
@@ -85,8 +86,8 @@ export default function DeviceManagement() {
     const loadDevices = async () => {
       try {
         setLoading(true);
-        const result = await cachedFetch<Device[]>('devices-list', async () => {
-          const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`);
+        const result = await (async () => {
+          const response = await fetch(`${getApiBaseUrl()}/api/v1/devices`);
           const data = await response.json();
           if (response.ok) {
             const list = Array.isArray(data) ? data : (data.data || []);
@@ -95,7 +96,7 @@ export default function DeviceManagement() {
             );
           }
           return [];
-        }, 'medium');
+        })();
         setDevices(result);
       } catch (error) {
         console.error('Fetch devices error:', error);
@@ -111,7 +112,7 @@ export default function DeviceManagement() {
   useEffect(() => {
     const loadContracts = async () => {
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/contracts`);
         const data = await response.json();
         if (response.ok) {
           const list = Array.isArray(data) ? data : (data.data || []);
@@ -251,8 +252,8 @@ export default function DeviceManagement() {
       data.append('qr_code', qrCodeValue);
 
       const url = editingDevice
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${editingDevice.id}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`;
+        ? `${getApiBaseUrl()}/api/v1/devices/${editingDevice.id}`
+        : `${getApiBaseUrl()}/api/v1/devices`;
 
       const response = await fetch(url, {
         method: editingDevice ? 'PUT' : 'POST',
@@ -268,7 +269,7 @@ export default function DeviceManagement() {
         setQrCode('');
         setLoading(true);
         const loadResponse = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`
+          `${getApiBaseUrl()}/api/v1/devices`
         );
         const loadData = await loadResponse.json();
         if (loadResponse.ok) {
@@ -362,7 +363,7 @@ export default function DeviceManagement() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${device.id}`,
+              `${getApiBaseUrl()}/api/v1/devices/${device.id}`,
               {
                 method: 'DELETE',
               }
@@ -372,7 +373,7 @@ export default function DeviceManagement() {
               Alert.alert('成功', '删除成功');
               setLoading(true);
               const loadResponse = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices`
+                `${getApiBaseUrl()}/api/v1/devices`
               );
               const loadData = await loadResponse.json();
               if (loadResponse.ok) {

@@ -11,6 +11,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface SummaryData {
   total_orders: number;
@@ -63,7 +64,7 @@ export default function ReportAfterSales() {
       }
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reports/after-sales?${params.toString()}`
+        `${getApiBaseUrl()}/api/v1/reports/after-sales?${params.toString()}`
       );
       const data = await response.json();
       if (response.ok) {

@@ -23,7 +23,7 @@ export default function FileDetailScreen() {
   const fetchFileDetail = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/${id}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/${id}`);
       const data = await response.json();
       setFile(data);
     } catch (error) {
@@ -36,7 +36,7 @@ export default function FileDetailScreen() {
 
   const fetchAllTags = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags/list`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/tags/list`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setAllTags(data);
@@ -48,7 +48,7 @@ export default function FileDetailScreen() {
 
   const handleAddTag = async (tagId: number) => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/${id}/tags`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/${id}/tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag_id: tagId }),
@@ -70,7 +70,7 @@ export default function FileDetailScreen() {
 
   const handleRemoveTag = async (tagId: number) => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/${id}/tags/${tagId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/${id}/tags/${tagId}`, {
         method: 'DELETE',
       });
 
@@ -95,7 +95,7 @@ export default function FileDetailScreen() {
     }
 
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newTagName.trim(), color: newTagColor }),
@@ -119,7 +119,7 @@ export default function FileDetailScreen() {
 
   const handleDownload = async () => {
     try {
-      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/download/${id}`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/files/download/${id}`, {
         method: 'POST',
       });
 

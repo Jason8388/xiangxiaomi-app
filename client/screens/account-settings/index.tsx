@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getSecureItem, setSecureItem, deleteSecureItem } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -65,7 +66,7 @@ export default function AccountSettingsScreen() {
         
         // 获取最新用户信息
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/me`,
+          `${getApiBaseUrl()}/api/v1/users/me`,
           {
             headers: {
               'Authorization': `Bearer ${sessionData.session_id}`,
@@ -162,7 +163,7 @@ export default function AccountSettingsScreen() {
       } as any);
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/me/avatar`,
+        `${getApiBaseUrl()}/api/v1/users/me/avatar`,
         {
           method: 'POST',
           headers: {
@@ -218,7 +219,7 @@ export default function AccountSettingsScreen() {
       const sessionData = JSON.parse(sessionStr);
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/me`,
+        `${getApiBaseUrl()}/api/v1/users/me`,
         {
           method: 'PUT',
           headers: {
@@ -266,7 +267,7 @@ export default function AccountSettingsScreen() {
       const sessionData = JSON.parse(sessionStr);
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/me`,
+        `${getApiBaseUrl()}/api/v1/users/me`,
         {
           method: 'PUT',
           headers: {

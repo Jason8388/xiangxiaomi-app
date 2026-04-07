@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
+import { getApiBaseUrl } from '@/utils/api';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -234,7 +235,7 @@ function WorkOrderDetailScreen() {
   useEffect(() => {
     const loadCustomers = async () => {
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
         const data = await response.json();
         if (Array.isArray(data)) {
           setCustomers(data);
@@ -252,7 +253,7 @@ function WorkOrderDetailScreen() {
   useEffect(() => {
     const loadContracts = async () => {
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/contracts`);
         const data = await response.json();
         if (Array.isArray(data)) {
           setContracts(data);
@@ -277,7 +278,7 @@ function WorkOrderDetailScreen() {
 
   const fetchOrderDetail = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${id}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/work-orders/${id}`);
       const data = await response.json();
       setOrder({
         id: data.id,
@@ -372,7 +373,7 @@ function WorkOrderDetailScreen() {
       } else if (order) {
         setOrder({ ...order, [datePickerField]: dateStr });
         // 保存到服务器
-        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+        fetch(`${getApiBaseUrl()}/api/v1/work-orders/${order.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ [datePickerField]: dateStr }),
@@ -461,7 +462,7 @@ function WorkOrderDetailScreen() {
         } else if (order) {
           setOrder({ ...order, [field]: uri });
           // 保存到服务器
-          fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+          fetch(`${getApiBaseUrl()}/api/v1/work-orders/${order.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ [field]: uri }),
@@ -481,7 +482,7 @@ function WorkOrderDetailScreen() {
       } else {
         const updates: any = { [editingField]: editValue };
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`,
+          `${getApiBaseUrl()}/api/v1/work-orders/${order.id}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -549,7 +550,7 @@ function WorkOrderDetailScreen() {
     } else {
       setOrder({ ...order, contacts: newContacts });
       // 保存到服务器
-      fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+      fetch(`${getApiBaseUrl()}/api/v1/work-orders/${order.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contacts: newContacts }),
@@ -565,7 +566,7 @@ function WorkOrderDetailScreen() {
       setOrder({ ...order, contacts: newContacts });
     } else {
       setOrder({ ...order, contacts: newContacts });
-      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/work-orders/${order.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contacts: newContacts }),
@@ -581,7 +582,7 @@ function WorkOrderDetailScreen() {
     }
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}/payment-progress`,
+        `${getApiBaseUrl()}/api/v1/work-orders/${order.id}/payment-progress`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -650,7 +651,7 @@ function WorkOrderDetailScreen() {
     if (!order || missingFields.length === 0) return;
 
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-order-reminders`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/work-order-reminders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -685,7 +686,7 @@ function WorkOrderDetailScreen() {
 
     try {
       setSubmitting(true);
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/work-orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1084,7 +1085,7 @@ function WorkOrderDetailScreen() {
                     numberOfLines={4}
                     onBlur={() => {
                       if (order?.id && order.requirement_description !== undefined) {
-                        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+                        fetch(`${getApiBaseUrl()}/api/v1/work-orders/${order.id}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ requirement_description: order.requirement_description }),

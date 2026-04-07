@@ -12,7 +12,8 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { cachedFetch } from '@/utils/storage';
+
+import { getApiBaseUrl } from '@/utils/api';
 
 interface KnowledgeCard {
   id: number;
@@ -35,14 +36,14 @@ export default function KnowledgeBase() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const result = await cachedFetch<KnowledgeCard[]>('knowledge-list', async () => {
-          const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge`);
+        const result = await (async () => {
+          const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge`);
           const data = await response.json();
           if (response.ok) {
             return Array.isArray(data) ? data : (data.data || []);
           }
           return [];
-        }, 'medium');
+        })();
         setCards(result);
       } catch (error) {
         console.error('Fetch knowledge cards error:', error);
@@ -67,7 +68,7 @@ export default function KnowledgeBase() {
       }
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge?${params.toString()}`
+        `${getApiBaseUrl()}/api/v1/knowledge?${params.toString()}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -103,7 +104,7 @@ export default function KnowledgeBase() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/${card.id}`,
+              `${getApiBaseUrl()}/api/v1/knowledge/${card.id}`,
               {
                 method: 'DELETE',
               }

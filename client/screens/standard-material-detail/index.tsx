@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
@@ -51,7 +52,7 @@ export default function StandardMaterialListDetail() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${id}`
+        `${getApiBaseUrl()}/api/v1/standard-material-lists/${id}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -72,7 +73,7 @@ export default function StandardMaterialListDetail() {
 
       if (Platform.OS === 'web') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${listData.id}/download`
+          `${getApiBaseUrl()}/api/v1/standard-material-lists/${listData.id}/download`
         );
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -85,7 +86,7 @@ export default function StandardMaterialListDetail() {
         document.body.removeChild(a);
       } else {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/standard-material-lists/${listData.id}/download`
+          `${getApiBaseUrl()}/api/v1/standard-material-lists/${listData.id}/download`
         );
         const data = await response.text();
         const fileUri = `${(FileSystem as any).documentDirectory}标准物料单_${listData.name}_${Date.now()}.xlsx`;

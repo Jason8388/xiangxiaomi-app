@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface QueryCustomer {
   id: number;
@@ -41,7 +42,7 @@ export default function QueryCustomer() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/query/customers?keyword=${encodeURIComponent(searchKeyword)}`
+        `${getApiBaseUrl()}/api/v1/query/customers?keyword=${encodeURIComponent(searchKeyword)}`
       );
       const data = await response.json();
       if (response.ok) {

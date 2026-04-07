@@ -6,6 +6,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { storage } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface MediaItem {
   id: number;
@@ -70,7 +71,7 @@ export default function GalleryScreen() {
   const fetchMedia = async (tagId?: number, uploaderId?: string, mediaType?: string) => {
     setLoading(true);
     try {
-      let url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media`;
+      let url = `${getApiBaseUrl()}/api/v1/media`;
       const params = new URLSearchParams();
       if (searchText) params.append('search', searchText);
       if (tagId) params.append('tag_id', tagId.toString());
@@ -95,7 +96,7 @@ export default function GalleryScreen() {
 
   const fetchTags = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/tags/list`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/media/tags/list`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setTags(data);
@@ -107,7 +108,7 @@ export default function GalleryScreen() {
 
   const fetchUploaders = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/uploaders/list`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/media/uploaders/list`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setUploaders(data);
@@ -170,7 +171,7 @@ export default function GalleryScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/batch`, {
+            const response = await fetch(`${getApiBaseUrl()}/api/v1/media/batch`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -220,7 +221,7 @@ export default function GalleryScreen() {
     if (!editingMedia) return;
 
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/tags/update`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/media/tags/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -259,7 +260,7 @@ export default function GalleryScreen() {
 
   const handleDownload = async (media: any) => {
     try {
-      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/download/${media.id}`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/media/download/${media.id}`, {
         method: 'POST',
       });
 

@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface KnowledgeCard {
   id: number;
@@ -42,7 +43,7 @@ export default function KnowledgeDetail() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/${id}`
+        `${getApiBaseUrl()}/api/v1/knowledge/${id}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -69,7 +70,7 @@ export default function KnowledgeDetail() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/${id}`,
+              `${getApiBaseUrl()}/api/v1/knowledge/${id}`,
               { method: 'DELETE' }
             );
             if (response.ok) {

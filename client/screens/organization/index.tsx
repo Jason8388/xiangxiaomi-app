@@ -15,7 +15,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { getSecureItem } from '@/utils/storage';
-import { cachedFetch, clearCache } from '@/utils/storage';
+
 
 interface Employee {
   id: number;
@@ -201,8 +201,8 @@ const API_BASE_URL = getApiBaseUrl();
     try {
       const isEdit = editingDeptId !== null;
       const url = isEdit
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments/${editingDeptId}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`;
+        ? `${getApiBaseUrl()}/api/v1/departments/${editingDeptId}`
+        : `${getApiBaseUrl()}/api/v1/departments`;
       const method = isEdit ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -248,7 +248,7 @@ const API_BASE_URL = getApiBaseUrl();
           onPress: async () => {
             try {
               const res = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments/${dept.id}`,
+                `${getApiBaseUrl()}/api/v1/departments/${dept.id}`,
                 { method: 'DELETE' }
               );
 

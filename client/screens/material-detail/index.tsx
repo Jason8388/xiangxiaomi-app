@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 import Screen from '@/components/Screen';
 
 interface Material {
@@ -37,7 +38,7 @@ export default function MaterialDetail() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/${id}`
+        `${getApiBaseUrl()}/api/v1/materials/${id}`
       );
       const data = await response.json();
       if (response.ok) {

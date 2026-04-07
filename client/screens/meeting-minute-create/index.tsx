@@ -17,6 +17,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { storage } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface FormData {
   meeting_name: string;
@@ -80,7 +81,7 @@ export default function MeetingMinuteCreate() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/${id}`
+        `${getApiBaseUrl()}/api/v1/meeting-minutes/${id}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -131,8 +132,8 @@ export default function MeetingMinuteCreate() {
     try {
       setLoading(true);
       const url = isEdit
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/${id}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes`;
+        ? `${getApiBaseUrl()}/api/v1/meeting-minutes/${id}`
+        : `${getApiBaseUrl()}/api/v1/meeting-minutes`;
 
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',

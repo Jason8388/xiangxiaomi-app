@@ -13,6 +13,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface Reminder {
   id: number;
@@ -41,7 +42,7 @@ export default function RemindersScreen() {
 
   const fetchReminders = async () => {
     try {
-      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reminders`);
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/reminders`);
       if (res.ok) {
         const data = await res.json();
         setReminders(Array.isArray(data) ? data : []);
@@ -96,8 +97,8 @@ export default function RemindersScreen() {
 
     try {
       const url = editingReminder
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reminders/${editingReminder.id}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reminders`;
+        ? `${getApiBaseUrl()}/api/v1/reminders/${editingReminder.id}`
+        : `${getApiBaseUrl()}/api/v1/reminders`;
       const method = editingReminder ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -118,7 +119,7 @@ export default function RemindersScreen() {
   const handleToggleComplete = async (item: Reminder) => {
     try {
       const res = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reminders/${item.id}/toggle`,
+        `${getApiBaseUrl()}/api/v1/reminders/${item.id}/toggle`,
         { method: 'PATCH' }
       );
       if (res.ok) {
@@ -138,7 +139,7 @@ export default function RemindersScreen() {
         onPress: async () => {
           try {
             const res = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reminders/${item.id}`,
+              `${getApiBaseUrl()}/api/v1/reminders/${item.id}`,
               { method: 'DELETE' }
             );
             if (res.ok) fetchReminders();

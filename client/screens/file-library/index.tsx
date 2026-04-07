@@ -22,6 +22,7 @@ import * as Sharing from 'expo-sharing';
 import { useAuth } from '@/contexts/AuthContext';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface FileItem {
   id: number;
@@ -71,7 +72,7 @@ export default function FileLibrary() {
   const loadFiles = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files`);
       const data = await response.json();
       setFiles(data);
       filterFiles(data, searchKeyword, selectedCategory);
@@ -178,7 +179,7 @@ export default function FileLibrary() {
       formData.append('tags', JSON.stringify(uploadTags));
       formData.append('uploader_name', user?.name || '未知用户');
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files`, {
         method: 'POST',
         body: formData,
       });
@@ -211,7 +212,7 @@ export default function FileLibrary() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/${file.id}`, {
+            const response = await fetch(`${getApiBaseUrl()}/api/v1/files/${file.id}`, {
               method: 'DELETE',
             });
             if (response.ok) {

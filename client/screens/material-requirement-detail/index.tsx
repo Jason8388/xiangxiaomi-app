@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
@@ -53,7 +54,7 @@ export default function MaterialRequirementDetail() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${id}`
+        `${getApiBaseUrl()}/api/v1/material-requirements/${id}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -74,7 +75,7 @@ export default function MaterialRequirementDetail() {
 
       if (Platform.OS === 'web') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${requirementData.id}/download`
+          `${getApiBaseUrl()}/api/v1/material-requirements/${requirementData.id}/download`
         );
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -87,7 +88,7 @@ export default function MaterialRequirementDetail() {
         document.body.removeChild(a);
       } else {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/material-requirements/${requirementData.id}/download`
+          `${getApiBaseUrl()}/api/v1/material-requirements/${requirementData.id}/download`
         );
         const data = await response.text();
         const fileUri = `${(FileSystem as any).documentDirectory}物料需求单_${requirementData.title}_${Date.now()}.xlsx`;

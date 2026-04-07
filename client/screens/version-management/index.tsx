@@ -14,6 +14,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface VersionRelease {
   release_id: number;
@@ -46,7 +47,7 @@ export default function VersionManagement() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/version-release/list?limit=50`
+        `${getApiBaseUrl()}/api/v1/version-release/list?limit=50`
       );
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -84,7 +85,7 @@ export default function VersionManagement() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/version-release`,
+        `${getApiBaseUrl()}/api/v1/version-release`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -113,7 +114,7 @@ export default function VersionManagement() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/version-release/${releaseId}/publish`,
+              `${getApiBaseUrl()}/api/v1/version-release/${releaseId}/publish`,
               { method: 'POST' }
             );
 

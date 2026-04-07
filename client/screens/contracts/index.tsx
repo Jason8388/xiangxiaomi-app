@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface Contract {
   id: number;
@@ -68,7 +69,7 @@ export default function ContractManagement() {
   useEffect(() => {
     const loadContracts = async () => {
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/contracts`);
         const data = await response.json();
         if (response.ok && Array.isArray(data)) {
           const sorted = data.sort((a: Contract, b: Contract) =>
@@ -84,7 +85,7 @@ export default function ContractManagement() {
 
     const loadCustomers = async () => {
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
         const data = await response.json();
         // 后端返回 { data: [], total: 0 } 格式
         const list = Array.isArray(data) ? data : (data.data || []);
@@ -111,7 +112,7 @@ export default function ContractManagement() {
   // 获取合同列表
   const fetchContracts = async (): Promise<Contract[]> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/contracts`);
       const data = await response.json();
       if (response.ok && Array.isArray(data)) {
         const sorted = data.sort((a: Contract, b: Contract) =>
@@ -130,7 +131,7 @@ export default function ContractManagement() {
   // 获取客户列表
   const fetchCustomers = async (): Promise<Customer[]> => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
       const data = await response.json();
       const list = Array.isArray(data) ? data : (data.data || []);
       setCustomers(list);
@@ -240,7 +241,7 @@ export default function ContractManagement() {
     try {
       const response = editingContract
         ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${editingContract.id}`,
+            `${getApiBaseUrl()}/api/v1/contracts/${editingContract.id}`,
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -250,7 +251,7 @@ export default function ContractManagement() {
               }),
             }
           )
-        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`, {
+        : await fetch(`${getApiBaseUrl()}/api/v1/contracts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -264,7 +265,6 @@ export default function ContractManagement() {
       if (response.ok) {
         Alert.alert('成功', editingContract ? '修改成功' : '创建成功');
         setModalVisible(false);
-        clearCache('contracts-list');
         fetchContracts();
       } else {
         throw new Error(data.error || '操作失败');
@@ -283,7 +283,7 @@ export default function ContractManagement() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${contract.id}`,
+              `${getApiBaseUrl()}/api/v1/contracts/${contract.id}`,
               {
                 method: 'DELETE',
               }
@@ -291,7 +291,6 @@ export default function ContractManagement() {
             const data = await response.json();
             if (response.ok) {
               Alert.alert('成功', '删除成功');
-              clearCache('contracts-list');
               fetchContracts();
             } else {
               throw new Error(data.error || '删除失败');

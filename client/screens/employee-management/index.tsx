@@ -13,6 +13,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { getSecureItem } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface User {
   id: number;
@@ -90,8 +91,8 @@ export default function EmployeeManagement() {
     try {
       // 并行加载用户和部门数据
       const [usersRes, deptsRes] = await Promise.all([
-        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`),
-        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`),
+        fetch(`${getApiBaseUrl()}/api/v1/users`),
+        fetch(`${getApiBaseUrl()}/api/v1/departments`),
       ]);
 
       const usersData = await usersRes.json();
@@ -193,7 +194,7 @@ export default function EmployeeManagement() {
     }
 
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -229,7 +230,7 @@ export default function EmployeeManagement() {
   const handleSavePosition = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${selectedUser?.id}`,
+        `${getApiBaseUrl()}/api/v1/users/${selectedUser?.id}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -279,7 +280,7 @@ export default function EmployeeManagement() {
   const executeDisableUser = async (userItem: User, disable: boolean, reason: string) => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${userItem.id}/disable`,
+        `${getApiBaseUrl()}/api/v1/users/${userItem.id}/disable`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -314,7 +315,7 @@ export default function EmployeeManagement() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/${userItem.id}`,
+              `${getApiBaseUrl()}/api/v1/users/${userItem.id}`,
               {
                 method: 'DELETE',
               }

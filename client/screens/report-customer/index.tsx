@@ -14,6 +14,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface SummaryData {
   total_customers: number;
@@ -67,7 +68,7 @@ export default function ReportCustomer() {
       }
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reports/customers?${params.toString()}`
+        `${getApiBaseUrl()}/api/v1/reports/customers?${params.toString()}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -92,7 +93,7 @@ export default function ReportCustomer() {
       }
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reports/customers/export?${params.toString()}`
+        `${getApiBaseUrl()}/api/v1/reports/customers/export?${params.toString()}`
       );
 
       if (!response.ok) throw new Error('导出失败');

@@ -13,6 +13,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { getApiBaseUrl } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 interface Customer {
@@ -71,7 +72,7 @@ export default function CustomerManagement() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
         const data = await response.json();
         if (response.ok) {
           const list = Array.isArray(data) ? data : (data.data || []);
@@ -202,7 +203,7 @@ export default function CustomerManagement() {
     try {
       const response = editingCustomer
         ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${editingCustomer.id}`,
+            `${getApiBaseUrl()}/api/v1/customers/${editingCustomer.id}`,
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -217,7 +218,7 @@ export default function CustomerManagement() {
               }),
             }
           )
-        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`, {
+        : await fetch(`${getApiBaseUrl()}/api/v1/customers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -254,7 +255,7 @@ export default function CustomerManagement() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers/${customer.id}`,
+              `${getApiBaseUrl()}/api/v1/customers/${customer.id}`,
               {
                 method: 'DELETE',
               }

@@ -4,7 +4,8 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { cachedFetch, clearCache } from '@/utils/storage';
+
+import { getApiBaseUrl } from '@/utils/api';
 
 interface Department {
   id: number;
@@ -32,13 +33,13 @@ export default function DepartmentManagement() {
   });
 
   useEffect(() => {
-    cachedFetch('departments-list', fetchDepartments, 'medium');
+    fetchDepartments();
   }, []);
 
   const fetchDepartments = async (): Promise<Department[]> => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/departments`);
       const data = await response.json();
       if (response.ok) {
         setDepartments(data);
@@ -86,14 +87,14 @@ export default function DepartmentManagement() {
     try {
       const response = editingDept
         ? await fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments/${editingDept.id}`,
+            `${getApiBaseUrl()}/api/v1/departments/${editingDept.id}`,
             {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(formData),
             }
           )
-        : await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments`, {
+        : await fetch(`${getApiBaseUrl()}/api/v1/departments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData),
@@ -104,7 +105,6 @@ export default function DepartmentManagement() {
       if (response.ok) {
         Alert.alert('成功', editingDept ? '修改成功' : '创建成功');
         setModalVisible(false);
-        clearCache('departments-list');
         fetchDepartments();
       } else {
         throw new Error(data.error || '操作失败');
@@ -123,7 +123,7 @@ export default function DepartmentManagement() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments/${dept.id}`,
+              `${getApiBaseUrl()}/api/v1/departments/${dept.id}`,
               {
                 method: 'DELETE',
               }
@@ -131,7 +131,6 @@ export default function DepartmentManagement() {
             const data = await response.json();
             if (response.ok) {
               Alert.alert('成功', '删除成功');
-              clearCache('departments-list');
               fetchDepartments();
             } else {
               throw new Error(data.error || '删除失败');
@@ -147,14 +146,13 @@ export default function DepartmentManagement() {
   const handleToggleDisable = async (dept: Department) => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/departments/${dept.id}/toggle`,
+        `${getApiBaseUrl()}/api/v1/departments/${dept.id}/toggle`,
         {
           method: 'PATCH',
         }
       );
       const data = await response.json();
       if (response.ok) {
-        clearCache('departments-list');
         fetchDepartments();
       } else {
         throw new Error(data.error || '操作失败');

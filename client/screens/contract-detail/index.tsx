@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface Contact {
   id?: number;
@@ -55,7 +56,7 @@ export default function ContractDetailPage() {
       try {
         setLoading(true);
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${id}`
+          `${getApiBaseUrl()}/api/v1/contracts/${id}`
         );
         const data = await response.json();
         if (response.ok) {
@@ -105,7 +106,7 @@ export default function ContractDetailPage() {
     try {
       if (modalType === 'address') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${id}/addresses`,
+          `${getApiBaseUrl()}/api/v1/contracts/${id}/addresses`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -121,7 +122,7 @@ export default function ContractDetailPage() {
         }
       } else if (modalType === 'contact') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${id}/contacts`,
+          `${getApiBaseUrl()}/api/v1/contracts/${id}/contacts`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -137,7 +138,7 @@ export default function ContractDetailPage() {
         }
       } else if (modalType === 'edit') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${id}`,
+          `${getApiBaseUrl()}/api/v1/contracts/${id}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -176,7 +177,7 @@ export default function ContractDetailPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${id}`
+        `${getApiBaseUrl()}/api/v1/contracts/${id}`
       );
       const data = await response.json();
       if (response.ok) {

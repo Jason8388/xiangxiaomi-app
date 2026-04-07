@@ -41,7 +41,7 @@ export default function QueryContract() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/query/contracts?keyword=${encodeURIComponent(searchKeyword)}`
+        `${getApiBaseUrl()}/api/v1/query/contracts?keyword=${encodeURIComponent(searchKeyword)}`
       );
       const data = await response.json();
       if (response.ok) {

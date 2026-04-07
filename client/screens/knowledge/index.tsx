@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal } fro
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 export default function KnowledgeScreen() {
   const [knowledgeList, setKnowledgeList] = useState<any[]>([]);
@@ -23,7 +24,7 @@ export default function KnowledgeScreen() {
 
   const fetchKnowledge = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge`);
       const data = await response.json();
       // 支持两种格式：直接数组 或 { code, data, message }
       if (Array.isArray(data)) {
@@ -61,8 +62,8 @@ export default function KnowledgeScreen() {
 
     try {
       const url = editingKnowledge
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/${editingKnowledge.id}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge`;
+        ? `${getApiBaseUrl()}/api/v1/knowledge/${editingKnowledge.id}`
+        : `${getApiBaseUrl()}/api/v1/knowledge`;
 
       const method = editingKnowledge ? 'PUT' : 'POST';
 
@@ -99,7 +100,7 @@ export default function KnowledgeScreen() {
         onPress: async () => {
           try {
             const response = await fetch(
-              `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/${id}`,
+              `${getApiBaseUrl()}/api/v1/knowledge/${id}`,
               { method: 'DELETE' }
             );
 
@@ -125,7 +126,7 @@ export default function KnowledgeScreen() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/search/${searchText}`
+        `${getApiBaseUrl()}/api/v1/knowledge/search/${searchText}`
       );
       const data = await response.json();
       // 支持两种格式：直接数组 或 { code, data, message }

@@ -4,6 +4,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 import { Video } from 'expo-av';
 
 export default function MediaDetailScreen() {
@@ -24,7 +25,7 @@ export default function MediaDetailScreen() {
   const fetchMediaDetail = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/${id}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/media/${id}`);
       const data = await response.json();
       setMedia(data);
     } catch (error) {
@@ -37,7 +38,7 @@ export default function MediaDetailScreen() {
 
   const fetchAllTags = async () => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/tags/list`);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/media/tags/list`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setAllTags(data);
@@ -49,7 +50,7 @@ export default function MediaDetailScreen() {
 
   const handleAddTag = async (tagId: number) => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/${id}/tags`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/media/${id}/tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag_id: tagId }),
@@ -71,7 +72,7 @@ export default function MediaDetailScreen() {
 
   const handleRemoveTag = async (tagId: number) => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/${id}/tags/${tagId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/media/${id}/tags/${tagId}`, {
         method: 'DELETE',
       });
 
@@ -96,7 +97,7 @@ export default function MediaDetailScreen() {
     }
 
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/tags`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newTagName.trim(), color: newTagColor }),
@@ -120,7 +121,7 @@ export default function MediaDetailScreen() {
 
   const handleDownload = async () => {
     try {
-      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/media/download/${id}`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/media/download/${id}`, {
         method: 'POST',
       });
 

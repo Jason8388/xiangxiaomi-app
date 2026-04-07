@@ -14,6 +14,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { getSecureItem } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -102,7 +103,7 @@ export default function KnowledgeCreate() {
   const loadKnowledgeCard = async () => {
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/cards/${id}`
+        `${getApiBaseUrl()}/api/v1/knowledge/cards/${id}`
       );
       const data = await response.json();
       if (response.ok) {
@@ -280,8 +281,8 @@ export default function KnowledgeCreate() {
     try {
       setLoading(true);
       const url = isEdit
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/${id}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge`;
+        ? `${getApiBaseUrl()}/api/v1/knowledge/${id}`
+        : `${getApiBaseUrl()}/api/v1/knowledge`;
 
       // 使用FormData上传附件
       const formDataObj = new FormData();

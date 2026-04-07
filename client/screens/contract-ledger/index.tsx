@@ -10,6 +10,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 interface LedgerItem {
   id: number;
@@ -37,10 +38,10 @@ export default function ContractLedger() {
         let endpoint = '';
         switch (type) {
           case 'device':
-            endpoint = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${contractId}/devices`;
+            endpoint = `${getApiBaseUrl()}/api/v1/contracts/${contractId}/devices`;
             break;
           case 'workorder':
-            endpoint = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts/${contractId}/work-orders`;
+            endpoint = `${getApiBaseUrl()}/api/v1/contracts/${contractId}/work-orders`;
             break;
         }
 
