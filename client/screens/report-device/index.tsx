@@ -11,26 +11,19 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 
 interface SummaryData {
   total_devices: number;
-  normal_devices: number;
-  fault_devices: number;
-  maintenance_devices: number;
+  within_warranty: number;
+  out_of_warranty: number;
   updated_at: string;
 }
 
-interface DeviceReportItem {
-  device_id: number;
-  device_name: string;
-  device_number: string;
-  device_model: string;
-  customer_name: string;
-  contract_name: string;
-  status: string;
-  installation_date: string;
+interface DeviceTypeStat {
+  device_type: string;
+  total: number;
+  within_warranty: number;
+  out_of_warranty: number;
 }
 
 const FILTER_OPTIONS = [
@@ -45,19 +38,25 @@ const EXPORT_OPTIONS = [
   { label: 'PDF 导出', value: 'pdf', icon: 'file-pdf', color: '#E74C3C' },
 ];
 
-const STATUS_CONFIG = {
-  '正常': { color: '#2ECC71', icon: 'check-circle' },
-  '故障': { color: '#E74C3C', icon: 'triangle-exclamation' },
-  '维修中': { color: '#F39C12', icon: 'screwdriver' },
-  '报废': { color: '#95A5A6', icon: 'ban' },
+// 设备类型图标映射
+const DEVICE_TYPE_ICONS: Record<string, { icon: string; color: string }> = {
+  '服务器类': { icon: 'server', color: '#1E88E5' },
+  '网络设备': { icon: 'wifi', color: '#00B894' },
+  '存储设备': { icon: 'database', color: '#9B59B6' },
+  '电源设备': { icon: 'bolt', color: '#F39C12' },
+  '办公设备': { icon: 'laptop', color: '#E74C3C' },
+  '安全设备': { icon: 'shield-halved', color: '#2ECC71' },
+  '机房配套': { icon: 'fan', color: '#3498DB' },
+  '未知类型': { icon: 'microchip', color: '#95A5A6' },
 };
 
 export default function ReportDevice() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [details, setDetails] = useState<DeviceReportItem[]>([]);
+  const [typeStats, setTypeStats] = useState<DeviceTypeStat[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -78,9 +77,10 @@ export default function ReportDevice() {
       const data = await response.json();
       if (response.ok) {
         setSummary(data.summary);
-        setDetails(data.details);
+        setTypeStats(data.type_stats || []);
       }
     } catch (error) {
+      console.error('Load report data error:', error);
       Alert.alert('错误', '加载报表数据失败');
     } finally {
       setLoading(false);
@@ -92,8 +92,124 @@ export default function ReportDevice() {
     Alert.alert('提示', '导出功能待实现');
   };
 
-  const handleViewDetail = (deviceId: number) => {
-    Alert.alert('提示', '查看设备详情功能待实现');
+  const toggleTypeExpand = (deviceType: string) => {
+    const newExpanded = new Set(expandedTypes);
+    if (newExpanded.has(deviceType)) {
+      newExpanded.delete(deviceType);
+    } else {
+      newExpanded.add(deviceType);
+    }
+    setExpandedTypes(newExpanded);
+  };
+
+  const getTypeIcon = (deviceType: string) => {
+    return DEVICE_TYPE_ICONS[deviceType] || DEVICE_TYPE_ICONS['未知类型'];
+  };
+
+  const renderDeviceTypeCard = (stat: DeviceTypeStat) => {
+    const { icon, color } = getTypeIcon(stat.device_type);
+    const isExpanded = expandedTypes.has(stat.device_type);
+    const withinPercent = stat.total > 0 ? Math.round((stat.within_warranty / stat.total) * 100) : 0;
+
+    return (
+      <View key={stat.device_type} style={styles.typeCard}>
+        <TouchableOpacity
+          style={styles.typeCardHeader}
+          onPress={() => toggleTypeExpand(stat.device_type)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.typeIconContainer}>
+            <FontAwesome6 name={icon as any} size={24} color={color} />
+          </View>
+          <View style={styles.typeInfo}>
+            <Text style={styles.typeName}>{stat.device_type}</Text>
+            <View style={styles.typeStatsRow}>
+              <View style={[styles.statBadge, { backgroundColor: `${color}15` }]}>
+                <Text style={[styles.statBadgeText, { color }]}>
+                  总计 {stat.total} 台
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.expandIcon}>
+            <FontAwesome6
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color="#95A5A6"
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* 统计指标 */}
+        <View style={styles.typeStatsContainer}>
+          <View style={styles.typeStatItem}>
+            <View style={styles.typeStatIconWrap}>
+              <FontAwesome6 name="shield-check" size={16} color="#2ECC71" />
+            </View>
+            <View style={styles.typeStatInfo}>
+              <Text style={styles.typeStatValue}>{stat.within_warranty}</Text>
+              <Text style={styles.typeStatLabel}>质保期内</Text>
+            </View>
+          </View>
+          <View style={styles.typeStatDivider} />
+          <View style={styles.typeStatItem}>
+            <View style={[styles.typeStatIconWrap, { backgroundColor: 'rgba(231, 76, 60, 0.1)' }]}>
+              <FontAwesome6 name="clock" size={16} color="#E74C3C" />
+            </View>
+            <View style={styles.typeStatInfo}>
+              <Text style={[styles.typeStatValue, { color: '#E74C3C' }]}>{stat.out_of_warranty}</Text>
+              <Text style={styles.typeStatLabel}>质保期外</Text>
+            </View>
+          </View>
+          <View style={styles.typeStatDivider} />
+          <View style={styles.typeStatItem}>
+            <View style={[styles.typeStatIconWrap, { backgroundColor: `${color}15` }]}>
+              <FontAwesome6 name="percent" size={16} color={color} />
+            </View>
+            <View style={styles.typeStatInfo}>
+              <Text style={[styles.typeStatValue, { color }]}>{withinPercent}%</Text>
+              <Text style={styles.typeStatLabel}>质保率</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 进度条 */}
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${withinPercent}%`,
+                  backgroundColor: '#2ECC71',
+                },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* 展开详情 */}
+        {isExpanded && (
+          <View style={styles.typeDetailSection}>
+            <Text style={styles.typeDetailTitle}>设备类型统计</Text>
+            <View style={styles.typeDetailRow}>
+              <View style={styles.typeDetailItem}>
+                <Text style={styles.typeDetailValue}>{stat.total}</Text>
+                <Text style={styles.typeDetailLabel}>设备总数</Text>
+              </View>
+              <View style={[styles.typeDetailItem, { borderLeftWidth: 1, borderLeftColor: '#F0F0F0' }]}>
+                <Text style={[styles.typeDetailValue, { color: '#2ECC71' }]}>{stat.within_warranty}</Text>
+                <Text style={styles.typeDetailLabel}>质保期内</Text>
+              </View>
+              <View style={[styles.typeDetailItem, { borderLeftWidth: 1, borderLeftColor: '#F0F0F0' }]}>
+                <Text style={[styles.typeDetailValue, { color: '#E74C3C' }]}>{stat.out_of_warranty}</Text>
+                <Text style={styles.typeDetailLabel}>质保期外</Text>
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+    );
   };
 
   if (loading) {
@@ -101,7 +217,7 @@ export default function ReportDevice() {
       <Screen>
         <PageHeader title="设备统计表" />
         <View style={styles.centerContainer}>
-          <Text>加载中...</Text>
+          <Text style={styles.loadingText}>加载中...</Text>
         </View>
       </Screen>
     );
@@ -111,35 +227,41 @@ export default function ReportDevice() {
     <Screen>
       <PageHeader title="设备统计表" />
 
-      <ScrollView style={styles.container}>
-        {/* 统计概览 */}
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* 总体统计概览 */}
         <View style={styles.summarySection}>
-          <Text style={styles.summaryTitle}>统计概览</Text>
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="microchip" size={28} color="#1E88E5" />
-              <Text style={styles.summaryValue}>{summary?.total_devices || 0}</Text>
-              <Text style={styles.summaryLabel}>设备总数</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="circle-check" size={28} color="#2ECC71" />
-              <Text style={styles.summaryValue}>{summary?.normal_devices || 0}</Text>
-              <Text style={styles.summaryLabel}>正常运行</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="triangle-exclamation" size={28} color="#E74C3C" />
-              <Text style={styles.summaryValue}>{summary?.fault_devices || 0}</Text>
-              <Text style={styles.summaryLabel}>故障设备</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <FontAwesome6 name="screwdriver" size={28} color="#F39C12" />
-              <Text style={styles.summaryValue}>{summary?.maintenance_devices || 0}</Text>
-              <Text style={styles.summaryLabel}>维修中</Text>
+          <Text style={styles.sectionTitle}>总体概览</Text>
+          <View style={styles.summaryCards}>
+            <View style={[styles.summaryCard, styles.summaryCardPrimary]}>
+              <View style={styles.summaryIconWrap}>
+                <FontAwesome6 name="microchip" size={28} color="#FFFFFF" />
+              </View>
+              <View style={styles.summaryCardContent}>
+                <Text style={styles.summaryCardValue}>{summary?.total_devices || 0}</Text>
+                <Text style={styles.summaryCardLabel}>设备总数</Text>
+              </View>
             </View>
           </View>
-          {summary && (
+          <View style={styles.summaryStatsRow}>
+            <View style={styles.summaryStatItem}>
+              <View style={[styles.summaryStatDot, { backgroundColor: '#2ECC71' }]} />
+              <Text style={styles.summaryStatLabel}>质保期内</Text>
+              <Text style={[styles.summaryStatValue, { color: '#2ECC71' }]}>
+                {summary?.within_warranty || 0}
+              </Text>
+            </View>
+            <View style={styles.summaryStatDivider} />
+            <View style={styles.summaryStatItem}>
+              <View style={[styles.summaryStatDot, { backgroundColor: '#E74C3C' }]} />
+              <Text style={styles.summaryStatLabel}>质保期外</Text>
+              <Text style={[styles.summaryStatValue, { color: '#E74C3C' }]}>
+                {summary?.out_of_warranty || 0}
+              </Text>
+            </View>
+          </View>
+          {summary?.updated_at && (
             <Text style={styles.updateTime}>
-              更新时间：{new Date(summary.updated_at).toLocaleString()}
+              更新时间：{new Date(summary.updated_at).toLocaleString('zh-CN')}
             </Text>
           )}
         </View>
@@ -160,60 +282,17 @@ export default function ReportDevice() {
             onPress={() => setShowExportModal(true)}
           >
             <FontAwesome6 name="file-export" size={14} color="#FFFFFF" />
-            <Text style={styles.actionButtonText}>导出</Text>
+            <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>导出</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 明细列表 */}
-        <View style={styles.detailsSection}>
-          <Text style={styles.detailsTitle}>设备明细（{details.length}）</Text>
-          {details.map((item) => {
-            const statusConfig = STATUS_CONFIG[item.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG['正常'];
-            return (
-              <View key={item.device_id} style={styles.detailCard}>
-                <View style={styles.detailHeader}>
-                  <View style={styles.deviceIcon}>
-                    <FontAwesome6 name="microchip" size={20} color="#1E88E5" />
-                  </View>
-                  <View style={styles.detailInfo}>
-                    <Text style={styles.deviceName}>{item.device_name}</Text>
-                    <Text style={styles.deviceNumber}>{item.device_number}</Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: `${statusConfig.color}20` }]}>
-                    <FontAwesome6 name={statusConfig.icon as any} size={12} color={statusConfig.color} />
-                    <Text style={[styles.statusText, { color: statusConfig.color }]}>
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailContent}>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="cube" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>型号：</Text>
-                    <Text style={styles.detailValue}>{item.device_model}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="building" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>客户：</Text>
-                    <Text style={styles.detailValue}>{item.customer_name}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="file-contract" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>合同：</Text>
-                    <Text style={styles.detailValue}>{item.contract_name}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <FontAwesome6 name="calendar" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>安装日期：</Text>
-                    <Text style={styles.detailValue}>
-                      {new Date(item.installation_date).toLocaleDateString()}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
+        {/* 按设备类型统计 */}
+        <View style={styles.typeStatsSection}>
+          <Text style={styles.sectionTitle}>按设备类型统计</Text>
+          <Text style={styles.sectionSubtitle}>
+            共 {typeStats.length} 种设备类型，{typeStats.reduce((sum, t) => sum + t.total, 0)} 台设备
+          </Text>
+          {typeStats.map(renderDeviceTypeCard)}
         </View>
       </ScrollView>
 
@@ -298,6 +377,7 @@ export default function ReportDevice() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
     padding: 16,
   },
   centerContainer: {
@@ -305,46 +385,104 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    fontSize: 14,
+    color: '#95A5A6',
+  },
   summarySection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  summaryTitle: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 17,
     fontWeight: '600',
     color: '#2D3436',
-    marginBottom: 16,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
     marginBottom: 12,
   },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#95A5A6',
+    marginBottom: 16,
+  },
+  summaryCards: {
+    marginBottom: 16,
+  },
   summaryCard: {
-    width: '47%',
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  summaryValue: {
-    fontSize: 28,
+  summaryCardPrimary: {
+    backgroundColor: '#1E88E5',
+  },
+  summaryIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  summaryCardContent: {
+    flex: 1,
+  },
+  summaryCardValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  summaryCardLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 4,
+  },
+  summaryStatsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+  },
+  summaryStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  summaryStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E0E0E0',
+  },
+  summaryStatDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  summaryStatLabel: {
+    fontSize: 13,
+    color: '#636E72',
+  },
+  summaryStatValue: {
+    fontSize: 18,
     fontWeight: '700',
     color: '#2D3436',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#636E72',
   },
   updateTime: {
     fontSize: 12,
     color: '#95A5A6',
     textAlign: 'center',
+    marginTop: 12,
   },
   actionBar: {
     flexDirection: 'row',
@@ -358,8 +496,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
@@ -371,91 +509,151 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     backgroundColor: '#1E88E5',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   actionButtonText: {
     fontSize: 14,
     color: '#1E88E5',
     fontWeight: '500',
   },
-  detailsSection: {
-    marginBottom: 20,
+  typeStatsSection: {
+    marginBottom: 24,
   },
-  detailsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2D3436',
-    marginBottom: 12,
-  },
-  detailCard: {
+  typeCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
     marginBottom: 12,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
+    overflow: 'hidden',
   },
-  detailHeader: {
+  typeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+    padding: 16,
   },
-  deviceIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  typeIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     backgroundColor: 'rgba(30, 136, 229, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 14,
   },
-  detailInfo: {
+  typeInfo: {
     flex: 1,
   },
-  deviceName: {
-    fontSize: 15,
+  typeName: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#2D3436',
-    marginBottom: 4,
-  },
-  deviceNumber: {
-    fontSize: 13,
-    color: '#95A5A6',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  detailContent: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    padding: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     marginBottom: 8,
   },
-  detailLabel: {
-    fontSize: 12,
-    color: '#636E72',
+  typeStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  detailValue: {
+  statBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statBadgeText: {
     fontSize: 12,
+    fontWeight: '600',
+  },
+  expandIcon: {
+    padding: 8,
+  },
+  typeStatsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    alignItems: 'center',
+  },
+  typeStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  typeStatDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 8,
+  },
+  typeStatIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeStatInfo: {
+    flex: 1,
+  },
+  typeStatValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2ECC71',
+  },
+  typeStatLabel: {
+    fontSize: 11,
+    color: '#95A5A6',
+    marginTop: 2,
+  },
+  progressBarContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  typeDetailSection: {
+    backgroundColor: '#F8F9FA',
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  typeDetailTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#636E72',
+    marginBottom: 12,
+  },
+  typeDetailRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 12,
+  },
+  typeDetailItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  typeDetailValue: {
+    fontSize: 20,
+    fontWeight: '700',
     color: '#2D3436',
-    fontWeight: '500',
+  },
+  typeDetailLabel: {
+    fontSize: 11,
+    color: '#95A5A6',
+    marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -485,7 +683,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F5F7FA',
   },
