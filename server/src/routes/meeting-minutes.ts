@@ -1,11 +1,12 @@
 import express from "express";
 import pool, { USE_DATABASE } from "../database/db";
+import { memoryMeetingMinutes as preloadedMinutes } from "../database/memory-storage";
 
 const router = express.Router();
 
-// 内存数据存储（用于数据库不可用时）
-const memoryMeetingMinutes: any[] = [];
-let memoryMeetingId = 1;
+// 内存数据存储（用于数据库不可用时）- 使用预置数据
+const memoryMeetingMinutes: any[] = [...preloadedMinutes];
+let memoryMeetingId = preloadedMinutes.length > 0 ? Math.max(...preloadedMinutes.map(m => m.id)) + 1 : 1;
 
 // 带重试的查询函数（快速失败）
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {

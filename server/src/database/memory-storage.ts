@@ -444,6 +444,49 @@ export const memoryDepartments = [
   },
 ];
 
+// 预置会议纪要数据
+export const memoryMeetingMinutes = [
+  {
+    id: 1,
+    title: '项目启动会议',
+    meeting_date: '2026-03-15',
+    location: '会议室A',
+    host: '张三',
+    participants: '李四,王五,赵六',
+    content: '讨论项目整体规划和分工安排，确定项目里程碑和时间节点。',
+    decisions: '1. 项目整体周期为3个月\n2. 每周五召开进度会议\n3. 技术方案下周确定',
+    next_steps: '完成技术方案设计，准备项目资源',
+    created_at: '2026-03-15T10:00:00.000Z',
+    updated_at: '2026-03-15T10:00:00.000Z',
+  },
+  {
+    id: 2,
+    title: '技术方案评审会',
+    meeting_date: '2026-03-20',
+    location: '会议室B',
+    host: '李四',
+    participants: '张三,王五,刘七',
+    content: '评审技术方案，确认可行性和风险点。',
+    decisions: '1. 采用微服务架构\n2. 使用容器化部署\n3. 数据库选用PostgreSQL',
+    next_steps: '开始系统设计和开发',
+    created_at: '2026-03-20T14:00:00.000Z',
+    updated_at: '2026-03-20T14:00:00.000Z',
+  },
+  {
+    id: 3,
+    title: '月度工作总结会议',
+    meeting_date: '2026-04-01',
+    location: '会议室A',
+    host: '王五',
+    participants: '全员',
+    content: '总结上月工作完成情况，制定本月工作计划。',
+    decisions: '1. 上月目标完成率85%\n2. 本月重点推进客户需求',
+    next_steps: '跟进重点客户，优化服务流程',
+    created_at: '2026-04-01T09:00:00.000Z',
+    updated_at: '2026-04-01T09:00:00.000Z',
+  },
+];
+
 export const memorySessions: any[] = [];
 
 export function getUserByUsername(username: string) {

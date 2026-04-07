@@ -145,7 +145,7 @@ export default function ReportDevice() {
         <View style={styles.typeStatsContainer}>
           <View style={styles.typeStatItem}>
             <View style={styles.typeStatIconWrap}>
-              <FontAwesome6 name="shield-check" size={16} color="#2ECC71" />
+              <FontAwesome6 name="check-circle" size={16} color="#2ECC71" />
             </View>
             <View style={styles.typeStatInfo}>
               <Text style={styles.typeStatValue}>{stat.within_warranty}</Text>
