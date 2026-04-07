@@ -432,7 +432,6 @@ export default function FileLibrary() {
   );
 }
 
-const { KeyboardAvoidingView } = require('react-native');
 
 const styles = StyleSheet.create({
   container: {
