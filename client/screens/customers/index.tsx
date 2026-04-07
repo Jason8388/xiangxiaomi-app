@@ -54,7 +54,15 @@ export default function CustomerManagement() {
   });
 
   useEffect(() => {
-    cachedFetch('customers-list', fetchCustomers, 'medium');
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await cachedFetch('customers-list', fetchCustomers, 'medium');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   useEffect(() => {
