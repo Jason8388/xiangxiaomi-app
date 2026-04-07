@@ -61,6 +61,10 @@ export default function DeviceManagement() {
   const [sitePhotos, setSitePhotos] = useState<string[]>([]);
   const [qrCode, setQrCode] = useState<string>('');
   const [deviceTypeSelectorVisible, setDeviceTypeSelectorVisible] = useState(false);
+  const [contractSelectorVisible, setContractSelectorVisible] = useState(false);
+  const [contractList, setContractList] = useState<any[]>([]);
+  const [filteredContracts, setFilteredContracts] = useState<any[]>([]);
+  const [contractSearchKeyword, setContractSearchKeyword] = useState('');
   const [formData, setFormData] = useState({
     device_number: '',
     device_name: '',
@@ -102,6 +106,44 @@ export default function DeviceManagement() {
 
     loadDevices();
   }, []);
+
+  // 加载合同列表
+  useEffect(() => {
+    const loadContracts = async () => {
+      try {
+        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+        const data = await response.json();
+        if (response.ok) {
+          const list = Array.isArray(data) ? data : (data.data || []);
+          setContractList(list);
+          setFilteredContracts(list);
+        }
+      } catch (error) {
+        console.error('Load contracts error:', error);
+      }
+    };
+    loadContracts();
+  }, []);
+
+  // 合同名称/编号搜索过滤
+  useEffect(() => {
+    if (contractSearchKeyword.trim()) {
+      const keyword = contractSearchKeyword.toLowerCase();
+      const filtered = contractList.filter((c) => {
+        const contractNo = (c.contract_no || '').toLowerCase();
+        const title = (c.title || c.contract_name || '').toLowerCase();
+        const customerName = (c.customer_name || '').toLowerCase();
+        return (
+          contractNo.includes(keyword) ||
+          title.includes(keyword) ||
+          customerName.includes(keyword)
+        );
+      });
+      setFilteredContracts(filtered);
+    } else {
+      setFilteredContracts(contractList);
+    }
+  }, [contractSearchKeyword, contractList]);
 
   useEffect(() => {
     if (searchKeyword.trim() || deviceTypeFilter) {
@@ -644,13 +686,100 @@ export default function DeviceManagement() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>合同名称</Text>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => setContractSelectorVisible(!contractSelectorVisible)}
+                >
+                  <Text style={formData.contract_name ? styles.dropdownText : styles.dropdownPlaceholder}>
+                    {formData.contract_name || '请选择或搜索合同名称'}
+                  </Text>
+                  <FontAwesome6
+                    name={contractSelectorVisible ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color="#95A5A6"
+                  />
+                </TouchableOpacity>
+
+                {contractSelectorVisible && (
+                  <View style={styles.dropdownMenu}>
+                    <View style={styles.contractSearchContainer}>
+                      <FontAwesome6 name="magnifying-glass" size={14} color="#95A5A6" />
+                      <TextInput
+                        style={styles.contractSearchInput}
+                        placeholder="搜索合同名称或编号"
+                        value={contractSearchKeyword}
+                        onChangeText={setContractSearchKeyword}
+                        placeholderTextColor="#95A5A6"
+                      />
+                    </View>
+                    <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                      {filteredContracts.length === 0 ? (
+                        <View style={styles.noDataContainer}>
+                          <Text style={styles.noDataText}>未找到匹配的合同</Text>
+                        </View>
+                      ) : (
+                        filteredContracts.slice(0, 10).map((contract) => (
+                          <TouchableOpacity
+                            key={contract.id}
+                            style={[
+                              styles.dropdownItem,
+                              formData.contract_name === (contract.title || contract.contract_name) && styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => {
+                              setFormData({
+                                ...formData,
+                                contract_name: contract.title || contract.contract_name || '',
+                                contract_number: contract.contract_no || '',
+                              });
+                              setContractSelectorVisible(false);
+                              setContractSearchKeyword('');
+                            }}
+                          >
+                            <View style={styles.contractItemContent}>
+                              <Text style={[
+                                styles.contractItemTitle,
+                                formData.contract_name === (contract.title || contract.contract_name) && styles.contractItemTitleSelected,
+                              ]}>
+                                {contract.title || contract.contract_name || '未命名合同'}
+                              </Text>
+                              <Text style={styles.contractItemSub}>
+                                编号: {contract.contract_no || '无'} | 客户: {contract.customer_name || '无'}
+                              </Text>
+                            </View>
+                            {formData.contract_name === (contract.title || contract.contract_name) && (
+                              <FontAwesome6 name="check" size={16} color="#2ECC71" />
+                            )}
+                          </TouchableOpacity>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>合同编号</Text>
                 <TextInput
                   style={styles.formInput}
-                  placeholder="请输入合同名称"
-                  value={formData.contract_name}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, contract_name: text })
-                  }
+                  placeholder="请输入或选择合同编号"
+                  value={formData.contract_number}
+                  onChangeText={(text) => {
+                    setFormData({ ...formData, contract_number: text });
+                    // 实时模糊匹配：自动查找匹配的合同并回显合同名称
+                    if (text.trim()) {
+                      const keyword = text.toLowerCase();
+                      const matched = contractList.find((c) =>
+                        (c.contract_no || '').toLowerCase() === keyword
+                      );
+                      if (matched && !formData.contract_name) {
+                        setFormData({
+                          ...formData,
+                          contract_number: text,
+                          contract_name: matched.title || matched.contract_name || '',
+                        });
+                      }
+                    }
+                  }}
                 />
               </View>
 
@@ -1059,6 +1188,45 @@ const styles = StyleSheet.create({
   },
   dropdownList: {
     maxHeight: 200,
+  },
+  contractSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    gap: 8,
+  },
+  contractSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2C3E50',
+    padding: 0,
+  },
+  contractItemContent: {
+    flex: 1,
+  },
+  contractItemTitle: {
+    fontSize: 14,
+    color: '#2C3E50',
+    marginBottom: 4,
+  },
+  contractItemTitleSelected: {
+    color: '#1E88E5',
+    fontWeight: '500',
+  },
+  contractItemSub: {
+    fontSize: 12,
+    color: '#95A5A6',
+  },
+  noDataContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#95A5A6',
   },
   dropdownItem: {
     flexDirection: 'row',
