@@ -117,15 +117,48 @@ router.get('/:id', async (req, res) => {
 
 // 创建部门
 router.post('/', async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const { name, code, description, parent_id, sort_order = 0 } = req.body;
+  const { name, code, description, parent_id, sort_order = 0 } = req.body;
 
-    // 参数验证
-    if (!name || !code) {
-      return res.status(400).json({ error: '部门名称和代码不能为空' });
+  // 参数验证
+  if (!name || !code) {
+    return res.status(400).json({ error: '部门名称和代码不能为空' });
+  }
+
+  // 使用内存存储（数据库不可用时）
+  if (!USE_DATABASE) {
+    // 检查代码是否重复
+    const existingDept = memoryDepartments.find(d => d.code === code);
+    if (existingDept) {
+      return res.status(400).json({ error: '部门代码已存在' });
     }
 
+    // 如果有父部门，检查父部门是否存在
+    if (parent_id) {
+      const parentExists = memoryDepartments.some(d => d.id === parent_id);
+      if (!parentExists) {
+        return res.status(400).json({ error: '父部门不存在' });
+      }
+    }
+
+    // 创建新部门
+    const newDept = {
+      id: Math.max(0, ...memoryDepartments.map(d => d.id)) + 1,
+      name,
+      code,
+      description: description || null,
+      parent_id: parent_id || null,
+      sort_order,
+      is_disabled: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    memoryDepartments.push(newDept);
+    return res.status(201).json(newDept);
+  }
+
+  // 使用数据库
+  const client = await pool.connect();
+  try {
     // 检查代码是否重复
     const codeCheck = await client.query(
       'SELECT id FROM departments WHERE code = $1',
