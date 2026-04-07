@@ -31,6 +31,12 @@ interface PaymentProgress {
   updated_at: string;
 }
 
+interface ProgressNote {
+  id: string;
+  content: string;
+  created_at: string;
+}
+
 interface WorkOrderDetail {
   id?: number;
   order_no?: string;
@@ -70,6 +76,8 @@ interface WorkOrderDetail {
   contract_id?: number;
   contract_no?: string;
   contract_name?: string;
+  // 项目最新进度
+  progress_notes?: ProgressNote[];
   implementer?: string;
   implementation_complete_date?: string;
   actual_hours?: number;
@@ -130,6 +138,9 @@ export default function WorkOrderDetailScreen() {
   // 回款进度弹窗
   const [paymentProgressModalVisible, setPaymentProgressModalVisible] = useState(false);
   const [paymentProgressText, setPaymentProgressText] = useState('');
+
+  // 项目最新进度
+  const [progressNoteText, setProgressNoteText] = useState('');
 
   // 日历选择器
   const [datePickerVisible, setDatePickerVisible] = useState(false);
@@ -199,6 +210,7 @@ export default function WorkOrderDetailScreen() {
     contract_id: undefined,
     contract_no: '',
     contract_name: '',
+    progress_notes: [],
     implementer: '',
     implementation_complete_date: '',
     actual_hours: 0,
@@ -295,6 +307,7 @@ export default function WorkOrderDetailScreen() {
         contract_id: data.contract_id,
         contract_no: data.contract_no || '',
         contract_name: data.contract_name || '',
+        progress_notes: data.progress_notes || [],
         implementer: data.implementer || '',
         implementation_complete_date: data.implementation_complete_date || '',
         actual_hours: data.actual_hours || 0,
@@ -609,11 +622,19 @@ export default function WorkOrderDetailScreen() {
           demand_date: order.demand_date || null,
           service_plan: order.service_plan,
           plan_hours: order.plan_hours,
+          planned_completion_date: order.planned_completion_date || null,
           material_requirements: order.material_requirements,
           warranty_status: order.warranty_status,
           is_charged: order.is_charged,
           quoted_price: order.quoted_price,
           consensus_date: order.consensus_date || null,
+          sales_sub_project_no: order.sales_sub_project_no,
+          material_code: order.material_code,
+          oa_work_order_no: order.oa_work_order_no,
+          contract_id: order.contract_id,
+          contract_no: order.contract_no,
+          contract_name: order.contract_name,
+          progress_notes: order.progress_notes,
           implementer: order.implementer,
           implementation_complete_date: order.implementation_complete_date || null,
           actual_hours: order.actual_hours,
@@ -794,6 +815,68 @@ export default function WorkOrderDetailScreen() {
                   {renderInfoRow('服务实施时间周期', order.service_implementation_period ? String(order.service_implementation_period) : '', '', '天')}
                   {renderInfoRow('回款周期', order.payment_period ? String(order.payment_period) : '', '', '天')}
                 </>
+              )}
+            </View>
+          </View>
+
+          {/* 项目最新进度 */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <FontAwesome6 name="chart-line" size={16} color="#9B59B6" />
+              <Text style={styles.sectionTitle}>项目最新进度</Text>
+            </View>
+            <View style={styles.sectionContent}>
+              {/* 进度输入 */}
+              <View style={styles.progressInputContainer}>
+                <TextInput
+                  style={styles.progressInput}
+                  placeholder="输入项目最新进度说明..."
+                  placeholderTextColor="#B2BEC3"
+                  value={progressNoteText}
+                  onChangeText={setProgressNoteText}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity
+                  style={[styles.progressSaveBtn, !progressNoteText.trim() && styles.progressSaveBtnDisabled]}
+                  onPress={() => {
+                    if (!progressNoteText.trim()) return;
+                    const newNote: ProgressNote = {
+                      id: Date.now().toString(),
+                      content: progressNoteText.trim(),
+                      created_at: new Date().toISOString(),
+                    };
+                    setOrder((prev: any) => ({
+                      ...prev,
+                      progress_notes: [...(prev.progress_notes || []), newNote],
+                    }));
+                    setProgressNoteText('');
+                  }}
+                  disabled={!progressNoteText.trim()}
+                >
+                  <FontAwesome6 name="paper-plane" size={14} color="#FFF" />
+                  <Text style={styles.progressSaveBtnText}>保存</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 历史记录 */}
+              {order.progress_notes && order.progress_notes.length > 0 ? (
+                <View style={styles.progressHistory}>
+                  <Text style={styles.progressHistoryTitle}>历史记录</Text>
+                  {order.progress_notes.slice().reverse().map((note, index) => (
+                    <View key={note.id} style={styles.progressNoteItem}>
+                      <View style={styles.progressNoteHeader}>
+                        <Text style={styles.progressNoteDate}>
+                          {new Date(note.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                      <Text style={styles.progressNoteContent}>{note.content}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.emptyText}>暂无进度记录</Text>
               )}
             </View>
           </View>
@@ -1424,4 +1507,15 @@ const styles = StyleSheet.create({
   contractItemNo: { fontSize: 13, color: '#6C63FF', fontWeight: '500' },
   contractItemName: { fontSize: 12, color: '#636E72', marginTop: 2 },
   contractDisplayRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F8F9FA', borderRadius: 8 },
+  progressInputContainer: { marginBottom: 12 },
+  progressInput: { backgroundColor: '#F8F9FA', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#2D3436', minHeight: 80, textAlignVertical: 'top' },
+  progressSaveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#6C63FF', borderRadius: 8, paddingVertical: 10, marginTop: 10 },
+  progressSaveBtnDisabled: { backgroundColor: '#CCC' },
+  progressSaveBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  progressHistory: { backgroundColor: '#F8F9FA', borderRadius: 10, padding: 12, marginTop: 8 },
+  progressHistoryTitle: { fontSize: 13, fontWeight: '600', color: '#636E72', marginBottom: 10 },
+  progressNoteItem: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E8E8E8' },
+  progressNoteHeader: { flexDirection: 'row', marginBottom: 6 },
+  progressNoteDate: { fontSize: 12, color: '#9B59B6', fontWeight: '500' },
+  progressNoteContent: { fontSize: 14, color: '#2D3436', lineHeight: 20 },
 });

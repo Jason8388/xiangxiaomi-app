@@ -251,6 +251,7 @@ router.post('/', async (req, res) => {
       contract_id, // 合同ID
       contract_no, // 合同编号
       contract_name, // 合同名称
+      progress_notes, // 项目最新进度记录
       // 实施情况
       implementer, // 实施人
       implementation_complete_date, // 实施完成日期
@@ -300,6 +301,7 @@ router.post('/', async (req, res) => {
         contract_id: contract_id || null,
         contract_no: contract_no || '',
         contract_name: contract_name || '',
+        progress_notes: JSON.stringify(progress_notes || []),
         implementer: implementer || '',
         implementation_complete_date: implementation_complete_date || null,
         actual_hours: actual_hours || 0,
@@ -325,11 +327,11 @@ router.post('/', async (req, res) => {
         task_phase, task_progress, task_status, contacts, demand_date,
         service_plan, plan_hours, planned_completion_date, material_requirements, warranty_status, is_charged, quoted_price,
         service_docs, consensus_docs, consensus_date,
-        sales_sub_project_no, material_code, oa_work_order_no, contract_id, contract_no, contract_name,
+        sales_sub_project_no, material_code, oa_work_order_no, contract_id, contract_no, contract_name, progress_notes,
         implementer, implementation_complete_date, actual_hours, work_order_docs, site_completion_docs, work_order_signer,
         invoice_application, invoice_completed, invoice_delivered, planned_payment_date, actual_payment_date,
         created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42)
       RETURNING *`,
       [
         woNo, title || '', task_no || woNo, customer_id, customer_name || '', task_leader || '', implementation_entity || '',
@@ -338,6 +340,7 @@ router.post('/', async (req, res) => {
         service_plan || '', plan_hours || 0, planned_completion_date || null, material_requirements || '', warranty_status || '', is_charged || false, quoted_price || 0,
         service_docs || '', consensus_docs || '', consensus_date || null,
         sales_sub_project_no || '', material_code || '', oa_work_order_no || '', contract_id || null, contract_no || '', contract_name || '',
+        JSON.stringify(progress_notes || []),
         implementer || '', implementation_complete_date || null, actual_hours || 0, work_order_docs || '', site_completion_docs || '', work_order_signer || '',
         invoice_application || '', invoice_completed || '', invoice_delivered || '', planned_payment_date || null, actual_payment_date || null,
         new Date(), new Date()
@@ -432,6 +435,7 @@ router.put('/:id', async (req, res) => {
     if (updates.contract_id !== undefined) { fields.push(`contract_id = $${paramCount++}`); values.push(updates.contract_id); }
     if (updates.contract_no !== undefined) { fields.push(`contract_no = $${paramCount++}`); values.push(updates.contract_no); }
     if (updates.contract_name !== undefined) { fields.push(`contract_name = $${paramCount++}`); values.push(updates.contract_name); }
+    if (updates.progress_notes !== undefined) { fields.push(`progress_notes = $${paramCount++}`); values.push(JSON.stringify(updates.progress_notes)); }
     
     // 实施情况
     if (updates.implementer !== undefined) { fields.push(`implementer = $${paramCount++}`); values.push(updates.implementer); }
