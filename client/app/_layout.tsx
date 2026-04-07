@@ -50,6 +50,9 @@ function RootLayoutInner() {
         <Stack.Screen name="index" options={{ title: "" }} />
         <Stack.Screen name="(tabs)" options={{ title: "" }} />
         <Stack.Screen name="account-settings" options={{ title: "账号设置" }} />
+        <Stack.Screen name="help-feedback" options={{ title: "帮助与反馈" }} />
+        <Stack.Screen name="help-manual" options={{ title: "产品操作手册" }} />
+        <Stack.Screen name="help-faq" options={{ title: "常见问题" }} />
         <Stack.Screen name="customer-detail" options={{ title: "" }} />
         <Stack.Screen name="work-order-detail" options={{ title: "" }} />
         <Stack.Screen name="files" options={{ title: "" }} />

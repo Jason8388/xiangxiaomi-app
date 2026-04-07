@@ -66,7 +66,7 @@ export default function ProfileScreen() {
       title: '帮助与反馈',
       subtitle: '产品操作指导手册',
       color: '#00B894',
-      onPress: () => Alert.alert('帮助与反馈', '请联系客服获取产品操作指导手册'),
+      onPress: () => router.push('/help-feedback'),
     },
     {
       icon: 'mobile-screen',
