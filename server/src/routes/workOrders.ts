@@ -1,10 +1,17 @@
 import express from 'express';
-import pool from '../database/db';
+import pool, { USE_DATABASE } from '../database/db';
 
 const router = express.Router();
 
-// 带重试的查询函数
-async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
+// 内存数据存储
+const memoryWorkOrders: any[] = [];
+let memoryWorkOrderId = 1;
+
+// 带重试的查询函数（快速失败）
+async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {
+  if (!USE_DATABASE) {
+    throw new Error('Database not available');
+  }
   for (let i = 0; i < retries; i++) {
     try {
       return await pool.query(query, params);
@@ -21,6 +28,23 @@ async function queryWithRetry(query: string, params: any[] = [], retries = 3, de
 
 // 获取工单统计
 router.get('/stats', async (req, res) => {
+  // 如果数据库不可用，返回内存数据统计
+  if (!USE_DATABASE) {
+    const totalWorkOrders = memoryWorkOrders.length;
+    const todayWorkOrders = memoryWorkOrders.filter(w => {
+      const today = new Date().toDateString();
+      return new Date(w.created_at).toDateString() === today;
+    }).length;
+    
+    return res.json({
+      total: totalWorkOrders,
+      today: todayWorkOrders,
+      pending: memoryWorkOrders.filter(w => w.status === 'pending').length,
+      inProgress: memoryWorkOrders.filter(w => w.status === 'in_progress').length,
+      completed: memoryWorkOrders.filter(w => w.status === 'completed').length,
+    });
+  }
+
   try {
     // 总工单数
     const totalResult = await queryWithRetry('SELECT COUNT(*) as total FROM work_orders');
@@ -85,6 +109,25 @@ router.get('/stats', async (req, res) => {
 
 // 获取工单列表
 router.get('/', async (req, res) => {
+  // 如果数据库不可用，返回内存数据
+  if (!USE_DATABASE) {
+    const { keyword, status } = req.query;
+    let filtered = [...memoryWorkOrders];
+    
+    if (status && status !== 'all') {
+      filtered = filtered.filter(w => w.status === status);
+    }
+    if (keyword) {
+      const kw = (keyword as string).toLowerCase();
+      filtered = filtered.filter(w => 
+        w.description?.toLowerCase().includes(kw) ||
+        w.order_no?.toLowerCase().includes(kw)
+      );
+    }
+    
+    return res.json(filtered.slice(0, 50));
+  }
+
   try {
     const { keyword, status } = req.query;
 
@@ -158,13 +201,55 @@ router.get('/:id', async (req, res) => {
 
 // 创建工单
 router.post('/', async (req, res) => {
+  // 如果数据库不可用，使用内存存储
+  if (!USE_DATABASE) {
+    const { 
+      customer_id, device_id, contract_id, order_no, work_order_no,
+      type, work_order_type, priority, status, description,
+      assignee_id, created_by, stage, plan_hours, is_charged, quoted_price
+    } = req.body;
+    
+    const woNo = order_no || work_order_no;
+    const woType = type || work_order_type;
+    
+    if (!customer_id || !woType || !woNo) {
+      return res.status(400).json({ error: '缺少必填字段' });
+    }
+    
+    const newOrder = {
+      id: memoryWorkOrderId++,
+      customer_id,
+      device_id,
+      contract_id,
+      order_no: woNo,
+      type: woType,
+      priority: priority || 'normal',
+      status: status || 'pending',
+      description,
+      assignee_id,
+      created_by,
+      stage: stage || 'pending',
+      plan_hours: plan_hours || 0,
+      is_charged: is_charged || false,
+      quoted_price: quoted_price || 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    memoryWorkOrders.push(newOrder);
+    return res.json(newOrder);
+  }
+  
   try {
     const {
-      customer_id, device_id, contract_id, order_no, type, priority, status, description,
+      customer_id, device_id, contract_id, order_no, work_order_no,
+      type, work_order_type, priority, status, description,
       assignee_id, created_by, stage, plan_hours, is_charged, quoted_price
     } = req.body;
 
-    if (!customer_id || !type || !order_no) {
+    const woNo = order_no || work_order_no;
+    const woType = type || work_order_type;
+
+    if (!customer_id || !woType || !woNo) {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
@@ -172,7 +257,7 @@ router.post('/', async (req, res) => {
       `INSERT INTO work_orders (customer_id, device_id, contract_id, order_no, type, priority, status,
         description, assignee_id, created_by, stage, plan_hours, is_charged, quoted_price)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-      [customer_id, device_id, contract_id, order_no, type, priority || 'normal', status || 'pending',
+      [customer_id, device_id, contract_id, woNo, woType, priority || 'normal', status || 'pending',
         description, assignee_id, created_by, stage || 'pending', plan_hours || 0,
         is_charged || false, quoted_price || 0]
     );

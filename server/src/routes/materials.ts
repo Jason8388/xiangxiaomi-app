@@ -59,28 +59,36 @@ router.get('/', async (req, res) => {
 // 创建物料
 router.post('/', async (req, res) => {
   try {
-    const { name, code, category, unit, specification, min_stock } = req.body;
+    // 兼容前端字段名
+    const { name, material_name, code, material_number, category, material_category, unit, material_unit, specification, material_spec, min_stock, stock_quantity } = req.body;
+    
+    const materialName = name || material_name;
+    const materialCode = code || material_number;
+    const materialCategory = category || material_category;
+    const materialUnit = unit || material_unit;
+    const materialSpec = specification || material_spec;
 
-    if (!name || !code) {
+    if (!materialName || !materialCode) {
       return res.status(400).json({ error: '物料名称和编码不能为空' });
     }
 
     try {
       const result = await queryWithRetry(
         'INSERT INTO materials (name, code, category, unit, specification, min_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [name, code, category, unit, specification, min_stock || 0]
+        [materialName, materialCode, materialCategory, materialUnit, materialSpec, min_stock || 0]
       );
       res.json(result.rows[0]);
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
       const newMaterial = {
         id: memoryMaterialId++,
-        name,
-        code,
-        category,
-        unit,
-        specification,
+        name: materialName,
+        code: materialCode,
+        category: materialCategory,
+        unit: materialUnit,
+        specification: materialSpec,
         min_stock: min_stock || 0,
+        stock_quantity: stock_quantity || 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

@@ -1,23 +1,47 @@
 import express from 'express';
-import pool from '../database/db';
+import pool, { USE_DATABASE } from '../database/db';
 import { memoryDepartments } from '../database/memory-storage';
 
 const router = express.Router();
+
+// 带重试的查询函数（快速失败）
+async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {
+  if (!USE_DATABASE) {
+    throw new Error('Database not available');
+  }
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
+}
 
 // 获取部门列表（树形结构）
 router.get('/', async (req, res) => {
   const { include_disabled = 'false' } = req.query;
   const includeDisabled = include_disabled === 'true';
 
+  // 如果数据库不可用，直接返回内存数据
+  if (!USE_DATABASE) {
+    return res.json(memoryDepartments);
+  }
+
   try {
     // 获取所有部门
     let result;
     if (includeDisabled) {
-      result = await pool.query(
+      result = await queryWithRetry(
         `SELECT * FROM departments ORDER BY sort_order ASC, id ASC`
       );
     } else {
-      result = await pool.query(
+      result = await queryWithRetry(
         `SELECT * FROM departments WHERE is_disabled = false ORDER BY sort_order ASC, id ASC`
       );
     }

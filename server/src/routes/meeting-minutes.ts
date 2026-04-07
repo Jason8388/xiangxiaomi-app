@@ -1,5 +1,5 @@
 import express from "express";
-import pool from "../database/db";
+import pool, { USE_DATABASE } from "../database/db";
 
 const router = express.Router();
 
@@ -7,20 +7,23 @@ const router = express.Router();
 const memoryMeetingMinutes: any[] = [];
 let memoryMeetingId = 1;
 
-// 带超时的查询函数
-async function queryWithTimeout(query: string, params: any[] = [], timeout = 3000) {
-  try {
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Query timeout')), timeout);
-    });
-    const queryPromise = pool.query(query, params);
-    return await Promise.race([queryPromise, timeoutPromise]);
-  } catch (error: any) {
-    if (error.message === 'Query timeout') {
-      throw new Error('Database timeout');
-    }
-    throw error;
+// 带重试的查询函数（快速失败）
+async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {
+  if (!USE_DATABASE) {
+    throw new Error('Database not available');
   }
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await pool.query(query, params);
+    } catch (error: any) {
+      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries reached');
 }
 
 // Create meeting minute
@@ -45,7 +48,7 @@ router.post("/", async (req, res) => {
     } = req.body;
 
     try {
-      const result = await queryWithTimeout(
+      const result = await queryWithRetry(
         `INSERT INTO meeting_minutes 
          (meeting_name, meeting_type, meeting_date, meeting_location, attendees, host, recorder, topics, key_points, summary, file_url, customer_id, project_id, viewable_users)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -130,7 +133,7 @@ router.get("/", async (req, res) => {
       query += " ORDER BY mm.meeting_date DESC, mm.created_at DESC";
       query += ` LIMIT ${limitNum}`;
 
-      const result = await queryWithTimeout(query, params);
+      const result = await queryWithRetry(query, params);
       res.json(result.rows);
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
@@ -185,7 +188,7 @@ router.get("/search", async (req, res) => {
 
       query += " ORDER BY mm.meeting_date DESC, mm.created_at DESC";
 
-      const result = await queryWithTimeout(query, params);
+      const result = await queryWithRetry(query, params);
       res.json(result.rows);
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
@@ -212,7 +215,7 @@ router.get("/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
-      const result = await queryWithTimeout(
+      const result = await queryWithRetry(
         `SELECT mm.*, 
                 c.name as customer_name,
                 (
@@ -269,7 +272,7 @@ router.put("/:id", async (req, res) => {
     } = req.body;
 
     try {
-      const result = await queryWithTimeout(
+      const result = await queryWithRetry(
         `UPDATE meeting_minutes 
          SET meeting_name = $1, meeting_type = $2, meeting_date = $3, meeting_location = $4,
              attendees = $5, host = $6, recorder = $7, topics = $8, key_points = $9,
@@ -301,11 +304,11 @@ router.put("/:id", async (req, res) => {
       }
 
       // Update tags
-      await queryWithTimeout("DELETE FROM meeting_minute_tags WHERE meeting_minute_id = $1", [id]);
+      await queryWithRetry("DELETE FROM meeting_minute_tags WHERE meeting_minute_id = $1", [id]);
 
       if (tags && Array.isArray(tags) && tags.length > 0) {
         for (const tag of tags.slice(0, 10)) {
-          await queryWithTimeout(
+          await queryWithRetry(
             "INSERT INTO meeting_minute_tags (meeting_minute_id, tag) VALUES ($1, $2)",
             [id, tag]
           );
@@ -351,9 +354,9 @@ router.delete("/:id", async (req, res) => {
 
     try {
       // Delete tags first
-      await queryWithTimeout("DELETE FROM meeting_minute_tags WHERE meeting_minute_id = $1", [id]);
+      await queryWithRetry("DELETE FROM meeting_minute_tags WHERE meeting_minute_id = $1", [id]);
 
-      const result = await queryWithTimeout(
+      const result = await queryWithRetry(
         "DELETE FROM meeting_minutes WHERE id = $1 RETURNING id",
         [id]
       );

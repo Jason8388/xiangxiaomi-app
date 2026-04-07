@@ -19,6 +19,15 @@ import departmentRoutes from "./routes/departments";
 import reminderRoutes from "./routes/reminders";
 import organizationRoutes from "./routes/organization";
 import meetingMinutesRoutes from "./routes/meeting-minutes";
+import afterSalesRoutes from "./routes/afterSales";
+import materialNotificationsRoutes from "./routes/materialNotifications";
+import materialRequirementsRoutes from "./routes/materialRequirements";
+import minutesRoutes from "./routes/minutes";
+import qrcodeRoutes from "./routes/qrcode";
+import queryRoutes from "./routes/query";
+import reportsRoutes from "./routes/reports";
+import standardMaterialListsRoutes from "./routes/standardMaterialLists";
+import uploadRoutes from "./routes/upload";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -48,6 +57,15 @@ app.use('/api/v1/departments', departmentRoutes);
 app.use('/api/v1/reminders', reminderRoutes);
 app.use('/api/v1/organization', organizationRoutes);
 app.use('/api/v1/meeting-minutes', meetingMinutesRoutes);
+app.use('/api/v1/after-sales', afterSalesRoutes);
+app.use('/api/v1/material-notifications', materialNotificationsRoutes);
+app.use('/api/v1/material-requirements', materialRequirementsRoutes);
+app.use('/api/v1/minutes', minutesRoutes);
+app.use('/api/v1/qrcode', qrcodeRoutes);
+app.use('/api/v1/query', queryRoutes);
+app.use('/api/v1/reports', reportsRoutes);
+app.use('/api/v1/standard-material-lists', standardMaterialListsRoutes);
+app.use('/api/v1/upload', uploadRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');

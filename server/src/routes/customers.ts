@@ -91,16 +91,22 @@ router.get('/:id', async (req, res) => {
 // 创建客户
 router.post('/', async (req, res) => {
   try {
-    const { name, contact, phone, email, address, remark } = req.body;
+    // 兼容前端字段名
+    const { name, customer_name, contact, contact_person, phone, contact_phone, email, address, remark, customer_address } = req.body;
+    
+    const customerName = name || customer_name;
+    const contactName = contact || contact_person;
+    const phoneNumber = phone || contact_phone;
+    const customerAddress = address || customer_address;
 
-    if (!name) {
+    if (!customerName) {
       return res.status(400).json({ error: '客户名称不能为空' });
     }
 
     try {
       const result = await queryWithRetry(
         'INSERT INTO customers (name, contact, phone, email, address, remark) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [name, contact, phone, email, address, remark]
+        [customerName, contactName, phoneNumber, email, customerAddress, remark]
       );
       res.json(result.rows[0]);
     } catch (dbError: any) {
@@ -108,11 +114,11 @@ router.post('/', async (req, res) => {
       // 数据库失败时使用内存存储
       const newCustomer = {
         id: memoryCustomerId++,
-        name,
-        contact,
-        phone,
+        name: customerName,
+        contact: contactName,
+        phone: phoneNumber,
         email,
-        address,
+        address: customerAddress,
         remark,
         device_count: 0,
         created_at: new Date().toISOString(),
