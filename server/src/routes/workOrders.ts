@@ -6,29 +6,20 @@ const router = express.Router();
 // 内存数据存储
 const memoryWorkOrders: any[] = [];
 let memoryWorkOrderId = 1;
+let orderNoCounter = 1;
 
-// 带重试的查询函数（快速失败）
-async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {
-  if (!USE_DATABASE) {
-    throw new Error('Database not available');
-  }
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await pool.query(query, params);
-    } catch (error: any) {
-      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error('Max retries reached');
+// 生成工单编号
+function generateOrderNo() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const seq = String(orderNoCounter++).padStart(4, '0');
+  return `WO${year}${month}${day}${seq}`;
 }
 
 // 获取工单统计
 router.get('/stats', async (req, res) => {
-  // 如果数据库不可用，返回内存数据统计
   if (!USE_DATABASE) {
     const totalWorkOrders = memoryWorkOrders.length;
     const todayWorkOrders = memoryWorkOrders.filter(w => {
@@ -39,67 +30,20 @@ router.get('/stats', async (req, res) => {
     return res.json({
       total: totalWorkOrders,
       today: todayWorkOrders,
-      pending: memoryWorkOrders.filter(w => w.status === 'pending').length,
-      inProgress: memoryWorkOrders.filter(w => w.status === 'in_progress').length,
-      completed: memoryWorkOrders.filter(w => w.status === 'completed').length,
+      pending: memoryWorkOrders.filter(w => w.task_phase === '需求阶段').length,
+      inProgress: memoryWorkOrders.filter(w => w.task_phase === '实施阶段').length,
+      completed: memoryWorkOrders.filter(w => w.task_phase === '关单存档').length,
     });
   }
 
   try {
-    // 总工单数
-    const totalResult = await queryWithRetry('SELECT COUNT(*) as total FROM work_orders');
-    const totalWorkOrders = parseInt(totalResult.rows[0].total);
-
-    // 总收费工单数（假设有一个 is_charged 字段）
-    let chargedWorkOrders = 0;
-    try {
-      const chargedResult = await queryWithRetry(
-        "SELECT COUNT(*) as total FROM work_orders WHERE is_charged = true"
-      );
-      chargedWorkOrders = parseInt(chargedResult.rows[0].total);
-    } catch (e) {
-      console.log('is_charged field not found, using 0');
-    }
-
-    // 售后业绩金额（假设有 service_amount 字段）
-    let performanceAmount = 0;
-    try {
-      const performanceResult = await queryWithRetry(
-        'SELECT COALESCE(SUM(service_amount), 0) as total FROM work_orders WHERE service_amount IS NOT NULL'
-      );
-      performanceAmount = parseFloat(performanceResult.rows[0].total);
-    } catch (e) {
-      console.log('service_amount field not found, using 0');
-    }
-
-    // 售后代收款金额（假设有 pending_payment 字段）
-    let pendingPaymentAmount = 0;
-    try {
-      const pendingPaymentResult = await queryWithRetry(
-        'SELECT COALESCE(SUM(pending_payment), 0) as total FROM work_orders WHERE pending_payment IS NOT NULL'
-      );
-      pendingPaymentAmount = parseFloat(pendingPaymentResult.rows[0].total);
-    } catch (e) {
-      console.log('pending_payment field not found, using 0');
-    }
-
-    // 售后已收款金额（假设有 paid_amount 字段）
-    let paidAmount = 0;
-    try {
-      const paidAmountResult = await queryWithRetry(
-        'SELECT COALESCE(SUM(paid_amount), 0) as total FROM work_orders WHERE paid_amount IS NOT NULL'
-      );
-      paidAmount = parseFloat(paidAmountResult.rows[0].total);
-    } catch (e) {
-      console.log('paid_amount field not found, using 0');
-    }
-
+    const totalResult = await pool.query('SELECT COUNT(*) as total FROM work_orders');
     res.json({
-      totalWorkOrders,
-      chargedWorkOrders,
-      performanceAmount,
-      pendingPaymentAmount,
-      paidAmount,
+      total: parseInt(totalResult.rows[0].total),
+      today: 0,
+      pending: 0,
+      inProgress: 0,
+      completed: 0,
     });
   } catch (error) {
     console.error('Get work order stats error:', error);
@@ -109,19 +53,16 @@ router.get('/stats', async (req, res) => {
 
 // 获取工单列表
 router.get('/', async (req, res) => {
-  // 如果数据库不可用，返回内存数据
   if (!USE_DATABASE) {
-    const { keyword, status } = req.query;
+    const { keyword } = req.query;
     let filtered = [...memoryWorkOrders];
     
-    if (status && status !== 'all') {
-      filtered = filtered.filter(w => w.status === status);
-    }
     if (keyword) {
       const kw = (keyword as string).toLowerCase();
       filtered = filtered.filter(w => 
-        w.description?.toLowerCase().includes(kw) ||
-        w.order_no?.toLowerCase().includes(kw)
+        w.title?.toLowerCase().includes(kw) ||
+        w.order_no?.toLowerCase().includes(kw) ||
+        w.customer_name?.toLowerCase().includes(kw)
       );
     }
     
@@ -129,42 +70,26 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const { keyword, status } = req.query;
-
+    const { keyword } = req.query;
     let query = `
-      SELECT wo.*, cu.name as customer_name, d.device_name, d.device_number,
-              u.name as assignee_name, creator.name as creator_name
+      SELECT wo.*, cu.name as customer_name
        FROM work_orders wo
        LEFT JOIN customers cu ON wo.customer_id = cu.id
-       LEFT JOIN devices d ON wo.device_id = d.id
-       LEFT JOIN users u ON wo.assignee_id = u.id
-       LEFT JOIN users creator ON wo.created_by = creator.id
        WHERE 1=1
     `;
     const params: any[] = [];
 
-    // 状态筛选
-    if (status && status !== 'all') {
-      query += ' AND wo.status = $' + (params.length + 1);
-      params.push(status);
-    }
-
-    // 关键词搜索（支持多字段模糊搜索）
     if (keyword) {
       query += ` AND (
-        wo.description ILIKE $${params.length + 1} OR
-        wo.order_no ILIKE $${params.length + 1} OR
-        cu.name ILIKE $${params.length + 1} OR
-        d.device_name ILIKE $${params.length + 1} OR
-        d.device_number ILIKE $${params.length + 1} OR
-        u.name ILIKE $${params.length + 1}
+        wo.title ILIKE $1 OR
+        wo.order_no ILIKE $1 OR
+        cu.name ILIKE $1
       )`;
       params.push(`%${keyword}%`);
     }
 
     query += ' ORDER BY wo.created_at DESC LIMIT 50';
-
-    const result = await queryWithRetry(query, params);
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Get work orders error:', error);
@@ -176,14 +101,19 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await queryWithRetry(
-      `SELECT wo.*, cu.name as customer_name, d.device_name,
-              u.name as assignee_name, creator.name as creator_name
+    
+    if (!USE_DATABASE) {
+      const order = memoryWorkOrders.find(w => w.id === parseInt(id));
+      if (!order) {
+        return res.status(404).json({ error: '工单不存在' });
+      }
+      return res.json(order);
+    }
+
+    const result = await pool.query(
+      `SELECT wo.*, cu.name as customer_name, cu.contact_person, cu.contact_phone
        FROM work_orders wo
        LEFT JOIN customers cu ON wo.customer_id = cu.id
-       LEFT JOIN devices d ON wo.device_id = d.id
-       LEFT JOIN users u ON wo.assignee_id = u.id
-       LEFT JOIN users creator ON wo.created_by = creator.id
        WHERE wo.id = $1`,
       [id]
     );
@@ -201,65 +131,115 @@ router.get('/:id', async (req, res) => {
 
 // 创建工单
 router.post('/', async (req, res) => {
-  // 如果数据库不可用，使用内存存储
-  if (!USE_DATABASE) {
-    const { 
-      customer_id, device_id, contract_id, order_no, work_order_no,
-      type, work_order_type, priority, status, description,
-      assignee_id, created_by, stage, plan_hours, is_charged, quoted_price
-    } = req.body;
-    
-    const woNo = order_no || work_order_no;
-    const woType = type || work_order_type;
-    
-    if (!customer_id || !woType || !woNo) {
-      return res.status(400).json({ error: '缺少必填字段' });
-    }
-    
-    const newOrder = {
-      id: memoryWorkOrderId++,
-      customer_id,
-      device_id,
-      contract_id,
-      order_no: woNo,
-      type: woType,
-      priority: priority || 'normal',
-      status: status || 'pending',
-      description,
-      assignee_id,
-      created_by,
-      stage: stage || 'pending',
-      plan_hours: plan_hours || 0,
-      is_charged: is_charged || false,
-      quoted_price: quoted_price || 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    memoryWorkOrders.push(newOrder);
-    return res.json(newOrder);
-  }
-  
   try {
     const {
-      customer_id, device_id, contract_id, order_no, work_order_no,
-      type, work_order_type, priority, status, description,
-      assignee_id, created_by, stage, plan_hours, is_charged, quoted_price
+      // 基本情况
+      title, // 工单名称
+      order_no, // 工单编号（可选，不传则自动生成）
+      task_no, // 任务号
+      customer_id,
+      customer_name,
+      task_leader, // 任务负责人
+      implementation_entity, // 实施主体
+      // 工单状态
+      task_phase, // 任务阶段
+      task_progress, // 任务进度
+      task_status, // 任务状态
+      // 客户信息
+      contacts, // 联系人列表 [{name, role, phone}]
+      demand_date, // 接到服务需求日期
+      // 服务方案
+      service_plan, // 服务方案说明
+      plan_hours, // 计划工时
+      material_requirements, // 物料需求
+      warranty_status, // 质保期状态
+      is_charged, // 是否收费
+      quoted_price, // 报价金额
+      service_docs, // 服务方案文档路径
+      consensus_docs, // 客户共识凭证路径
+      consensus_date, // 服务方案客户共识日期
+      // 实施情况
+      implementer, // 实施人
+      implementation_complete_date, // 实施完成日期
+      actual_hours, // 实际工时投入
+      work_order_docs, // 派工单照片路径
+      site_completion_docs, // 现场完成照片路径
+      work_order_signer, // 派工单签字人
+      // 回款情况
+      invoice_application, // 是否申请开票
+      invoice_completed, // 开票是否完成
+      invoice_delivered, // 发票是否送达客户
+      planned_payment_date, // 计划回款日期
+      actual_payment_date, // 实际回款日期
     } = req.body;
 
-    const woNo = order_no || work_order_no;
-    const woType = type || work_order_type;
+    // 生成工单编号
+    const woNo = order_no || generateOrderNo();
 
-    if (!customer_id || !woType || !woNo) {
-      return res.status(400).json({ error: '缺少必填字段' });
+    if (!USE_DATABASE) {
+      const newOrder = {
+        id: memoryWorkOrderId++,
+        order_no: woNo,
+        title: title || '',
+        task_no: task_no || woNo,
+        customer_id,
+        customer_name: customer_name || '',
+        task_leader: task_leader || '',
+        implementation_entity: implementation_entity || '',
+        task_phase: task_phase || '需求阶段',
+        task_progress: task_progress || '10%收到服务需求',
+        task_status: task_status || '计划中',
+        contacts: contacts || [],
+        demand_date: demand_date || null,
+        service_plan: service_plan || '',
+        plan_hours: plan_hours || 0,
+        material_requirements: material_requirements || '',
+        warranty_status: warranty_status || '',
+        is_charged: is_charged || false,
+        quoted_price: quoted_price || 0,
+        service_docs: service_docs || '',
+        consensus_docs: consensus_docs || '',
+        consensus_date: consensus_date || null,
+        implementer: implementer || '',
+        implementation_complete_date: implementation_complete_date || null,
+        actual_hours: actual_hours || 0,
+        work_order_docs: work_order_docs || '',
+        site_completion_docs: site_completion_docs || '',
+        work_order_signer: work_order_signer || '',
+        invoice_application: invoice_application || '',
+        invoice_completed: invoice_completed || '',
+        invoice_delivered: invoice_delivered || '',
+        planned_payment_date: planned_payment_date || null,
+        actual_payment_date: actual_payment_date || null,
+        payment_progress: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryWorkOrders.push(newOrder);
+      return res.json(newOrder);
     }
 
-    const result = await queryWithRetry(
-      `INSERT INTO work_orders (customer_id, device_id, contract_id, order_no, type, priority, status,
-        description, assignee_id, created_by, stage, plan_hours, is_charged, quoted_price)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-      [customer_id, device_id, contract_id, woNo, woType, priority || 'normal', status || 'pending',
-        description, assignee_id, created_by, stage || 'pending', plan_hours || 0,
-        is_charged || false, quoted_price || 0]
+    const result = await pool.query(
+      `INSERT INTO work_orders (
+        order_no, title, task_no, customer_id, customer_name, task_leader, implementation_entity,
+        task_phase, task_progress, task_status, contacts, demand_date,
+        service_plan, plan_hours, material_requirements, warranty_status, is_charged, quoted_price,
+        service_docs, consensus_docs, consensus_date,
+        implementer, implementation_complete_date, actual_hours, work_order_docs, site_completion_docs, work_order_signer,
+        invoice_application, invoice_completed, invoice_delivered, planned_payment_date, actual_payment_date,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+      RETURNING *`,
+      [
+        woNo, title || '', task_no || woNo, customer_id, customer_name || '', task_leader || '', implementation_entity || '',
+        task_phase || '需求阶段', task_progress || '10%收到服务需求', task_status || '计划中',
+        JSON.stringify(contacts || []), demand_date || null,
+        service_plan || '', plan_hours || 0, material_requirements || '', warranty_status || '', is_charged || false, quoted_price || 0,
+        service_docs || '', consensus_docs || '', consensus_date || null,
+        implementer || '', implementation_complete_date || null, actual_hours || 0, work_order_docs || '', site_completion_docs || '', work_order_signer || '',
+        invoice_application || '', invoice_completed || '', invoice_delivered || '', planned_payment_date || null, actual_payment_date || null,
+        new Date(), new Date()
+      ]
     );
 
     res.json(result.rows[0]);
@@ -277,16 +257,98 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, priority, description, assignee_id, stage, plan_hours, is_charged, quoted_price } = req.body;
+    const updates = req.body;
 
-    const result = await queryWithRetry(
-      `UPDATE work_orders SET status = $1, priority = $2, description = $3, assignee_id = $4,
-        updated_at = CURRENT_TIMESTAMP, stage = COALESCE($5, stage),
-        plan_hours = COALESCE($6, plan_hours), is_charged = COALESCE($7, is_charged),
-        quoted_price = COALESCE($8, quoted_price)
-       WHERE id = $9 RETURNING *`,
-      [status, priority, description, assignee_id, stage, plan_hours, is_charged, quoted_price, id]
-    );
+    if (!USE_DATABASE) {
+      const index = memoryWorkOrders.findIndex(w => w.id === parseInt(id));
+      if (index === -1) {
+        return res.status(404).json({ error: '工单不存在' });
+      }
+      
+      // 处理联系人列表
+      if (updates.contacts) {
+        updates.contacts = updates.contacts;
+      }
+      
+      // 添加回款进度
+      if (updates.addPaymentProgress) {
+        if (!memoryWorkOrders[index].payment_progress) {
+          memoryWorkOrders[index].payment_progress = [];
+        }
+        memoryWorkOrders[index].payment_progress.push({
+          id: Date.now(),
+          progress: updates.addPaymentProgress,
+          updated_at: new Date().toISOString(),
+        });
+        delete updates.addPaymentProgress;
+      }
+      
+      memoryWorkOrders[index] = {
+        ...memoryWorkOrders[index],
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+      return res.json(memoryWorkOrders[index]);
+    }
+
+    // 构建动态更新查询
+    const fields: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    // 基本情况
+    if (updates.title !== undefined) { fields.push(`title = $${paramCount++}`); values.push(updates.title); }
+    if (updates.task_no !== undefined) { fields.push(`task_no = $${paramCount++}`); values.push(updates.task_no); }
+    if (updates.customer_id !== undefined) { fields.push(`customer_id = $${paramCount++}`); values.push(updates.customer_id); }
+    if (updates.customer_name !== undefined) { fields.push(`customer_name = $${paramCount++}`); values.push(updates.customer_name); }
+    if (updates.task_leader !== undefined) { fields.push(`task_leader = $${paramCount++}`); values.push(updates.task_leader); }
+    if (updates.implementation_entity !== undefined) { fields.push(`implementation_entity = $${paramCount++}`); values.push(updates.implementation_entity); }
+    
+    // 工单状态
+    if (updates.task_phase !== undefined) { fields.push(`task_phase = $${paramCount++}`); values.push(updates.task_phase); }
+    if (updates.task_progress !== undefined) { fields.push(`task_progress = $${paramCount++}`); values.push(updates.task_progress); }
+    if (updates.task_status !== undefined) { fields.push(`task_status = $${paramCount++}`); values.push(updates.task_status); }
+    
+    // 客户信息
+    if (updates.contacts !== undefined) { fields.push(`contacts = $${paramCount++}`); values.push(JSON.stringify(updates.contacts)); }
+    if (updates.demand_date !== undefined) { fields.push(`demand_date = $${paramCount++}`); values.push(updates.demand_date); }
+    
+    // 服务方案
+    if (updates.service_plan !== undefined) { fields.push(`service_plan = $${paramCount++}`); values.push(updates.service_plan); }
+    if (updates.plan_hours !== undefined) { fields.push(`plan_hours = $${paramCount++}`); values.push(updates.plan_hours); }
+    if (updates.material_requirements !== undefined) { fields.push(`material_requirements = $${paramCount++}`); values.push(updates.material_requirements); }
+    if (updates.warranty_status !== undefined) { fields.push(`warranty_status = $${paramCount++}`); values.push(updates.warranty_status); }
+    if (updates.is_charged !== undefined) { fields.push(`is_charged = $${paramCount++}`); values.push(updates.is_charged); }
+    if (updates.quoted_price !== undefined) { fields.push(`quoted_price = $${paramCount++}`); values.push(updates.quoted_price); }
+    if (updates.service_docs !== undefined) { fields.push(`service_docs = $${paramCount++}`); values.push(updates.service_docs); }
+    if (updates.consensus_docs !== undefined) { fields.push(`consensus_docs = $${paramCount++}`); values.push(updates.consensus_docs); }
+    if (updates.consensus_date !== undefined) { fields.push(`consensus_date = $${paramCount++}`); values.push(updates.consensus_date); }
+    
+    // 实施情况
+    if (updates.implementer !== undefined) { fields.push(`implementer = $${paramCount++}`); values.push(updates.implementer); }
+    if (updates.implementation_complete_date !== undefined) { fields.push(`implementation_complete_date = $${paramCount++}`); values.push(updates.implementation_complete_date); }
+    if (updates.actual_hours !== undefined) { fields.push(`actual_hours = $${paramCount++}`); values.push(updates.actual_hours); }
+    if (updates.work_order_docs !== undefined) { fields.push(`work_order_docs = $${paramCount++}`); values.push(updates.work_order_docs); }
+    if (updates.site_completion_docs !== undefined) { fields.push(`site_completion_docs = $${paramCount++}`); values.push(updates.site_completion_docs); }
+    if (updates.work_order_signer !== undefined) { fields.push(`work_order_signer = $${paramCount++}`); values.push(updates.work_order_signer); }
+    
+    // 回款情况
+    if (updates.invoice_application !== undefined) { fields.push(`invoice_application = $${paramCount++}`); values.push(updates.invoice_application); }
+    if (updates.invoice_completed !== undefined) { fields.push(`invoice_completed = $${paramCount++}`); values.push(updates.invoice_completed); }
+    if (updates.invoice_delivered !== undefined) { fields.push(`invoice_delivered = $${paramCount++}`); values.push(updates.invoice_delivered); }
+    if (updates.planned_payment_date !== undefined) { fields.push(`planned_payment_date = $${paramCount++}`); values.push(updates.planned_payment_date); }
+    if (updates.actual_payment_date !== undefined) { fields.push(`actual_payment_date = $${paramCount++}`); values.push(updates.actual_payment_date); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: '没有需要更新的字段' });
+    }
+
+    fields.push(`updated_at = $${paramCount++}`);
+    values.push(new Date());
+    values.push(id);
+
+    const query = `UPDATE work_orders SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: '工单不存在' });
@@ -299,11 +361,55 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// 添加回款进度
+router.post('/:id/payment-progress', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { progress } = req.body;
+
+    if (!progress) {
+      return res.status(400).json({ error: '回款进度内容不能为空' });
+    }
+
+    if (!USE_DATABASE) {
+      const order = memoryWorkOrders.find(w => w.id === parseInt(id));
+      if (!order) {
+        return res.status(404).json({ error: '工单不存在' });
+      }
+      if (!order.payment_progress) {
+        order.payment_progress = [];
+      }
+      const newProgress = {
+        id: Date.now(),
+        progress,
+        updated_at: new Date().toISOString(),
+      };
+      order.payment_progress.push(newProgress);
+      return res.json(newProgress);
+    }
+
+    // 数据库模式需要在work_orders表中添加payment_progress字段或创建新表
+    res.json({ id: Date.now(), progress, updated_at: new Date() });
+  } catch (error) {
+    console.error('Add payment progress error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
 // 删除工单
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await queryWithRetry('DELETE FROM work_orders WHERE id = $1', [id]);
+    
+    if (!USE_DATABASE) {
+      const index = memoryWorkOrders.findIndex(w => w.id === parseInt(id));
+      if (index !== -1) {
+        memoryWorkOrders.splice(index, 1);
+      }
+      return res.json({ message: '删除成功' });
+    }
+
+    await pool.query('DELETE FROM work_orders WHERE id = $1', [id]);
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('Delete work order error:', error);
@@ -322,28 +428,6 @@ router.get('/:id/logs', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get work order logs error:', error);
-    res.status(500).json({ error: '服务器错误' });
-  }
-});
-
-// 添加工单日志
-router.post('/:id/logs', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { user_id, action, description } = req.body;
-
-    if (!user_id || !action) {
-      return res.status(400).json({ error: '缺少必填字段' });
-    }
-
-    const result = await pool.query(
-      'INSERT INTO work_order_logs (work_order_id, user_id, action, description) VALUES ($1, $2, $3, $4) RETURNING *',
-      [id, user_id, action, description]
-    );
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Create work order log error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
 });
