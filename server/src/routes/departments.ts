@@ -59,6 +59,11 @@ router.get('/:id', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      // 尝试从内存数据中查找
+      const memoryDept = memoryDepartments.find(d => d.id === parseInt(id));
+      if (memoryDept) {
+        return res.json({ ...memoryDept, children: [] });
+      }
       return res.status(404).json({ error: '部门不存在' });
     }
 
@@ -75,7 +80,13 @@ router.get('/:id', async (req, res) => {
 
     res.json(department);
   } catch (error) {
-    console.error('Get department error:', error);
+    console.error('Get department error, using memory storage:', error);
+    // 数据库失败时从内存数据中查找
+    const { id } = req.params;
+    const memoryDept = memoryDepartments.find(d => d.id === parseInt(id));
+    if (memoryDept) {
+      return res.json({ ...memoryDept, children: [] });
+    }
     res.status(500).json({ error: '获取部门详情失败' });
   }
 });

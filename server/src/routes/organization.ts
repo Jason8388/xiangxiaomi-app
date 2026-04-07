@@ -1,17 +1,42 @@
 import express from 'express';
 import pool from '../database/db';
+import { memoryDepartments, memoryUsersList } from '../database/memory-storage';
 
 const router = express.Router();
 
-// 带重试机制的数据库查询
-async function queryWithRetry(sql: string, params: any[] = [], retries = 3): Promise<any> {
+// 内存数据构建组织结构
+function buildMemoryOrganization() {
+  const tree = memoryDepartments.map(dept => ({
+    ...dept,
+    employeeCount: memoryUsersList.filter(u => u.department_id === dept.id).length,
+    employees: memoryUsersList.filter(u => u.department_id === dept.id),
+    children: [],
+  }));
+  
+  const unassignedEmployees = memoryUsersList.filter(u => !u.department_id);
+  
+  return {
+    tree,
+    unassignedEmployees,
+    totalDepartments: memoryDepartments.length,
+    totalEmployees: memoryUsersList.length,
+  };
+}
+
+// 带超时和重试的数据库查询
+async function queryWithRetry(sql: string, params: any[] = [], retries = 1): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
-      return await pool.query(sql, params);
+      // 使用 Promise.race 添加超时控制（3秒）
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout')), 3000);
+      });
+      const queryPromise = pool.query(sql, params);
+      return await Promise.race([queryPromise, timeoutPromise]);
     } catch (error: any) {
       console.error(`Query attempt ${i + 1} failed:`, error.message);
       if (i === retries - 1) throw error;
-      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
   throw new Error('Query failed after retries');
@@ -74,8 +99,10 @@ router.get('/', async (req, res) => {
       totalEmployees: userResult.rows.length,
     });
   } catch (error: any) {
-    console.error('Get organization error:', error);
-    res.status(500).json({ error: '获取组织结构失败: ' + error.message });
+    console.error('Get organization error, using memory storage:', error);
+    // 数据库失败时返回内存数据
+    const memoryOrg = buildMemoryOrganization();
+    return res.json(memoryOrg);
   }
 });
 
