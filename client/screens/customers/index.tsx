@@ -14,7 +14,6 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface Customer {
   id: number;
@@ -55,9 +54,18 @@ export default function CustomerManagement() {
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
       try {
-        await cachedFetch('customers-list', fetchCustomers, 'medium');
+        setLoading(true);
+        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+        const data = await response.json();
+        if (response.ok) {
+          const list = Array.isArray(data) ? data : (data.data || []);
+          const sorted = list.sort((a: Customer, b: Customer) => b.device_count - a.device_count);
+          setCustomers(sorted);
+          setFilteredCustomers(sorted);
+        }
+      } catch (error) {
+        console.error('Fetch customers error:', error);
       } finally {
         setLoading(false);
       }
@@ -65,6 +73,7 @@ export default function CustomerManagement() {
     loadData();
   }, []);
 
+  // 搜索过滤
   useEffect(() => {
     if (searchKeyword.trim()) {
       const filtered = customers.filter(
@@ -78,28 +87,6 @@ export default function CustomerManagement() {
       setFilteredCustomers(customers);
     }
   }, [searchKeyword, customers]);
-
-  const fetchCustomers = async (): Promise<Customer[]> => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
-      const data = await response.json();
-      if (response.ok) {
-        // 后端返回 { data: [], total: 0 } 格式
-        const list = Array.isArray(data) ? data : (data.data || []);
-        // 按设备数量降序排序
-        const sorted = list.sort((a: Customer, b: Customer) => b.device_count - a.device_count);
-        setCustomers(sorted);
-        return sorted;
-      }
-      return [];
-    } catch (error) {
-      console.error('Fetch customers error:', error);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAdd = () => {
     setEditingCustomer(null);

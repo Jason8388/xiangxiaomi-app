@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { cachedFetch, clearCache } from '@/utils/storage';
+import { clearCache } from '@/utils/storage';
 
 interface Contract {
   id: number;
@@ -67,13 +67,39 @@ export default function ContractManagement() {
   const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
+    const loadContracts = async () => {
+      try {
+        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
+        const data = await response.json();
+        if (response.ok && Array.isArray(data)) {
+          const sorted = data.sort((a: Contract, b: Contract) =>
+            new Date(b.sign_date).getTime() - new Date(a.sign_date).getTime()
+          );
+          setContracts(sorted);
+          setFilteredContracts(sorted);
+        }
+      } catch (error) {
+        console.error('Fetch contracts error:', error);
+      }
+    };
+
+    const loadCustomers = async () => {
+      try {
+        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setCustomers(data);
+          setFilteredCustomers(data);
+        }
+      } catch (error) {
+        console.error('Fetch customers error:', error);
+      }
+    };
+
     const loadData = async () => {
       try {
         setLoading(true);
-        await Promise.all([
-          cachedFetch('contracts-list', fetchContracts, 'medium'),
-          cachedFetch('customers-list', fetchCustomers, 'medium'),
-        ]);
+        await Promise.all([loadContracts(), loadCustomers()]);
       } finally {
         setLoading(false);
       }
@@ -111,39 +137,6 @@ export default function ContractManagement() {
       setFilteredCustomers(customers);
     }
   }, [customerSearchKeyword, customers]);
-
-  const fetchContracts = async (): Promise<Contract[]> => {
-    try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/contracts`);
-      const data = await response.json();
-      if (response.ok && Array.isArray(data)) {
-        const sorted = data.sort((a: Contract, b: Contract) =>
-          new Date(b.sign_date).getTime() - new Date(a.sign_date).getTime()
-        );
-        setContracts(sorted);
-        return sorted;
-      }
-      return [];
-    } catch (error) {
-      console.error('Fetch contracts error:', error);
-      return [];
-    }
-  };
-
-  const fetchCustomers = async (): Promise<Customer[]> => {
-    try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setCustomers(data);
-        return data;
-      }
-      return [];
-    } catch (error) {
-      console.error('Fetch customers error:', error);
-      return [];
-    }
-  };
 
   const handleAdd = () => {
     setEditingContract(null);
