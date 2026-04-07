@@ -87,9 +87,11 @@ export default function ContractManagement() {
       try {
         const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
         const data = await response.json();
-        if (Array.isArray(data)) {
-          setCustomers(data);
-          setFilteredCustomers(data);
+        // 后端返回 { data: [], total: 0 } 格式
+        const list = Array.isArray(data) ? data : (data.data || []);
+        if (list.length > 0) {
+          setCustomers(list);
+          setFilteredCustomers(list);
         }
       } catch (error) {
         console.error('Fetch customers error:', error);
