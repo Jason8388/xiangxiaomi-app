@@ -353,4 +353,124 @@ router.get('/:release_id', async (req, res) => {
   }
 });
 
+// 获取最新发布的版本（用于APP检查更新）
+router.get('/latest/check', async (req, res) => {
+  try {
+    const { current_version } = req.query;
+
+    // Fallback预置版本数据（数据库不可用时使用）
+    const fallbackVersion = {
+      version_code: 110,
+      version_name: '1.1.0',
+      version_title: '项小秘 v1.1.0 更新版',
+      description: '新版本包含Bug修复和性能优化。',
+      download_url: 'https://example.com/download',
+      force_update: false,
+      published_at: new Date().toISOString(),
+      published_by: 'admin',
+    };
+
+    let latestVersion = fallbackVersion;
+
+    // 尝试从数据库获取
+    try {
+      const result = await pool.query(
+        `SELECT vr.*, u.username as published_by_name
+         FROM version_releases vr
+         LEFT JOIN users u ON vr.published_by = u.id
+         WHERE vr.approval_status = 'approved' AND vr.release_status = 'published'
+         ORDER BY vr.created_at DESC
+         LIMIT 1`
+      );
+
+      if (result.rows.length > 0) {
+        latestVersion = {
+          version_code: result.rows[0].version_code,
+          version_name: result.rows[0].version_name,
+          version_title: result.rows[0].version_title,
+          description: result.rows[0].description,
+          download_url: result.rows[0].download_url,
+          force_update: false,
+          published_at: result.rows[0].published_at || result.rows[0].updated_at,
+          published_by: result.rows[0].published_by_name,
+        };
+      }
+    } catch (dbError) {
+      console.log('Using fallback version data due to DB error');
+    }
+
+    // 比较版本号
+    let hasUpdate = false;
+    let updateType = 'none';
+
+    if (current_version) {
+      const current = current_version.toString();
+      const latest = latestVersion.version_name || latestVersion.version_code.toString();
+
+      // 简单版本号比较：1.0.0 < 1.0.1 < 1.1.0 < 2.0.0
+      const parseVersion = (v: string) => {
+        const parts = v.split('.').map(p => parseInt(p) || 0);
+        return parts[0] * 100 + parts[1] * 10 + (parts[2] || 0);
+      };
+
+      const currentNum = parseVersion(current);
+      const latestNum = parseVersion(latest);
+
+      if (latestNum > currentNum) {
+        hasUpdate = true;
+        updateType = 'optional';
+      }
+    }
+
+    res.json({
+      hasUpdate,
+      updateType,
+      latestVersion: {
+        version_code: latestVersion.version_code,
+        version_name: latestVersion.version_name,
+        version_title: latestVersion.version_title,
+        description: latestVersion.description,
+        download_url: latestVersion.download_url,
+        force_update: latestVersion.force_update,
+        published_at: latestVersion.published_at,
+        published_by: latestVersion.published_by,
+      },
+    });
+  } catch (error) {
+    console.error('Check version error:', error);
+    res.json({
+      hasUpdate: false,
+      latestVersion: null,
+      updateInfo: null,
+    });
+  }
+});
+
+// 获取版本列表（移动端用）
+router.get('/mobile/list', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const result = await pool.query(
+      `SELECT vr.version_code, vr.version_name, vr.version_title, vr.description,
+              vr.download_url, vr.force_update, vr.updated_at, u.username as published_by_name
+       FROM version_releases vr
+       LEFT JOIN users u ON vr.published_by = u.id
+       WHERE vr.approval_status = 'approved' AND vr.release_status = 'published'
+       ORDER BY vr.created_at DESC
+       LIMIT $1`,
+      [Number(limit)]
+    );
+
+    res.json({
+      code: 0,
+      data: result.rows,
+      message: 'success',
+    });
+  } catch (error) {
+    console.error('Get mobile versions error:', error);
+    res.status(500).json({ error: '获取版本列表失败' });
+  }
+});
+
 export default router;

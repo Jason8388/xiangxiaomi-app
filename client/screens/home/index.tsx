@@ -4,6 +4,10 @@ import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { storage } from '@/utils/storage';
+import { useVersionCheck } from '@/components/UpdateDialog';
+
+// 当前APP版本号
+const CURRENT_VERSION = '1.0.0';
 
 interface User {
   id: number;
@@ -121,6 +125,13 @@ const adminNavItems: NavigationItem[] = [
     color: '#00CEC9',
     route: '/organization',
   },
+  {
+    id: 'version',
+    title: '版本管理',
+    icon: 'code-branch',
+    color: '#8E44AD',
+    route: '/version-management',
+  },
 ];
 
 export default function HomeScreen() {
@@ -128,8 +139,18 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const router = useSafeRouter();
 
+  // 版本更新检测
+  const {
+    checkForUpdate,
+    UpdateDialogComponent,
+  } = useVersionCheck(CURRENT_VERSION);
+
   useEffect(() => {
     loadUserInfo();
+    // 延迟检查版本更新，确保用户已登录
+    setTimeout(() => {
+      checkForUpdate();
+    }, 2000);
   }, []);
 
   const loadUserInfo = async () => {
@@ -158,6 +179,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
+      {UpdateDialogComponent}
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 120 }}
