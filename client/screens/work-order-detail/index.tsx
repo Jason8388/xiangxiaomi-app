@@ -62,6 +62,9 @@ interface WorkOrderDetail {
   service_docs?: string;
   consensus_docs?: string;
   consensus_date?: string;
+  sales_sub_project_no?: string;
+  material_code?: string;
+  oa_work_order_no?: string;
   implementer?: string;
   implementation_complete_date?: string;
   actual_hours?: number;
@@ -158,6 +161,9 @@ export default function WorkOrderDetailScreen() {
     service_docs: '',
     consensus_docs: '',
     consensus_date: '',
+    sales_sub_project_no: '',
+    material_code: '',
+    oa_work_order_no: '',
     implementer: '',
     implementation_complete_date: '',
     actual_hours: 0,
@@ -229,6 +235,9 @@ export default function WorkOrderDetailScreen() {
         service_docs: data.service_docs || '',
         consensus_docs: data.consensus_docs || '',
         consensus_date: data.consensus_date || '',
+        sales_sub_project_no: data.sales_sub_project_no || '',
+        material_code: data.material_code || '',
+        oa_work_order_no: data.oa_work_order_no || '',
         implementer: data.implementer || '',
         implementation_complete_date: data.implementation_complete_date || '',
         actual_hours: data.actual_hours || 0,
@@ -339,6 +348,23 @@ export default function WorkOrderDetailScreen() {
       setOrder({ ...order, requirement_photos: newPhotos });
     }
   };
+
+  // 多行文本输入处理
+  const renderMultiLineRow = (label: string, field: keyof WorkOrderDetail, placeholder?: string) => (
+    <View style={styles.multiLineContainer}>
+      <Text style={styles.multiLineLabel}>{label}</Text>
+      <TextInput
+        style={styles.multiLineInput}
+        value={(order?.[field] as string) || ''}
+        onChangeText={(text) => handleTextChange(field, text)}
+        placeholder={placeholder || `请输入${label}`}
+        placeholderTextColor="#CCC"
+        multiline
+        numberOfLines={3}
+        textAlignVertical="top"
+      />
+    </View>
+  );
 
   // 上传报价单照片或共识凭证
   const handleUploadMedia = async (field: 'quoted_price_doc' | 'consensus_docs' | 'work_order_docs' | 'site_completion_docs') => {
@@ -877,6 +903,9 @@ export default function WorkOrderDetailScreen() {
                       <Text style={styles.uploadBtnText}>{order.consensus_docs ? '已上传' : '上传'}</Text>
                     </TouchableOpacity>
                   </View>
+                  {renderInputRow('销售子项目号', 'sales_sub_project_no', '请输入销售子项目号')}
+                  {renderMultiLineRow('物料编码', 'material_code', '请输入物料编码（支持多行）')}
+                  {renderInputRow('OA系统工单编号', 'oa_work_order_no', '请输入OA系统工单编号')}
                 </>
               ) : (
                 <>
@@ -904,6 +933,9 @@ export default function WorkOrderDetailScreen() {
                       <Text style={styles.uploadBtnText}>{order.consensus_docs ? '已上传' : '上传'}</Text>
                     </TouchableOpacity>
                   </View>
+                  {renderInputRow('销售子项目号', 'sales_sub_project_no', '请输入销售子项目号', true)}
+                  {renderMultiLineRow('物料编码', 'material_code', '请输入物料编码（支持多行）')}
+                  {renderInputRow('OA系统工单编号', 'oa_work_order_no', '请输入OA系统工单编号', true)}
                 </>
               )}
             </View>
@@ -1230,4 +1262,7 @@ const styles = StyleSheet.create({
   photoText: { fontSize: 12, color: '#636E72' },
   uploadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   uploadLabel: { fontSize: 13, color: '#636E72', flex: 1 },
+  multiLineContainer: { marginBottom: 12 },
+  multiLineLabel: { fontSize: 13, color: '#95A5A6', marginBottom: 6 },
+  multiLineInput: { backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#2D3436', minHeight: 80 },
 });
