@@ -67,6 +67,11 @@ export default function EmployeeManagement() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editPosition, setEditPosition] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editDepartmentId, setEditDepartmentId] = useState<number | null>(null);
+  const [editDepartmentName, setEditDepartmentName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editDeptSelectorVisible, setEditDeptSelectorVisible] = useState(false);
 
   // 禁用状态
   const [disableModalVisible, setDisableModalVisible] = useState(false);
@@ -224,20 +229,59 @@ export default function EmployeeManagement() {
   const handleEditUser = (userItem: User) => {
     setSelectedUser(userItem);
     setEditPosition(userItem.position || '');
+    setEditPhone(userItem.phone || '');
+    setEditDepartmentId(userItem.department_id || null);
+    setEditDepartmentName(userItem.department_name || '');
+    setEditPassword('');
     setEditModalVisible(true);
   };
 
-  const handleSavePosition = async () => {
+  const handleSelectEditDepartment = (dept: { id: number; name: string }) => {
+    setEditDepartmentId(dept.id);
+    setEditDepartmentName(dept.name);
+    setEditDeptSelectorVisible(false);
+  };
+
+  const handleSaveUser = async () => {
+    if (!editPosition.trim()) {
+      Alert.alert('提示', '岗位名称不能为空');
+      return;
+    }
+
+    if (!editPhone.trim()) {
+      Alert.alert('提示', '电话号码不能为空');
+      return;
+    }
+
+    if (!/^1[3-9]\d{9}$/.test(editPhone)) {
+      Alert.alert('提示', '请输入正确的手机号码');
+      return;
+    }
+
+    if (editPassword && editPassword.length < 6) {
+      Alert.alert('提示', '密码长度至少6位');
+      return;
+    }
+
     try {
+      const updateData: any = {
+        position: editPosition.trim(),
+        phone: editPhone.trim(),
+        department_id: editDepartmentId,
+        operator_id: user?.id,
+      };
+
+      // 如果输入了新密码，则包含在更新数据中
+      if (editPassword && editPassword.trim()) {
+        updateData.password = editPassword.trim();
+      }
+
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/users/${selectedUser?.id}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            position: editPosition,
-            operator_id: user?.id,
-          }),
+          body: JSON.stringify(updateData),
         }
       );
 
@@ -247,7 +291,7 @@ export default function EmployeeManagement() {
         throw new Error(data.error || '更新失败');
       }
 
-      Alert.alert('成功', '更新成功');
+      Alert.alert('成功', '账号信息更新成功');
       setEditModalVisible(false);
       loadData(); // 刷新数据
     } catch (error: any) {
@@ -552,19 +596,55 @@ export default function EmployeeManagement() {
         </View>
       </Modal>
 
-      {/* 编辑岗位 Modal */}
+
+      {/* 编辑账号 Modal */}
       <Modal visible={editModalVisible} transparent animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>修改岗位</Text>
+            <Text style={styles.modalTitle}>修改账号信息</Text>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>岗位</Text>
+              <Text style={styles.label}>岗位名称</Text>
               <TextInput
                 style={styles.input}
                 value={editPosition}
                 onChangeText={setEditPosition}
                 placeholder="请输入岗位名称"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>部门</Text>
+              <TouchableOpacity
+                style={styles.departmentSelector}
+                onPress={() => setEditDeptSelectorVisible(true)}
+              >
+                <Text style={editDepartmentName ? styles.departmentSelectorText : styles.departmentSelectorPlaceholder}>
+                  {editDepartmentName || '请选择部门'}
+                </Text>
+                <FontAwesome6 name="chevron-down" size={14} color="#95A5A6" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>电话号码</Text>
+              <TextInput
+                style={styles.input}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder="请输入电话号码"
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>新密码</Text>
+              <TextInput
+                style={styles.input}
+                value={editPassword}
+                onChangeText={setEditPassword}
+                placeholder="留空则不修改密码"
+                secureTextEntry
               />
             </View>
 
@@ -577,7 +657,7 @@ export default function EmployeeManagement() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={handleSavePosition}
+                onPress={handleSaveUser}
               >
                 <Text style={styles.modalButtonTextConfirm}>保存</Text>
               </TouchableOpacity>
@@ -585,6 +665,38 @@ export default function EmployeeManagement() {
           </View>
         </View>
       </Modal>
+
+      {/* 编辑-部门选择 Modal */}
+      <Modal visible={editDeptSelectorVisible} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>选择部门</Text>
+
+            <ScrollView style={styles.departmentList}>
+              {flatDepartments.map((dept) => (
+                <TouchableOpacity
+                  key={dept.id}
+                  style={[styles.departmentItem, { marginLeft: dept.level * 16 }]}
+                  onPress={() => handleSelectEditDepartment(dept)}
+                >
+                  <FontAwesome6 name="folder" size={16} color="#F39C12" />
+                  <Text style={styles.departmentName}>{dept.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setEditDeptSelectorVisible(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>取消</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
 
       {/* 禁用账号 Modal */}
       <Modal visible={disableModalVisible} transparent animationType="fade">

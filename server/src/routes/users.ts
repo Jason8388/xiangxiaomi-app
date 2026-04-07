@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
-import pool from '../database/db';
+import pool, { USE_DATABASE } from '../database/db';
 import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsers, memoryUsersArray, memoryUsersList } from '../database/memory-storage';
 
 const router = express.Router();
@@ -386,10 +386,46 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, role, password, position } = req.body;
+    const { name, role, password, position, phone, department_id } = req.body;
 
+    // 使用内存存储模式
+    if (!USE_DATABASE) {
+      const userIndex = memoryUsersList.findIndex((u: any) => u.id === parseInt(id));
+      if (userIndex === -1) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+
+      // 更新字段
+      if (name) memoryUsersList[userIndex].name = name;
+      if (role) memoryUsersList[userIndex].role = role;
+      if (password) memoryUsersList[userIndex].password = password;
+      if (position !== undefined) memoryUsersList[userIndex].position = position;
+      if (phone !== undefined) memoryUsersList[userIndex].phone = phone;
+      if (department_id !== undefined) memoryUsersList[userIndex].department_id = department_id;
+      memoryUsersList[userIndex].updated_at = new Date().toISOString();
+
+      // 同时更新所有内存中的用户列表
+      const updateInAllLists = (list: any[]) => {
+        const idx = list.findIndex(u => u.id === parseInt(id));
+        if (idx !== -1) {
+          if (name) list[idx].name = name;
+          if (role) list[idx].role = role;
+          if (password) list[idx].password = password;
+          if (position !== undefined) list[idx].position = position;
+          if (phone !== undefined) list[idx].phone = phone;
+          if (department_id !== undefined) list[idx].department_id = department_id;
+        }
+      };
+      updateInAllLists(memoryUsersArray);
+
+      // 返回更新后的用户（不包含密码）
+      const { password: _, ...userWithoutPassword } = memoryUsersList[userIndex];
+      return res.json(userWithoutPassword);
+    }
+
+    // 数据库模式
     let query = 'UPDATE users SET updated_at = CURRENT_TIMESTAMP';
-    const values = [];
+    const values: any[] = [];
     let paramCount = 1;
 
     if (name) {
@@ -416,8 +452,20 @@ router.put('/:id', async (req, res) => {
       paramCount++;
     }
 
-    query += ` WHERE id = $${paramCount} RETURNING id, username, name, role, position, created_at`;
-    values.push(id);
+    if (phone !== undefined) {
+      query += `, phone = $${paramCount}`;
+      values.push(phone);
+      paramCount++;
+    }
+
+    if (department_id !== undefined) {
+      query += `, department_id = $${paramCount}`;
+      values.push(department_id);
+      paramCount++;
+    }
+
+    query += ` WHERE id = $${paramCount} RETURNING id, username, name, role, position, phone, department_id, created_at`;
+    values.push(parseInt(id));
 
     const result = await pool.query(query, values);
 
