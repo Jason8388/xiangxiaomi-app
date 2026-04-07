@@ -180,7 +180,7 @@ export default function WorkOrdersScreen() {
 
   const handleAdd = () => {
     clearCache();
-    router.push('/work-order-create');
+    router.push('/work-order-detail', { id: 'new' });
   };
 
   const handleEdit = (order: WorkOrder) => {

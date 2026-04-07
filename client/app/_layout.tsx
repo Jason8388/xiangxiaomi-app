@@ -55,7 +55,6 @@ function RootLayoutInner() {
         <Stack.Screen name="help-faq" options={{ title: "常见问题" }} />
         <Stack.Screen name="customer-detail" options={{ title: "" }} />
         <Stack.Screen name="work-order-detail" options={{ title: "" }} />
-        <Stack.Screen name="work-order-create" options={{ title: "新建工单" }} />
         <Stack.Screen name="files" options={{ title: "" }} />
         <Stack.Screen name="file-detail" options={{ title: "" }} />
         <Stack.Screen name="gallery" options={{ title: "" }} />
