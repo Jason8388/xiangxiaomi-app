@@ -60,7 +60,6 @@ export default function OrganizationScreen() {
   const [editDeptModalVisible, setEditDeptModalVisible] = useState(false);
   const [deptForm, setDeptForm] = useState({
     name: '',
-    code: '',
     description: '',
     parent_id: null as number | null,
   });
@@ -163,7 +162,6 @@ export default function OrganizationScreen() {
   const handleEditDepartment = (dept: Department) => {
     setDeptForm({
       name: dept.name,
-      code: dept.code,
       description: dept.description || '',
       parent_id: dept.parent_id,
     });
@@ -174,8 +172,8 @@ export default function OrganizationScreen() {
 
   // 保存部门（新增或编辑）
   const handleSaveDepartment = async () => {
-    if (!deptForm.name.trim() || !deptForm.code.trim()) {
-      Alert.alert('提示', '部门名称和编码不能为空');
+    if (!deptForm.name.trim()) {
+      Alert.alert('提示', '部门名称不能为空');
       return;
     }
 
@@ -616,16 +614,6 @@ export default function OrganizationScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>部门编码 *</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="请输入部门编码"
-                  value={deptForm.code}
-                  onChangeText={(text) => setDeptForm({ ...deptForm, code: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>部门描述</Text>
                 <TextInput
                   style={[styles.formInput, styles.formTextArea]}
@@ -675,16 +663,6 @@ export default function OrganizationScreen() {
                   placeholder="请输入部门名称"
                   value={deptForm.name}
                   onChangeText={(text) => setDeptForm({ ...deptForm, name: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>部门编码 *</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="请输入部门编码"
-                  value={deptForm.code}
-                  onChangeText={(text) => setDeptForm({ ...deptForm, code: text })}
                 />
               </View>
 
