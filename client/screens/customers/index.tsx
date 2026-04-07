@@ -76,9 +76,11 @@ export default function CustomerManagement() {
       setLoading(true);
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/customers`);
       const data = await response.json();
-      if (response.ok && Array.isArray(data)) {
+      if (response.ok) {
+        // 后端返回 { data: [], total: 0 } 格式
+        const list = Array.isArray(data) ? data : (data.data || []);
         // 按设备数量降序排序
-        const sorted = data.sort((a: Customer, b: Customer) => b.device_count - a.device_count);
+        const sorted = list.sort((a: Customer, b: Customer) => b.device_count - a.device_count);
         setCustomers(sorted);
         return sorted;
       }
