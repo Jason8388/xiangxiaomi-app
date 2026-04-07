@@ -79,6 +79,7 @@ export const memoryDepartments = [
   {
     id: 1,
     name: '技术部',
+    code: 'TECH',
     parent_id: null,
     sort_order: 1,
     is_disabled: false,
@@ -86,6 +87,7 @@ export const memoryDepartments = [
   {
     id: 2,
     name: '销售部',
+    code: 'SALES',
     parent_id: null,
     sort_order: 2,
     is_disabled: false,
@@ -93,6 +95,7 @@ export const memoryDepartments = [
   {
     id: 3,
     name: '市场部',
+    code: 'MARKETING',
     parent_id: null,
     sort_order: 3,
     is_disabled: false,
