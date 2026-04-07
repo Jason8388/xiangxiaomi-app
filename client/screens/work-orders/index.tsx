@@ -5,7 +5,6 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { cachedFetch, clearCache } from '@/utils/storage';
-import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface WorkOrder {
   id: number;
@@ -180,20 +179,8 @@ export default function WorkOrdersScreen() {
   };
 
   const handleAdd = () => {
-    setEditingOrder(null);
-    setFormData({
-      customer_id: '',
-      device_id: '',
-      type: '维修',
-      priority: 'normal',
-      description: '',
-      stage: 'pending',
-      plan_hours: '',
-      is_charged: false,
-      quoted_price: '',
-      assignee_id: '',
-    });
-    setModalVisible(true);
+    clearCache();
+    router.push('/work-order-create');
   };
 
   const handleEdit = (order: WorkOrder) => {
