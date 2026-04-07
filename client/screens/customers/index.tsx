@@ -23,6 +23,7 @@ interface Customer {
   contact_person?: string;
   contact_phone?: string;
   business_manager?: string;
+  service_department?: string;
   device_count: number;
   contract_count: number;
   work_order_count: number;
@@ -57,8 +58,14 @@ export default function CustomerManagement() {
     contact_person: '',
     contact_phone: '',
     business_manager: '',
+    sub_group: '',
     remarks: '',
   });
+
+  // 服务看管部门选项
+  const serviceDepartmentOptions = ['技术服务一组', '技术服务二组', '技术服务三组'];
+  const [serviceDeptModalVisible, setServiceDeptModalVisible] = useState(false);
+  const [subGroupModalVisible, setSubGroupModalVisible] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -109,6 +116,7 @@ export default function CustomerManagement() {
       contact_person: '',
       contact_phone: '',
       business_manager: '',
+      sub_group: '',
       remarks: '',
     });
     setAddresses([{ id: Date.now().toString(), value: '' }]);
@@ -124,6 +132,7 @@ export default function CustomerManagement() {
       contact_person: customer.contact_person || '',
       contact_phone: customer.contact_phone || '',
       business_manager: customer.business_manager || '',
+      sub_group: customer.sub_group || '',
       remarks: customer.remarks || '',
     });
 
@@ -451,6 +460,22 @@ export default function CustomerManagement() {
               </View>
 
               <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>服务看管部门</Text>
+                <TouchableOpacity
+                  style={styles.selectInput}
+                  onPress={() => setSubGroupModalVisible(true)}
+                >
+                  <Text style={[
+                    styles.selectInputText,
+                    !formData.sub_group && styles.selectInputPlaceholder
+                  ]}>
+                    {formData.sub_group || '请选择服务看管部门'}
+                  </Text>
+                  <FontAwesome6 name="chevron-down" size={14} color="#95A5A6" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>所属行业</Text>
                 <TextInput
                   style={styles.formInput}
@@ -603,6 +628,54 @@ export default function CustomerManagement() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* 服务看管部门选择弹窗 */}
+      <Modal
+        visible={subGroupModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSubGroupModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSubGroupModalVisible(false)}
+        >
+          <View style={styles.selectModalContent}>
+            <View style={styles.selectModalHeader}>
+              <Text style={styles.selectModalTitle}>选择服务看管部门</Text>
+              <TouchableOpacity onPress={() => setSubGroupModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+            {serviceDepartmentOptions.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.selectOptionItem,
+                  formData.sub_group === option && styles.selectOptionItemActive
+                ]}
+                onPress={() => {
+                  setFormData({ ...formData, sub_group: option });
+                  setSubGroupModalVisible(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.selectOptionText,
+                    formData.sub_group === option && styles.selectOptionTextActive
+                  ]}
+                >
+                  {option}
+                </Text>
+                {formData.sub_group === option && (
+                  <FontAwesome6 name="check" size={16} color="#1E88E5" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
       </Modal>
     </Screen>
   );
@@ -905,5 +978,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  // 服务看管部门选择样式
+  selectInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  selectInputText: {
+    fontSize: 14,
+    color: '#2D3436',
+    flex: 1,
+  },
+  selectInputPlaceholder: {
+    color: '#95A5A6',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '85%',
+    maxWidth: 320,
+    padding: 20,
+  },
+  selectModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  selectModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  selectOptionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F7FA',
+  },
+  selectOptionItemActive: {
+    backgroundColor: 'rgba(30, 136, 229, 0.05)',
+  },
+  selectOptionText: {
+    fontSize: 15,
+    color: '#2D3436',
+  },
+  selectOptionTextActive: {
+    color: '#1E88E5',
+    fontWeight: '600',
   },
 });
