@@ -265,7 +265,7 @@ export default function DeviceHistory() {
       if (result.canceled) return;
 
       const file = result.assets[0];
-      const fileInfo = await FileSystem.getInfoAsync(file.uri);
+      const fileInfo: any = await (FileSystem as any).getInfoAsync(file.uri);
 
       setUploading(true);
 

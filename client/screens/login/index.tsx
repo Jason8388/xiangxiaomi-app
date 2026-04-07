@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { setSecureItem } from '@/utils/storage';
+import { storage, setSecureItem } from '@/utils/storage';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { getApiBaseUrl } from '@/utils/api';
 import Constants from 'expo-constants';

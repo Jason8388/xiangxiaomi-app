@@ -637,7 +637,7 @@ export default function WorkOrdersScreen() {
                   <View className="flex-row justify-between items-start mb-2">
                     <View className="flex-1">
                       <Text className="text-base font-semibold text-[#2D3436]" numberOfLines={1}>
-                        {order.title || order.order_no || `工单 #${order.id}`}
+                        {order.name || order.order_no || `工单 #${order.id}`}
                       </Text>
                       <Text className="text-sm text-[#636E72] mt-1">
                         客户: {order.customer_name || '未指定'}

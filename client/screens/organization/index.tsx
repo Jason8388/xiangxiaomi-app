@@ -60,6 +60,7 @@ export default function OrganizationScreen() {
   const [editDeptModalVisible, setEditDeptModalVisible] = useState(false);
   const [deptForm, setDeptForm] = useState({
     name: '',
+    code: '',
     description: '',
     parent_id: null as number | null,
   });
@@ -183,6 +184,7 @@ const API_BASE_URL = getApiBaseUrl();
   const handleEditDepartment = (dept: Department) => {
     setDeptForm({
       name: dept.name,
+      code: dept.code || '',
       description: dept.description || '',
       parent_id: dept.parent_id,
     });

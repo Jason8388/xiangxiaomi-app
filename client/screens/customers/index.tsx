@@ -25,6 +25,7 @@ interface Customer {
   contact_phone?: string;
   business_manager?: string;
   service_department?: string;
+  sub_group?: string;
   device_count: number;
   contract_count: number;
   work_order_count: number;
@@ -68,30 +69,31 @@ export default function CustomerManagement() {
   const [serviceDeptModalVisible, setServiceDeptModalVisible] = useState(false);
   const [subGroupModalVisible, setSubGroupModalVisible] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
-        const data = await response.json();
-        if (response.ok) {
-          const list = Array.isArray(data) ? data : (data.data || []);
-          // 按客户名称首字母顺序排序
-          const sorted = list.sort((a: Customer, b: Customer) => {
-            const nameA = a.name.toUpperCase();
-            const nameB = b.name.toUpperCase();
-            return nameA.localeCompare(nameB);
-          });
-          setCustomers(sorted);
-          setFilteredCustomers(sorted);
-        }
-      } catch (error) {
-        console.error('Fetch customers error:', error);
-      } finally {
-        setLoading(false);
+  // 获取客户列表
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
+      const data = await response.json();
+      if (response.ok) {
+        const list = Array.isArray(data) ? data : (data.data || []);
+        const sorted = list.sort((a: Customer, b: Customer) => {
+          const nameA = a.name.toUpperCase();
+          const nameB = b.name.toUpperCase();
+          return nameA.localeCompare(nameB);
+        });
+        setCustomers(sorted);
+        setFilteredCustomers(sorted);
       }
-    };
-    loadData();
+    } catch (error) {
+      console.error('Fetch customers error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
   }, []);
 
   // 搜索过滤

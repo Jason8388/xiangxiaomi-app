@@ -413,7 +413,7 @@ export default function MaterialManagement() {
         window.URL.revokeObjectURL(url);
       } else {
         // 移动端保存文件
-        const fileUri = `${FileSystem.documentDirectory}物料导入模板.csv`;
+        const fileUri = `${(FileSystem as any).documentDirectory}物料导入模板.csv`;
         await (FileSystem as any).writeAsStringAsync(fileUri, csvContent, {
           encoding: (FileSystem as any).EncodingType.UTF8,
         });

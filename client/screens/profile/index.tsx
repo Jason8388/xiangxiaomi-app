@@ -36,9 +36,9 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await storage.removeItem('user');
-            await storage.removeItem('token');
-            await storage.removeItem('session_id');
+            await storage.deleteItem('user');
+            await storage.deleteItem('token');
+            await storage.deleteItem('session_id');
             router.replace('/login');
           } catch (error) {
             console.error('Logout error:', error);

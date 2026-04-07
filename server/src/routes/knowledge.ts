@@ -244,7 +244,7 @@ router.post('/', upload.array('files', 10), async (req, res) => {
 // 更新知识库
 router.put('/:id', upload.array('files', 10), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { title, content, tags } = req.body;
     const files = req.files as Express.Multer.File[];
 
@@ -292,11 +292,20 @@ router.put('/:id', upload.array('files', 10), async (req, res) => {
       if (index === -1) {
         return res.status(404).json({ error: '知识不存在' });
       }
+      // 安全解析 tags
+      let parsedTags: string[] = [];
+      if (tags) {
+        try {
+          parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+        } catch (e) {
+          parsedTags = [];
+        }
+      }
       memoryKnowledgeList[index] = {
         ...memoryKnowledgeList[index],
         title,
         content: content || '',
-        tags: tags ? JSON.parse(tags) : [],
+        tags: parsedTags,
         updated_at: new Date().toISOString(),
       };
       res.json({ message: '更新成功' });

@@ -14,6 +14,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { getApiBaseUrl } from '@/utils/api';
 
 const TASK_STAGES = ['需求评估', '报价中', '实施中', '已完成', '已取消'];
 const TASK_STATUSES = ['待开始', '进行中', '已延期', '已暂停'];

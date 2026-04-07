@@ -36,7 +36,9 @@ interface Customer {
   id: number;
   name: string;
   contact?: string;
+  contact_person?: string;
   phone?: string;
+  contact_phone?: string;
   address?: string;
 }
 
@@ -342,7 +344,7 @@ export default function ContractManagement() {
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>
-            {contracts.reduce((sum, c) => sum + (parseFloat(c.contract_amount) || 0), 0).toLocaleString()}
+            {contracts.reduce((sum, c) => sum + (c.contract_amount || 0), 0).toLocaleString()}
           </Text>
           <Text style={styles.statLabel}>合同总金额</Text>
         </View>
@@ -836,7 +838,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
   },
-  statItem: {
+  statItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
