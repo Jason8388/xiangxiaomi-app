@@ -277,20 +277,19 @@ export default function KnowledgeCreate() {
     try {
       setLoading(true);
       const url = isEdit
-        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/cards/${id}`
-        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/cards`;
+        ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge/${id}`
+        : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/knowledge`;
 
       // 使用FormData上传附件
       const formDataObj = new FormData();
       formDataObj.append('title', formData.title);
       formDataObj.append('content', formData.content);
       formDataObj.append('tags', JSON.stringify(formData.tags));
-      formDataObj.append('creator_name', currentUser?.name || '未知用户');
-      formDataObj.append('creator_id', currentUser?.id?.toString() || '0');
+      formDataObj.append('author_id', currentUser?.id?.toString() || '0');
 
       // 添加附件
       attachments.forEach((attachment, index) => {
-        formDataObj.append(`attachment_${index}`, {
+        formDataObj.append(`files`, {
           uri: attachment.uri,
           type: attachment.type || 'image/jpeg',
           name: attachment.name,
@@ -305,16 +304,12 @@ export default function KnowledgeCreate() {
       if (response.ok) {
         Alert.alert(
           '成功',
-          isEdit ? '知识卡修改成功，已重新提交审核' : '知识卡创建成功，已提交审核',
+          isEdit ? '知识卡修改成功' : '知识卡创建成功',
           [
             {
               text: '确定',
               onPress: () => {
-                if (isEdit && id) {
-                  router.push('/knowledge-detail', { id: parseInt(id) });
-                } else {
-                  router.back();
-                }
+                router.back();
               },
             },
           ]
@@ -576,18 +571,11 @@ export default function KnowledgeCreate() {
             >
               <FontAwesome6 name="paper-plane" size={16} color="#FFFFFF" />
               <Text style={styles.submitButtonText}>
-                {loading ? '提交中...' : '提交审核'}
+                {loading ? '提交中...' : (isEdit ? '保存修改' : '创建知识卡')}
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* 提示信息 */}
-          <View style={styles.tipContainer}>
-            <FontAwesome6 name="circle-info" size={14} color="#F39C12" />
-            <Text style={styles.tipText}>
-              知识卡提交后将由项目总监审核，审核通过后方可发布
-            </Text>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -761,20 +749,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  tipContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(243, 156, 18, 0.1)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  tipText: {
-    fontSize: 12,
-    color: '#F39C12',
-    flex: 1,
   },
   creatorInfo: {
     flexDirection: 'row',
