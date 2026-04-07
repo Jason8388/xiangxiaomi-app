@@ -128,6 +128,21 @@ export default function WorkOrderDetailScreen() {
     '80%完成开票和送达', '90%完成回款', '100%完成资料归档',
     '已关单', '挂起暂停', '终止'
   ];
+
+  // 计算两个日期之间的天数差
+  const calculateDaysDiff = (startDate: string, endDate: string): number => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    const diffTime = end.getTime() - start.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // 获取周期值
+  const getDemandPeriod = () => calculateDaysDiff(order?.demand_date || '', order?.consensus_date || '');
+  const getServicePeriod = () => calculateDaysDiff(order?.consensus_date || '', order?.implementation_complete_date || '');
+  const getPaymentPeriod = () => calculateDaysDiff(order?.implementation_complete_date || '', order?.actual_payment_date || '');
   const taskStatusOptions = ['计划中', '延期风险', '已延期', '关单完成', '挂起或暂停'];
   const warrantyStatusOptions = ['质保期内', '质保期外'];
   const isChargedOptions = ['收费', '免费'];
@@ -712,6 +727,21 @@ export default function WorkOrderDetailScreen() {
                   {renderInfoRow('任务阶段', order.task_phase || '需求阶段', 'task_phase')}
                   {renderInfoRow('任务进度', order.task_progress || '10%收到服务需求', 'task_progress')}
                   {renderInfoRow('任务状态', order.task_status || '计划中', 'task_status')}
+                  <View style={styles.periodRow}>
+                    <Text style={styles.periodLabel}>需求对接周期</Text>
+                    <Text style={styles.periodValue}>{getDemandPeriod() > 0 ? getDemandPeriod() : '—'}</Text>
+                    <Text style={styles.periodUnit}>天</Text>
+                  </View>
+                  <View style={styles.periodRow}>
+                    <Text style={styles.periodLabel}>服务实施周期</Text>
+                    <Text style={styles.periodValue}>{getServicePeriod() > 0 ? getServicePeriod() : '—'}</Text>
+                    <Text style={styles.periodUnit}>天</Text>
+                  </View>
+                  <View style={styles.periodRow}>
+                    <Text style={styles.periodLabel}>回款周期</Text>
+                    <Text style={styles.periodValue}>{getPaymentPeriod() > 0 ? getPaymentPeriod() : '—'}</Text>
+                    <Text style={styles.periodUnit}>天</Text>
+                  </View>
                 </>
               ) : (
                 <>
@@ -1190,6 +1220,10 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 14, color: '#2D3436', flex: 1 },
   infoPlaceholder: { color: '#CCC' },
   infoUnit: { fontSize: 13, color: '#95A5A6', marginLeft: 4 },
+  periodRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F8F9FA', borderRadius: 8 },
+  periodLabel: { fontSize: 13, color: '#95A5A6', flex: 1 },
+  periodValue: { fontSize: 16, color: '#6C63FF', fontWeight: '600', minWidth: 40, textAlign: 'center' },
+  periodUnit: { fontSize: 13, color: '#95A5A6', marginLeft: 4 },
   input: { flex: 1, backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, color: '#2D3436' },
   numberInput: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   numberValue: { flex: 1, backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, color: '#2D3436' },
