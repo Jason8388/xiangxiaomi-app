@@ -548,23 +548,27 @@ export default function MaterialManagement() {
         />
       </View>
 
-      {/* 操作按钮 */}
-      <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-          <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
+      {/* 新增物料按钮 - 单独一行 */}
+      <View style={styles.addButtonContainer}>
+        <TouchableOpacity style={styles.addButtonFull} onPress={handleAdd}>
+          <FontAwesome6 name="plus-circle" size={22} color="#FFFFFF" />
           <Text style={styles.addButtonText}>新增物料</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, styles.importButton]} onPress={handleBatchImport}>
-          <FontAwesome6 name="file-import" size={16} color="#FFFFFF" />
-          <Text style={styles.actionButtonText}>批量导入</Text>
+      </View>
+
+      {/* 批量操作按钮 - 一行展示 */}
+      <View style={styles.batchButtonContainer}>
+        <TouchableOpacity style={styles.batchButton} onPress={handleBatchImport}>
+          <FontAwesome6 name="file-import" size={18} color="#FFFFFF" />
+          <Text style={styles.batchButtonText}>批量导入</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, styles.templateButton]} onPress={handleDownloadTemplate}>
-          <FontAwesome6 name="download" size={16} color="#FFFFFF" />
-          <Text style={styles.actionButtonText}>模板下载</Text>
+        <TouchableOpacity style={styles.batchButton} onPress={handleDownloadTemplate}>
+          <FontAwesome6 name="file-arrow-down" size={18} color="#FFFFFF" />
+          <Text style={styles.batchButtonText}>模板下载</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, styles.exportButton]} onPress={handleBatchExport}>
-          <FontAwesome6 name="file-export" size={16} color="#FFFFFF" />
-          <Text style={styles.actionButtonText}>批量导出</Text>
+        <TouchableOpacity style={styles.batchButton} onPress={handleBatchExport}>
+          <FontAwesome6 name="file-arrow-up" size={18} color="#FFFFFF" />
+          <Text style={styles.batchButtonText}>批量导出</Text>
         </TouchableOpacity>
       </View>
 
@@ -1043,46 +1047,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2D3436',
   },
-  actionBar: {
-    flexDirection: 'row',
+  addButtonContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: 10,
   },
-  addButton: {
-    flex: 1,
+  addButtonFull: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
     backgroundColor: '#1E88E5',
+    shadowColor: '#1E88E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   addButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
-  actionButton: {
+  batchButtonContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  batchButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#6C63FF',
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  importButton: {
-    backgroundColor: '#27AE60',
-  },
-  templateButton: {
-    backgroundColor: '#9B59B6',
-  },
-  exportButton: {
-    backgroundColor: '#F39C12',
-  },
-  actionButtonText: {
+  batchButtonText: {
     fontSize: 13,
     fontWeight: '500',
     color: '#FFFFFF',
