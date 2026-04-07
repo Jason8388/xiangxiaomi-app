@@ -11,6 +11,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
 interface Contact {
@@ -502,38 +503,29 @@ export default function ContractDetailPage() {
 
                   <View style={styles.formRow}>
                     <View style={[styles.formGroup, { flex: 1 }]}>
-                      <Text style={styles.formLabel}>签订日期</Text>
-                      <TextInput
-                        style={styles.formInput}
-                        placeholder="YYYY-MM-DD"
+                      <SmartDateInput
+                        label="签订日期"
                         value={formData.sign_date}
-                        onChangeText={(text) =>
-                          setFormData({ ...formData, sign_date: text })
-                        }
+                        onChange={(date) => setFormData({ ...formData, sign_date: date })}
+                        placeholder="请选择签订日期"
                       />
                     </View>
                     <View style={[styles.formGroup, { flex: 1 }]}>
-                      <Text style={styles.formLabel}>验收日期</Text>
-                      <TextInput
-                        style={styles.formInput}
-                        placeholder="YYYY-MM-DD"
+                      <SmartDateInput
+                        label="验收日期"
                         value={formData.acceptance_date}
-                        onChangeText={(text) =>
-                          setFormData({ ...formData, acceptance_date: text })
-                        }
+                        onChange={(date) => setFormData({ ...formData, acceptance_date: date })}
+                        placeholder="请选择验收日期"
                       />
                     </View>
                   </View>
 
                   <View style={styles.formGroup}>
-                    <Text style={styles.formLabel}>质保到期日期</Text>
-                    <TextInput
-                      style={styles.formInput}
-                      placeholder="YYYY-MM-DD"
+                    <SmartDateInput
+                      label="质保到期日期"
                       value={formData.warranty_end_date}
-                      onChangeText={(text) =>
-                        setFormData({ ...formData, warranty_end_date: text })
-                      }
+                      onChange={(date) => setFormData({ ...formData, warranty_end_date: date })}
+                      placeholder="请选择质保到期日期"
                     />
                   </View>
 

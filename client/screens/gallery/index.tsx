@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Imag
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { storage } from '@/utils/storage';
 
@@ -591,20 +592,20 @@ export default function GalleryScreen() {
 
               <View style={styles.filterSection}>
                 <Text style={styles.inputLabel}>上传时间范围</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="起始日期 (YYYY-MM-DD)"
-                  placeholderTextColor="#B2BEC3"
+                <SmartDateInput
+                  label="起始日期"
                   value={startDate}
-                  onChangeText={setStartDate}
+                  onChange={(date) => setStartDate(date)}
+                  placeholder="请选择起始日期"
                 />
-                <TextInput
-                  style={[styles.input, { marginTop: 12 }]}
-                  placeholder="截止日期 (YYYY-MM-DD)"
-                  placeholderTextColor="#B2BEC3"
-                  value={endDate}
-                  onChangeText={setEndDate}
-                />
+                <View style={{ marginTop: 12 }}>
+                  <SmartDateInput
+                    label="截止日期"
+                    value={endDate}
+                    onChange={(date) => setEndDate(date)}
+                    placeholder="请选择截止日期"
+                  />
+                </View>
               </View>
             </ScrollView>
 

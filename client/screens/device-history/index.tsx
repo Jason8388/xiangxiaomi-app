@@ -12,6 +12,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
 interface DeviceHistoryData {
@@ -426,12 +427,11 @@ export default function DeviceHistory() {
                 />
               </View>
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>合同签订日期</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="YYYY-MM-DD"
+                <SmartDateInput
+                  label="合同签订日期"
                   value={historyData.contract_date}
-                  onChangeText={(text) => setHistoryData({ ...historyData, contract_date: text })}
+                  onChange={(date) => setHistoryData({ ...historyData, contract_date: date })}
+                  placeholder="请选择合同签订日期"
                 />
               </View>
 
