@@ -34,6 +34,13 @@ interface AddressItem {
   value: string;
 }
 
+interface ContactPerson {
+  id: string;
+  name: string;
+  phone: string;
+  position: string;
+}
+
 export default function CustomerManagement() {
   const router = useSafeRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -43,6 +50,7 @@ export default function CustomerManagement() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
+  const [contacts, setContacts] = useState<ContactPerson[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     industry: '',
@@ -99,6 +107,7 @@ export default function CustomerManagement() {
       remarks: '',
     });
     setAddresses([{ id: Date.now().toString(), value: '' }]);
+    setContacts([{ id: Date.now().toString(), name: '', phone: '', position: '' }]);
     setModalVisible(true);
   };
 
@@ -137,6 +146,30 @@ export default function CustomerManagement() {
     }
     setAddresses(addressItems);
 
+    // 解析联系人数组
+    let contactItems: ContactPerson[] = [];
+    if ((customer as any).contacts) {
+      try {
+        const parsed = typeof (customer as any).contacts === 'string' 
+          ? JSON.parse((customer as any).contacts) 
+          : (customer as any).contacts;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          contactItems = parsed.map((c: any, index: number) => ({
+            id: Date.now().toString() + index,
+            name: c.name || '',
+            phone: c.phone || '',
+            position: c.position || '',
+          }));
+        }
+      } catch (e) {
+        console.log('Parse contacts error:', e);
+      }
+    }
+    if (contactItems.length === 0) {
+      contactItems = [{ id: Date.now().toString(), name: '', phone: '', position: '' }];
+    }
+    setContacts(contactItems);
+
     setModalVisible(true);
   };
 
@@ -148,6 +181,9 @@ export default function CustomerManagement() {
 
     // 过滤空地址
     const validAddresses = addresses.filter((addr) => addr.value.trim());
+    
+    // 过滤有效联系人（至少要填写姓名的才保存）
+    const validContacts = contacts.filter((c) => c.name.trim());
 
     try {
       const response = editingCustomer
@@ -159,6 +195,11 @@ export default function CustomerManagement() {
               body: JSON.stringify({
                 ...formData,
                 address: JSON.stringify(validAddresses.map((a) => a.value)),
+                contacts: JSON.stringify(validContacts.map((c) => ({
+                  name: c.name,
+                  phone: c.phone,
+                  position: c.position,
+                }))),
               }),
             }
           )
@@ -168,6 +209,11 @@ export default function CustomerManagement() {
             body: JSON.stringify({
               ...formData,
               address: JSON.stringify(validAddresses.map((a) => a.value)),
+              contacts: JSON.stringify(validContacts.map((c) => ({
+                name: c.name,
+                phone: c.phone,
+                position: c.position,
+              }))),
             }),
           });
 
@@ -389,29 +435,71 @@ export default function CustomerManagement() {
                 />
               </View>
 
+              {/* 多个联系人 */}
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>联系人</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="请输入联系人姓名"
-                  value={formData.contact_person}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, contact_person: text })
-                  }
-                />
-              </View>
+                <View style={styles.formLabelRow}>
+                  <Text style={styles.formLabel}>联系人</Text>
+                  <TouchableOpacity
+                    style={styles.addAddressButton}
+                    onPress={() =>
+                      setContacts([...contacts, { id: Date.now().toString(), name: '', phone: '', position: '' }])
+                    }
+                  >
+                    <FontAwesome6 name="plus" size={12} color="#1E88E5" />
+                    <Text style={styles.addAddressButtonText}>添加联系人</Text>
+                  </TouchableOpacity>
+                </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>联系电话</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="请输入联系电话"
-                  value={formData.contact_phone}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, contact_phone: text })
-                  }
-                  keyboardType="phone-pad"
-                />
+                {contacts.map((contact, index) => (
+                  <View key={contact.id} style={styles.contactItemContainer}>
+                    <View style={styles.contactHeader}>
+                      <Text style={styles.contactIndex}>联系人 {index + 1}</Text>
+                      {contacts.length > 1 && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newContacts = contacts.filter((_, i) => i !== index);
+                            setContacts(newContacts);
+                          }}
+                        >
+                          <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <View style={styles.contactRow}>
+                      <TextInput
+                        style={[styles.formInput, styles.contactInput]}
+                        placeholder="姓名"
+                        value={contact.name}
+                        onChangeText={(text) => {
+                          const newContacts = [...contacts];
+                          newContacts[index].name = text;
+                          setContacts(newContacts);
+                        }}
+                      />
+                      <TextInput
+                        style={[styles.formInput, styles.contactInput]}
+                        placeholder="电话"
+                        value={contact.phone}
+                        keyboardType="phone-pad"
+                        onChangeText={(text) => {
+                          const newContacts = [...contacts];
+                          newContacts[index].phone = text;
+                          setContacts(newContacts);
+                        }}
+                      />
+                    </View>
+                    <TextInput
+                      style={[styles.formInput, styles.contactPositionInput]}
+                      placeholder="职位（如：经理、总监等）"
+                      value={contact.position}
+                      onChangeText={(text) => {
+                        const newContacts = [...contacts];
+                        newContacts[index].position = text;
+                        setContacts(newContacts);
+                      }}
+                    />
+                  </View>
+                ))}
               </View>
 
               <View style={styles.formGroup}>
@@ -677,6 +765,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: '#1E88E5',
+  },
+  contactItemContainer: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  contactHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  contactIndex: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  contactInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  contactPositionInput: {
+    marginBottom: 0,
   },
   addressInputContainer: {
     position: 'relative',
