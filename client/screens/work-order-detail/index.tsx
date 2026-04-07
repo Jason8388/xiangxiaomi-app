@@ -925,6 +925,20 @@ export default function WorkOrderDetailScreen() {
                   </TouchableOpacity>
                   {renderNumberRow('实际工时', 'actual_hours', '天')}
                   {renderInputRow('派工单签字人', 'work_order_signer', '请输入派工单签字人')}
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>派工单照片</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('work_order_docs')}>
+                      <FontAwesome6 name="camera" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.work_order_docs ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.uploadRow}>
+                    <Text style={styles.uploadLabel}>现场实施照片</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('site_completion_docs')}>
+                      <FontAwesome6 name="camera" size={14} color="#6C63FF" />
+                      <Text style={styles.uploadBtnText}>{order.site_completion_docs ? '已上传' : '上传'}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               ) : (
                 <>
@@ -943,7 +957,7 @@ export default function WorkOrderDetailScreen() {
                     </TouchableOpacity>
                   </View>
                   <View style={styles.uploadRow}>
-                    <Text style={styles.uploadLabel}>现场照片</Text>
+                    <Text style={styles.uploadLabel}>现场实施照片</Text>
                     <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('site_completion_docs')}>
                       <FontAwesome6 name="camera" size={14} color="#6C63FF" />
                       <Text style={styles.uploadBtnText}>{order.site_completion_docs ? '已上传' : '上传'}</Text>
