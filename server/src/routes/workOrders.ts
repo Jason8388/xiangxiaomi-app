@@ -83,7 +83,57 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// 获取工单列表
+// 工单高级搜索（支持多种条件）
+router.get('/search', async (req, res) => {
+  if (!USE_DATABASE) {
+    const keyword = (req.query.keyword as string || '').toLowerCase();
+    const filtered = memoryWorkOrders.filter(w =>
+      !keyword ||
+      (w.order_no && w.order_no.toLowerCase().includes(keyword)) ||
+      (w.title && w.title.toLowerCase().includes(keyword)) ||
+      (w.task_no && w.task_no.toLowerCase().includes(keyword)) ||
+      (w.customer_name && w.customer_name.toLowerCase().includes(keyword)) ||
+      (w.sales_sub_project_no && w.sales_sub_project_no.toLowerCase().includes(keyword)) ||
+      (w.contract_no && w.contract_no.toLowerCase().includes(keyword)) ||
+      (w.contract_name && w.contract_name.toLowerCase().includes(keyword))
+    );
+    return res.json({ orders: filtered.slice(0, 50) });
+  }
+
+  try {
+    const { keyword } = req.query;
+
+    let query = `
+      SELECT wo.*, cu.name as customer_name
+       FROM work_orders wo
+       LEFT JOIN customers cu ON wo.customer_id = cu.id
+       WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (keyword) {
+      query += ` AND (
+        wo.title ILIKE $1 OR
+        wo.order_no ILIKE $1 OR
+        wo.task_no ILIKE $1 OR
+        cu.name ILIKE $1 OR
+        wo.sales_sub_project_no ILIKE $1 OR
+        wo.contract_no ILIKE $1 OR
+        wo.contract_name ILIKE $1
+      )`;
+      params.push(`%${keyword}%`);
+    }
+
+    query += ' ORDER BY wo.created_at DESC LIMIT 50';
+    const result = await pool.query(query, params);
+    res.json({ orders: result.rows });
+  } catch (error) {
+    console.error('Search work orders error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 获取工单列表（已有接口）
 router.get('/', async (req, res) => {
   if (!USE_DATABASE) {
     const { keyword } = req.query;
@@ -115,7 +165,11 @@ router.get('/', async (req, res) => {
       query += ` AND (
         wo.title ILIKE $1 OR
         wo.order_no ILIKE $1 OR
-        cu.name ILIKE $1
+        wo.task_no ILIKE $1 OR
+        cu.name ILIKE $1 OR
+        wo.sales_sub_project_no ILIKE $1 OR
+        wo.contract_no ILIKE $1 OR
+        wo.contract_name ILIKE $1
       )`;
       params.push(`%${keyword}%`);
     }

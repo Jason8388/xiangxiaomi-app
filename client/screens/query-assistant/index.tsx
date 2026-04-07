@@ -70,11 +70,11 @@ const FUNCTIONS: FunctionCard[] = [
     description: '按名称、型号、编码查询物料',
   },
   {
-    id: 'after-sales-query',
-    title: '售后工单查询',
+    id: 'work-order-query',
+    title: '工单查询',
     icon: 'screwdriver-wrench',
     color: '#E67E22',
-    description: '按工单号、名称、客户查询工单',
+    description: '按工单号、名称、任务号、客户查询工单',
   },
 ];
 
@@ -104,7 +104,7 @@ export default function QueryAssistant() {
       case 'material-query':
         router.push('/query-material');
         break;
-      case 'after-sales-query':
+      case 'work-order-query':
         router.push('/query-after-sales');
         break;
     }

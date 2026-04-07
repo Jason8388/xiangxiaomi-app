@@ -6,200 +6,191 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 
-interface QueryAfterSales {
+interface WorkOrder {
   id: number;
-  order_number: string;
-  order_name: string;
+  order_no: string;
+  name: string;
+  task_no: string;
   customer_name: string;
-  product_name: string;
-  responsible_person: string;
-  order_type: string;
-  status: string;
+  sales_sub_project_no: string;
+  contract_no: string;
+  contract_name: string;
+  task_progress: string;
+  task_phase: string;
   created_at: string;
 }
 
-const ORDER_TYPES: Record<string, string> = {
-  'paid': '收费工单',
-  'free': '免费工单',
-  'pending': '待定工单',
-};
-
-export default function QueryAfterSales() {
+export default function WorkOrderQuery() {
   const router = useSafeRouter();
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [results, setResults] = useState<QueryAfterSales[]>([]);
+  const [results, setResults] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = async () => {
     if (!searchKeyword.trim()) {
-      Alert.alert('提示', '请输入搜索关键词');
       return;
     }
 
     try {
       setLoading(true);
+      setHasSearched(true);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/query/after-sales?keyword=${encodeURIComponent(searchKeyword)}`
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/search?keyword=${encodeURIComponent(searchKeyword)}`
       );
       const data = await response.json();
       if (response.ok) {
-        setResults(data);
+        setResults(data.orders || []);
+      } else {
+        setResults([]);
       }
     } catch (error) {
-      Alert.alert('错误', '查询失败');
+      console.error('Search error:', error);
+      setResults([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case '进行中':
-        return '#2ECC71';
-      case '已完成':
-        return '#3498DB';
-      case '已取消':
-        return '#E74C3C';
-      case '挂起':
-        return '#F39C12';
-      default:
-        return '#636E72';
-    }
-  };
-
-  const getOrderTypeColor = (type: string) => {
-    switch (type) {
-      case 'paid':
-        return '#E74C3C';
-      case 'free':
-        return '#2ECC71';
-      case 'pending':
-        return '#F39C12';
-      default:
-        return '#636E72';
+  const getPhaseColor = (phase: string) => {
+    switch (phase) {
+      case '需求阶段': return '#6C63FF';
+      case '实施阶段': return '#00B894';
+      case '回款阶段': return '#F39C12';
+      case '关单存档': return '#3498DB';
+      case '异常状态': return '#E74C3C';
+      default: return '#636E72';
     }
   };
 
   return (
     <Screen>
-      <PageHeader title="售后工单查询" />
+      <PageHeader title="工单查询" />
 
       <View style={styles.container}>
-        {/* 搜索框 */}
         <View style={styles.searchContainer}>
-          <FontAwesome6 name="magnifying-glass" size={16} color="#636E72" />
+          <FontAwesome6 name="magnifying-glass" size={18} color="#636E72" />
           <TextInput
             style={styles.searchInput}
-            placeholder="输入工单号、名称、客户、产品、负责人"
+            placeholder="输入工单号、工单名称、任务号、客户名称、销售子项目号、合同名称、合同编号"
+            placeholderTextColor="#B2BEC3"
             value={searchKeyword}
             onChangeText={setSearchKeyword}
             onSubmitEditing={handleSearch}
             returnKeyType="search"
           />
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-            <Text style={styles.searchButtonText}>搜索</Text>
-          </TouchableOpacity>
+          {searchKeyword.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchKeyword(''); setResults([]); setHasSearched(false); }}>
+              <FontAwesome6 name="xmark" size={16} color="#95A5A6" />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* 搜索提示 */}
         <View style={styles.tipContainer}>
-          <FontAwesome6 name="circle-info" size={14} color="#F39C12" />
+          <FontAwesome6 name="circle-info" size={14} color="#6C63FF" />
           <Text style={styles.tipText}>
-            支持按工单号、工单名称、客户名称、产品名称、工单负责人信息模糊搜索查询售后工单
+            支持按工单号、工单名称、任务号、客户名称、销售子项目号、合同名称、合同编号查询
           </Text>
         </View>
 
-        {/* 搜索结果 */}
         {loading ? (
           <View style={styles.centerContainer}>
-            <Text>查询中...</Text>
+            <FontAwesome6 name="spinner" size={32} color="#6C63FF" />
+            <Text style={styles.loadingText}>搜索中...</Text>
           </View>
-        ) : results.length === 0 && searchKeyword ? (
+        ) : results.length === 0 && hasSearched ? (
           <View style={styles.centerContainer}>
             <FontAwesome6 name="file-circle-xmark" size={48} color="#95A5A6" />
             <Text style={styles.emptyText}>未找到相关工单</Text>
+            <Text style={styles.emptySubText}>请尝试其他关键词</Text>
           </View>
         ) : results.length === 0 ? (
           <View style={styles.centerContainer}>
             <FontAwesome6 name="screwdriver-wrench" size={48} color="#95A5A6" />
             <Text style={styles.emptyText}>请输入关键词进行搜索</Text>
+            <Text style={styles.emptySubText}>支持多种查询条件组合</Text>
           </View>
         ) : (
-          <ScrollView style={styles.resultsContainer}>
+          <ScrollView style={styles.resultsContainer} showsVerticalScrollIndicator={false}>
             <Text style={styles.resultsTitle}>查询结果（{results.length}）</Text>
             {results.map((order) => (
               <TouchableOpacity
                 key={order.id}
                 style={styles.orderCard}
-                onPress={() => router.push('/after-sales-detail', { id: order.id })}
+                onPress={() => router.push('/work-order-detail', { id: order.id.toString() })}
+                activeOpacity={0.7}
               >
                 <View style={styles.orderHeader}>
                   <View style={styles.orderTitleContainer}>
-                    <FontAwesome6 name="screwdriver-wrench" size={18} color="#1E88E5" />
-                    <Text style={styles.orderName}>{order.order_name}</Text>
+                    <FontAwesome6 name="screwdriver-wrench" size={18} color="#6C63FF" />
+                    <Text style={styles.orderName} numberOfLines={1}>
+                      {order.name || '无名称'}
+                    </Text>
                   </View>
-                  <View style={styles.badgesContainer}>
-                    <View
-                      style={[
-                        styles.typeBadge,
-                        { backgroundColor: `${getOrderTypeColor(order.order_type)}20` },
-                      ]}
-                    >
-                      <Text style={[styles.badgeText, { color: getOrderTypeColor(order.order_type) }]}>
-                        {ORDER_TYPES[order.order_type] || order.order_type}
-                      </Text>
-                    </View>
-                    <View
-                      style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}
-                    >
-                      <FontAwesome6
-                        name="circle-dot"
-                        size={10}
-                        color={getStatusColor(order.status)}
-                      />
-                      <Text style={[styles.badgeText, { color: getStatusColor(order.status) }]}>
-                        {order.status}
-                      </Text>
-                    </View>
+                  <View
+                    style={[styles.phaseBadge, { backgroundColor: `${getPhaseColor(order.task_phase)}20` }]}
+                  >
+                    <Text style={[styles.phaseBadgeText, { color: getPhaseColor(order.task_phase) }]}>
+                      {order.task_phase}
+                    </Text>
                   </View>
                 </View>
 
-                {/* 工单详情 */}
                 <View style={styles.orderDetails}>
-                  <View style={styles.detailItem}>
-                    <FontAwesome6 name="hashtag" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>工单号：</Text>
-                    <Text style={styles.detailValue}>{order.order_number}</Text>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>工单号</Text>
+                      <Text style={styles.detailValue}>{order.order_no}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>任务号</Text>
+                      <Text style={styles.detailValue}>{order.task_no || '-'}</Text>
+                    </View>
                   </View>
-                  <View style={styles.detailItem}>
-                    <FontAwesome6 name="building" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>客户：</Text>
-                    <Text style={styles.detailValue}>{order.customer_name}</Text>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>客户名称</Text>
+                      <Text style={styles.detailValue}>{order.customer_name || '-'}</Text>
+                    </View>
                   </View>
-                  <View style={styles.detailItem}>
-                    <FontAwesome6 name="box" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>产品：</Text>
-                    <Text style={styles.detailValue}>{order.product_name}</Text>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>销售子项目号</Text>
+                      <Text style={styles.detailValue}>{order.sales_sub_project_no || '-'}</Text>
+                    </View>
                   </View>
-                  <View style={styles.detailItem}>
-                    <FontAwesome6 name="user" size={12} color="#636E72" />
-                    <Text style={styles.detailLabel}>负责人：</Text>
-                    <Text style={styles.detailValue}>{order.responsible_person}</Text>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>合同编号</Text>
+                      <Text style={styles.detailValue}>{order.contract_no || '-'}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>合同名称</Text>
+                      <Text style={styles.detailValue} numberOfLines={1}>{order.contract_name || '-'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>任务进度</Text>
+                      <Text style={styles.detailValue}>{order.task_progress || '-'}</Text>
+                    </View>
                   </View>
                 </View>
 
                 <View style={styles.orderFooter}>
                   <Text style={styles.createdDate}>
-                    创建于 {new Date(order.created_at).toLocaleDateString()}
+                    创建于 {order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}
                   </Text>
-                  <FontAwesome6 name="chevron-right" size={16} color="#95A5A6" />
+                  <View style={styles.viewDetail}>
+                    <Text style={styles.viewDetailText}>查看详情</Text>
+                    <FontAwesome6 name="chevron-right" size={14} color="#6C63FF" />
+                  </View>
                 </View>
               </TouchableOpacity>
             ))}
@@ -218,37 +209,27 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 4,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-  },
-  searchButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#1E88E5',
-  },
-  searchButtonText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#2D3436',
   },
   tipContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(243, 156, 18, 0.1)',
+    backgroundColor: 'rgba(108, 99, 255, 0.08)',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -258,7 +239,7 @@ const styles = StyleSheet.create({
   tipText: {
     flex: 1,
     fontSize: 12,
-    color: '#F39C12',
+    color: '#6C63FF',
   },
   centerContainer: {
     flex: 1,
@@ -266,10 +247,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  emptyText: {
+  loadingText: {
     fontSize: 14,
+    color: '#6C63FF',
+    marginTop: 12,
+  },
+  emptyText: {
+    fontSize: 16,
     color: '#636E72',
     marginTop: 12,
+  },
+  emptySubText: {
+    fontSize: 13,
+    color: '#95A5A6',
+    marginTop: 6,
   },
   resultsContainer: {
     flex: 1,
@@ -282,71 +273,64 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 4,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 14,
   },
   orderTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flex: 1,
+    marginRight: 10,
   },
   orderName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: '#2D3436',
+    flex: 1,
   },
-  badgesContainer: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  phaseBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 11,
+  phaseBadgeText: {
+    fontSize: 12,
     fontWeight: '600',
   },
   orderDetails: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
     padding: 12,
     marginBottom: 12,
   },
-  detailItem: {
+  detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     marginBottom: 8,
   },
+  detailItem: {
+    flex: 1,
+    marginRight: 12,
+  },
   detailLabel: {
-    fontSize: 12,
-    color: '#636E72',
+    fontSize: 11,
+    color: '#95A5A6',
+    marginBottom: 3,
   },
   detailValue: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#2D3436',
     fontWeight: '500',
   },
@@ -361,5 +345,15 @@ const styles = StyleSheet.create({
   createdDate: {
     fontSize: 12,
     color: '#95A5A6',
+  },
+  viewDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewDetailText: {
+    fontSize: 13,
+    color: '#6C63FF',
+    fontWeight: '500',
   },
 });
