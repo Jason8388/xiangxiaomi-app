@@ -107,13 +107,21 @@ export default function OrganizationScreen() {
       const loadData = async () => {
         setLoading(true);
         try {
-          await cachedFetch('organization-tree', fetchOrganization, 'medium');
+          const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/organization`);
+          const data = await res.json();
+          if (res.ok) {
+            setOrgData(data);
+            const topLevelIds = new Set<number>(data.tree.map((d: Department) => d.id));
+            setExpandedDepts(topLevelIds);
+          }
+        } catch (err) {
+          console.error('Fetch organization error:', err);
         } finally {
           setLoading(false);
         }
-        fetchUser();
       };
       loadData();
+      fetchUser();
     }, [])
   );
 
