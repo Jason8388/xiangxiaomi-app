@@ -16,6 +16,8 @@ const memoryCustomers: any[] = [
     level: 'A',
     source: '线上推广',
     status: '正常',
+    business_manager: '张三',
+    sub_group: '技术服务一组',
     device_count: 5,
     contract_count: 2,
     created_at: new Date().toISOString(),
@@ -32,6 +34,8 @@ const memoryCustomers: any[] = [
     level: 'A',
     source: '客户介绍',
     status: '正常',
+    business_manager: '李四',
+    sub_group: '技术服务二组',
     device_count: 12,
     contract_count: 5,
     created_at: new Date().toISOString(),
@@ -48,6 +52,8 @@ const memoryCustomers: any[] = [
     level: 'B',
     source: '行业展会',
     status: '正常',
+    business_manager: '王五',
+    sub_group: '技术服务三组',
     device_count: 8,
     contract_count: 3,
     created_at: new Date().toISOString(),
@@ -141,12 +147,13 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     // 兼容前端字段名
-    const { name, customer_name, contact, contact_person, phone, contact_phone, email, address, remark, customer_address } = req.body;
+    const { name, customer_name, contact, contact_person, phone, contact_phone, email, address, remark, customer_address, business_manager, sub_group, industry, remarks } = req.body;
     
     const customerName = name || customer_name;
     const contactName = contact || contact_person;
     const phoneNumber = phone || contact_phone;
     const customerAddress = address || customer_address;
+    const remarkText = remark || remarks;
 
     if (!customerName) {
       return res.status(400).json({ error: '客户名称不能为空' });
@@ -154,8 +161,8 @@ router.post('/', async (req, res) => {
 
     try {
       const result = await queryWithRetry(
-        'INSERT INTO customers (name, contact, phone, email, address, remark) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [customerName, contactName, phoneNumber, email, customerAddress, remark]
+        'INSERT INTO customers (name, contact, phone, email, address, remark, business_manager, sub_group, industry) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+        [customerName, contactName, phoneNumber, email, customerAddress, remarkText, business_manager || '', sub_group || '', industry || '']
       );
       res.json(result.rows[0]);
     } catch (dbError: any) {
@@ -168,7 +175,10 @@ router.post('/', async (req, res) => {
         phone: phoneNumber,
         email,
         address: customerAddress,
-        remark,
+        remark: remarkText,
+        business_manager: business_manager || '',
+        sub_group: sub_group || '',
+        industry: industry || '',
         device_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -186,18 +196,38 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, contact, phone, email, address } = req.body;
+    const { name, contact, phone, email, address, remark, remarks, business_manager, sub_group, industry } = req.body;
+    const remarkText = remark || remarks;
 
-    const result = await pool.query(
-      'UPDATE customers SET name = $1, contact = $2, phone = $3, email = $4, address = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-      [name, contact, phone, email, address, id]
-    );
+    try {
+      const result = await pool.query(
+        'UPDATE customers SET name = $1, contact = $2, phone = $3, email = $4, address = $5, remark = $6, business_manager = $7, sub_group = $8, industry = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
+        [name, contact, phone, email, address, remarkText, business_manager || '', sub_group || '', industry || '', id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '客户不存在' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: '客户不存在' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      // 数据库失败时使用内存存储
+      const index = memoryCustomers.findIndex(c => c.id === parseInt(id));
+      if (index === -1) {
+        return res.status(404).json({ error: '客户不存在' });
+      }
+      memoryCustomers[index] = {
+        ...memoryCustomers[index],
+        name, contact, phone, email, address,
+        remark: remarkText,
+        business_manager: business_manager || '',
+        sub_group: sub_group || '',
+        industry: industry || '',
+        updated_at: new Date().toISOString(),
+      };
+      res.json(memoryCustomers[index]);
     }
-
-    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update customer error:', error);
     res.status(500).json({ error: '服务器错误' });

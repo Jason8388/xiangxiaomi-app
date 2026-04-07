@@ -20,6 +20,7 @@ interface Customer {
   industry?: string;
   contacts?: Contact[];
   business_manager?: string;
+  sub_group?: string;
   contract_count: number;
   device_count: number;
   work_order_count: number;
@@ -41,6 +42,10 @@ export default function CustomerDetail() {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'address' | 'contact' | 'edit'>('address');
   const [formData, setFormData] = useState<any>({});
+
+  // 分管小组选项
+  const subGroupOptions = ['技术服务一组', '技术服务二组', '技术服务三组'];
+  const [subGroupModalVisible, setSubGroupModalVisible] = useState(false);
 
   const loadCustomerDetail = async () => {
     if (!id) return;
@@ -84,6 +89,7 @@ export default function CustomerDetail() {
       name: customer.name,
       industry: customer.industry || '',
       business_manager: customer.business_manager || '',
+      sub_group: customer.sub_group || '',
       remarks: customer.remarks || '',
     });
     setModalVisible(true);
@@ -413,6 +419,22 @@ export default function CustomerDetail() {
                   </View>
 
                   <View style={styles.formGroup}>
+                    <Text style={styles.formLabel}>分管小组</Text>
+                    <TouchableOpacity
+                      style={styles.selectButton}
+                      onPress={() => setSubGroupModalVisible(true)}
+                    >
+                      <Text style={[
+                        styles.selectButtonText,
+                        !formData.sub_group && styles.selectButtonPlaceholder
+                      ]}>
+                        {formData.sub_group || '请选择分管小组'}
+                      </Text>
+                      <FontAwesome6 name="chevron-down" size={14} color="#95A5A6" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.formGroup}>
                     <Text style={styles.formLabel}>所属行业</Text>
                     <TextInput
                       style={styles.formInput}
@@ -457,6 +479,54 @@ export default function CustomerDetail() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* 分管小组选择弹窗 */}
+      <Modal
+        visible={subGroupModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSubGroupModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.selectModalOverlay}
+          activeOpacity={1}
+          onPress={() => setSubGroupModalVisible(false)}
+        >
+          <View style={styles.selectModalContent}>
+            <View style={styles.selectModalHeader}>
+              <Text style={styles.selectModalTitle}>选择分管小组</Text>
+              <TouchableOpacity onPress={() => setSubGroupModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={18} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.selectModalList}>
+              {subGroupOptions.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.selectOptionItem,
+                    formData.sub_group === option && styles.selectOptionItemActive
+                  ]}
+                  onPress={() => {
+                    setFormData({ ...formData, sub_group: option });
+                    setSubGroupModalVisible(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.selectOptionText,
+                    formData.sub_group === option && styles.selectOptionTextActive
+                  ]}>
+                    {option}
+                  </Text>
+                  {formData.sub_group === option && (
+                    <FontAwesome6 name="check" size={16} color="#6C63FF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </Screen>
   );
@@ -714,5 +784,73 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  selectButtonText: {
+    fontSize: 14,
+    color: '#2D3436',
+    flex: 1,
+  },
+  selectButtonPlaceholder: {
+    color: '#B2BEC3',
+  },
+  selectModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  selectModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '80%',
+    maxHeight: '50%',
+  },
+  selectModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  selectModalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  selectModalList: {
+    paddingVertical: 8,
+  },
+  selectOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  selectOptionItemActive: {
+    backgroundColor: 'rgba(108, 99, 255, 0.08)',
+  },
+  selectOptionText: {
+    fontSize: 15,
+    color: '#2D3436',
+  },
+  selectOptionTextActive: {
+    color: '#6C63FF',
+    fontWeight: '500',
   },
 });
