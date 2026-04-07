@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 
@@ -195,13 +196,8 @@ export default function RemindersScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>工作提醒</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-          <FontAwesome6 name="plus" size={20} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-
+      <PageHeader title="工作提醒" showHome />
+      
       <View style={styles.filterRow}>
         {(['all', 'todo', 'done'] as const).map(f => (
           <TouchableOpacity

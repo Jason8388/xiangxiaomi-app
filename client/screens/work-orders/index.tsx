@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { cachedFetch, clearCache } from '@/utils/storage';
@@ -372,17 +373,12 @@ export default function WorkOrdersScreen() {
 
   return (
     <Screen>
+      <PageHeader title="工单管理" showHome />
+      
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        {/* Header */}
-        <View className="px-6 pt-8 pb-4">
-          <Text className="text-3xl font-bold text-[#2D3436] mb-2">
-            工单管理
-          </Text>
-        </View>
-
         {/* 栏1：操作按钮 */}
         <View className="px-6 mb-4 flex-row gap-3">
           <TouchableOpacity
@@ -392,7 +388,7 @@ export default function WorkOrdersScreen() {
             <Text className="text-white font-semibold text-base">新建工单</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => {}}
+            onPress={() => router.push('/after-sales-audit')}
             className="flex-1 py-3 rounded-2xl bg-[#F39C12] items-center justify-center"
           >
             <Text className="text-white font-semibold text-base">待审工单</Text>

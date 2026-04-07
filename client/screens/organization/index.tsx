@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -360,10 +361,11 @@ export default function OrganizationScreen() {
 
   return (
     <Screen>
+      <PageHeader title="组织结构" showHome />
+      
       {/* 头部统计 */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>组织结构</Text>
           {isAdmin && (
             <TouchableOpacity
               style={styles.addButton}

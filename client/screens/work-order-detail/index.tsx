@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
@@ -910,14 +911,7 @@ export default function WorkOrderDetailScreen() {
 
   return (
     <Screen>
-      {/* 顶部导航 */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <FontAwesome6 name="arrow-left" size={20} color="#2D3436" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>工单详情</Text>
-        <View style={styles.headerButton} />
-      </View>
+      <PageHeader title="工单详情" showHome />
 
       <ScrollView
         style={{ flex: 1 }}

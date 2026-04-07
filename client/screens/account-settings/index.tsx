@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { Screen } from '@/components/Screen';
+import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 interface User {
@@ -280,6 +281,7 @@ export default function AccountSettingsScreen() {
 
   return (
     <Screen>
+      <PageHeader title="账户设置" showHome />
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* 头像区域 */}
         <View style={styles.avatarSection}>

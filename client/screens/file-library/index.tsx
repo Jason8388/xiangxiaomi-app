@@ -21,6 +21,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '@/contexts/AuthContext';
 import { Screen } from '@/components/Screen';
+import { PageHeader } from '@/components/PageHeader';
 
 interface FileItem {
   id: number;
@@ -257,10 +258,10 @@ export default function FileLibrary() {
 
   return (
     <Screen>
+      <PageHeader title="文件库" showHome />
       <View style={styles.container}>
-        {/* 顶部标题 */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>文件库</Text>
+        {/* 上传按钮 */}
+        <View style={styles.uploadBar}>
           <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload}>
             <FontAwesome6 name="cloud-upload-alt" size={16} color="#FFFFFF" />
             <Text style={styles.uploadBtnText}>上传文件</Text>
@@ -437,6 +438,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F6FA',
+  },
+  uploadBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
