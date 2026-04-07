@@ -419,7 +419,174 @@ export default function WorkOrdersScreen() {
           </View>
         </View>
 
-        {/* 栏3：最近工单 */}
+        {/* 栏3：工单查询 */}
+        <View className="px-6 mb-4">
+          <View
+            className="rounded-3xl p-5"
+            style={{
+              backgroundColor: '#F0F0F3',
+              shadowColor: '#D1D9E6',
+              shadowOffset: { width: 6, height: 6 },
+              shadowOpacity: 0.7,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+          >
+            <Text className="text-lg font-bold text-[#2D3436] mb-4">工单查询</Text>
+
+            {/* 搜索栏 */}
+            <View className="flex-row items-center bg-white rounded-2xl px-4 py-3 mb-4">
+              <FontAwesome6 name="magnifying-glass" size={16} color="#636E72" />
+              <TextInput
+                className="flex-1 ml-2 text-[#2D3436] text-base"
+                placeholder="搜索工单名称、客户名称、工单编号、任务号、任务负责人、设备名称、设备编号"
+                placeholderTextColor="#B2BEC3"
+                value={searchKeyword}
+                onChangeText={setSearchKeyword}
+              />
+            </View>
+
+            {/* 工单列表 */}
+            <View>
+              {filteredOrders.map((order) => (
+                <TouchableOpacity
+                  key={order.id}
+                  onPress={() => router.push('/work-order-detail', { id: order.id.toString() })}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    className="rounded-2xl p-4 mb-3"
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      shadowColor: '#D1D9E6',
+                      shadowOffset: { width: 4, height: 4 },
+                      shadowOpacity: 0.5,
+                      shadowRadius: 6,
+                      elevation: 4,
+                    }}
+                  >
+                    {/* 工单名称和任务号 */}
+                    <View className="flex-row justify-between items-start mb-2">
+                      <View className="flex-1">
+                        <Text className="text-base font-bold text-[#2D3436] mb-1" numberOfLines={1}>
+                          {order.name || order.description || '无描述'}
+                        </Text>
+                        <Text className="text-xs text-[#636E72]">
+                          任务号: {order.order_no}
+                        </Text>
+                      </View>
+                      {/* 工单阶段标识 */}
+                      <View
+                        className="px-2 py-1 rounded-full ml-2"
+                        style={{
+                          backgroundColor: order.stage === 'completed' ? 'rgba(0, 184, 148, 0.2)' :
+                            order.stage === 'processing' ? 'rgba(108, 99, 255, 0.2)' :
+                            order.stage === 'assigned' ? 'rgba(243, 156, 18, 0.2)' : 'rgba(253, 203, 110, 0.2)'
+                        }}
+                      >
+                        <Text
+                          className="text-xs font-semibold"
+                          style={{
+                            color: order.stage === 'completed' ? '#00B894' :
+                              order.stage === 'processing' ? '#6C63FF' :
+                              order.stage === 'assigned' ? '#F39C12' : '#FDCB6E'
+                          }}
+                        >
+                          {order.stage === 'completed' ? '已完成' :
+                            order.stage === 'processing' ? '处理中' :
+                            order.stage === 'assigned' ? '已派工' : '待派工'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 客户名称和任务负责人 */}
+                    <View className="flex-row items-center mb-2">
+                      <View className="flex-row items-center flex-1">
+                        <FontAwesome6 name="building" size={12} color="#636E72" />
+                        <Text className="text-xs text-[#636E72] ml-1" numberOfLines={1}>
+                          {order.customer_name || '未指定客户'}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center flex-1">
+                        <FontAwesome6 name="user" size={12} color="#636E72" />
+                        <Text className="text-xs text-[#636E72] ml-1" numberOfLines={1}>
+                          {order.assignee_name || '未指定负责人'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 工单类型、计划工时、报价金额 */}
+                    <View className="flex-row items-center mb-2 flex-wrap gap-2">
+                      <View className="flex-row items-center">
+                        <FontAwesome6 name="wrench" size={10} color="#6C63FF" />
+                        <Text className="text-xs text-[#636E72] ml-1">{order.type || '维修'}</Text>
+                      </View>
+                      {order.plan_hours > 0 && (
+                        <View className="flex-row items-center">
+                          <FontAwesome6 name="clock" size={10} color="#F39C12" />
+                          <Text className="text-xs text-[#636E72] ml-1">{order.plan_hours}h</Text>
+                        </View>
+                      )}
+                      {order.quoted_price > 0 && (
+                        <View className="flex-row items-center">
+                          <FontAwesome6 name="yen-sign" size={10} color="#00B894" />
+                          <Text className="text-xs font-semibold text-[#00B894] ml-1">¥{order.quoted_price}</Text>
+                        </View>
+                      )}
+                      <View
+                        className="px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: order.is_charged ? 'rgba(0, 184, 148, 0.15)' : 'rgba(178, 190, 195, 0.15)' }}
+                      >
+                        <Text
+                          className="text-xs font-semibold"
+                          style={{ color: order.is_charged ? '#00B894' : '#B2BEC3' }}
+                        >
+                          {order.is_charged ? '有偿' : '免费'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 操作按钮 */}
+                    <View className="flex-row gap-2 mt-3">
+                      <TouchableOpacity
+                        onPress={() => router.push('/work-order-detail', { id: order.id })}
+                        className="flex-1 py-2 rounded-full bg-[#6C63FF] items-center justify-center"
+                      >
+                        <Text className="text-white text-xs font-semibold">查看</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleEdit(order);
+                        }}
+                        className="flex-1 py-2 rounded-full bg-[#F39C12] items-center justify-center"
+                      >
+                        <Text className="text-white text-xs font-semibold">修改</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDownload(order);
+                        }}
+                        className="flex-1 py-2 rounded-full bg-[#00B894] items-center justify-center"
+                      >
+                        <Text className="text-white text-xs font-semibold">下载</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {filteredOrders.length === 0 && (
+                <View className="py-8 items-center">
+                  <Text className="text-sm text-[#636E72]">暂无工单数据</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* 栏4：最近工单 */}
         <View className="px-6 mb-4">
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-lg font-bold text-[#2D3436]">最近工单</Text>
@@ -501,8 +668,6 @@ export default function WorkOrdersScreen() {
             </View>
           )}
         </View>
-
-        {/* 栏4：工单查询 */}
         <View className="px-6 mb-4">
           <View
             className="rounded-3xl p-5"
