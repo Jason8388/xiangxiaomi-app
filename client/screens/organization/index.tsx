@@ -297,7 +297,7 @@ export default function OrganizationScreen() {
           </TouchableOpacity>
 
           {/* 修改和删除按钮 */}
-          {user?.role === 'admin' && (
+          {(user?.role === 'admin' || !user) && (
             <View style={styles.deptActions}>
               <TouchableOpacity
                 style={styles.deptActionBtn}
@@ -316,7 +316,7 @@ export default function OrganizationScreen() {
         </View>
 
         {/* 子部门新增按钮 */}
-        {user?.role === 'admin' && isExpanded && (
+        {(user?.role === 'admin' || !user) && isExpanded && (
           <TouchableOpacity
             style={[styles.addSubDeptBtn, { marginLeft: (level + 1) * 16 + 8 }]}
             onPress={() => handleAddDepartment(dept.id)}
@@ -348,7 +348,7 @@ export default function OrganizationScreen() {
     return colors[id % colors.length];
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || !user; // 无用户信息时也显示（预览模式）
 
   return (
     <Screen>
