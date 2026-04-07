@@ -302,6 +302,35 @@ export default function ContractManagement() {
         </TouchableOpacity>
       </View>
 
+      {/* 合同统计信息 */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{contracts.length}</Text>
+          <Text style={styles.statLabel}>合同总数</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>
+            {contracts.reduce((sum, c) => sum + (parseFloat(c.contract_amount) || 0), 0).toLocaleString()}
+          </Text>
+          <Text style={styles.statLabel}>合同总金额</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>
+            {contracts.filter((c) => {
+              if (!c.acceptance_date) return false;
+              const endDate = new Date(c.acceptance_date);
+              const now = new Date();
+              const threeMonths = new Date();
+              threeMonths.setMonth(now.getMonth() + 3);
+              return endDate > now && endDate <= threeMonths;
+            }).length}
+          </Text>
+          <Text style={styles.statLabel}>近期验收</Text>
+        </View>
+      </View>
+
       {/* 合同列表 */}
       <ScrollView style={styles.listContainer}>
         {loading ? (
@@ -648,6 +677,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2ECC71',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#636E72',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E0E0E0',
   },
   listContainer: {
     flex: 1,
