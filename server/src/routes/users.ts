@@ -1,7 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'crypto';
 import pool from '../database/db';
-import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsersList } from '../database/memory-storage';
+import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsersList, memoryUsers } from '../database/memory-storage';
 
 const router = express.Router();
 
@@ -28,13 +28,26 @@ async function queryWithRetry(query: string, params: any[] = [], retries = 1, de
 // 登录
 router.post('/login', async (req, res) => {
   try {
-    const { username, password, device_id, device_info, ip_address } = req.body;
+    const { username, password, phone, device_id, device_info, ip_address } = req.body;
+
+    // 支持用户名或手机号登录
+    const loginId = username || phone;
+    
+    if (!loginId || !password) {
+      return res.status(400).json({ error: '请输入用户名/手机号和密码' });
+    }
 
     let user: any;
 
     if (USE_MEMORY_STORAGE) {
       // 使用内存存储
-      user = getUserByUsername(username);
+      // 先按用户名查找
+      user = getUserByUsername(loginId);
+      // 如果没找到，按手机号查找
+      if (!user) {
+        user = Object.values(memoryUsers).find((u: any) => u.phone === loginId);
+      }
+      
       if (!user) {
         return res.status(401).json({ error: '用户名或密码错误' });
       }
