@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import { getSecureItem, deleteSecureItem } from '@/utils/storage';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { Alert, Platform } from 'react-native';
 import Constants from 'expo-constants';
@@ -57,7 +57,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const sessionId = await SecureStore.getItemAsync('session_id');
+      const sessionId = await getSecureItem('session_id');
       if (!sessionId) {
         setIsAuthenticated(false);
         setSession(null);
@@ -92,8 +92,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 text: '确定',
                 onPress: () => {
                   // 清除本地数据并跳转登录页
-                  SecureStore.deleteItemAsync('user');
-                  SecureStore.deleteItemAsync('session_id');
+                  deleteSecureItem('user');
+                  deleteSecureItem('session_id');
                   router.replace('/');
                 },
               },
@@ -113,7 +113,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   // 登出
   const logout = async () => {
-    const sessionId = await SecureStore.getItemAsync('session_id');
+    const sessionId = await getSecureItem('session_id');
 
     try {
       // 调用后端注销接口
@@ -129,8 +129,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       console.error('Logout error:', error);
     } finally {
       // 清除本地数据
-      SecureStore.deleteItemAsync('user');
-      SecureStore.deleteItemAsync('session_id');
+      deleteSecureItem('user');
+      deleteSecureItem('session_id');
       setSession(null);
       setIsAuthenticated(false);
 

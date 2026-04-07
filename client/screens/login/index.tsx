@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Screen } from '@/components/Screen';
-import * as SecureStore from 'expo-secure-store';
+import { setSecureItem } from '@/utils/storage';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import Constants from 'expo-constants';
-import { storage } from '@/utils/storage';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');

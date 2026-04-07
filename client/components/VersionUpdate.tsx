@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert, Linking, Platform } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import { getSecureItem, setSecureItem } from '@/utils/storage';
 import Constants from 'expo-constants';
 
 // 当前应用版本号
@@ -136,7 +136,7 @@ export function useVersionUpdate(options: UseVersionUpdateOptions = {}) {
   const canShowUpdateReminder = async (): Promise<boolean> => {
     try {
       const today = new Date().toDateString();
-      const lastReminderDate = await SecureStore.getItemAsync('lastUpdateReminderDate');
+      const lastReminderDate = await getSecureItem('lastUpdateReminderDate');
 
       if (lastReminderDate === today) {
         return false;
@@ -153,7 +153,7 @@ export function useVersionUpdate(options: UseVersionUpdateOptions = {}) {
   const recordUpdateReminder = async () => {
     try {
       const today = new Date().toDateString();
-      await SecureStore.setItemAsync('lastUpdateReminderDate', today);
+      await setSecureItem('lastUpdateReminderDate', today);
     } catch (error) {
       console.error('Record update reminder error:', error);
     }
@@ -162,7 +162,7 @@ export function useVersionUpdate(options: UseVersionUpdateOptions = {}) {
   // 上报升级失败
   const reportUpgradeFailure = async (error: Error) => {
     try {
-      const userStr = await SecureStore.getItemAsync('user');
+      const userStr = await getSecureItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
 
       const deviceId = Constants.deviceId || Constants.expoConfig?.extra?.deviceId || 'unknown';

@@ -11,7 +11,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
+import { getSecureItem, setSecureItem, deleteSecureItem } from '@/utils/storage';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -56,8 +56,8 @@ export default function AccountSettingsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const userStr = await SecureStore.getItemAsync('user');
-      const sessionStr = await SecureStore.getItemAsync('session');
+      const userStr = await getSecureItem('user');
+      const sessionStr = await getSecureItem('session');
       
       if (userStr && sessionStr) {
         const userData = JSON.parse(userStr);
@@ -78,14 +78,14 @@ export default function AccountSettingsScreen() {
           setUser(userInfo);
           setSignature(userInfo.signature || '');
           // 同步更新本地存储
-          await SecureStore.setItemAsync('user', JSON.stringify(userInfo));
+          await setSecureItem('user', JSON.stringify(userInfo));
           setError(null);
         } else if (response.status === 401) {
           // 未登录或登录过期
           setUser(null);
           setError(null);
-          await SecureStore.deleteItemAsync('user');
-          await SecureStore.deleteItemAsync('session');
+          await deleteSecureItem('user');
+          await deleteSecureItem('session');
         } else {
           // 服务器错误，使用本地缓存
           setUser(userData);
@@ -98,7 +98,7 @@ export default function AccountSettingsScreen() {
     } catch (error) {
       console.error('Load user error:', error);
       // 网络错误时使用本地缓存
-      const userStr = await SecureStore.getItemAsync('user');
+      const userStr = await getSecureItem('user');
       if (userStr) {
         try {
           const userData = JSON.parse(userStr);
@@ -142,7 +142,7 @@ export default function AccountSettingsScreen() {
   const uploadAvatar = async (uri: string) => {
     try {
       setUploadingAvatar(true);
-      const sessionStr = await SecureStore.getItemAsync('session');
+      const sessionStr = await getSecureItem('session');
       if (!sessionStr) {
         Alert.alert('错误', '未登录');
         return;
@@ -177,7 +177,7 @@ export default function AccountSettingsScreen() {
       if (response.ok) {
         // 更新本地用户信息
         setUser(prev => prev ? { ...prev, avatar: data.avatar } : null);
-        await SecureStore.setItemAsync('user', JSON.stringify({ ...user, avatar: data.avatar }));
+        await setSecureItem('user', JSON.stringify({ ...user, avatar: data.avatar }));
         Alert.alert('成功', '头像上传成功');
       } else {
         Alert.alert('错误', data.error || '上传失败');
@@ -210,7 +210,7 @@ export default function AccountSettingsScreen() {
 
     try {
       setSavingPassword(true);
-      const sessionStr = await SecureStore.getItemAsync('session');
+      const sessionStr = await getSecureItem('session');
       if (!sessionStr) {
         Alert.alert('错误', '未登录');
         return;
@@ -258,7 +258,7 @@ export default function AccountSettingsScreen() {
 
     try {
       setSavingSignature(true);
-      const sessionStr = await SecureStore.getItemAsync('session');
+      const sessionStr = await getSecureItem('session');
       if (!sessionStr) {
         Alert.alert('错误', '未登录');
         return;
@@ -280,7 +280,7 @@ export default function AccountSettingsScreen() {
       const data = await response.json();
       if (response.ok) {
         setUser(prev => prev ? { ...prev, signature } : null);
-        await SecureStore.setItemAsync('user', JSON.stringify({ ...user, signature }));
+        await setSecureItem('user', JSON.stringify({ ...user, signature }));
         setShowSignatureModal(false);
         Alert.alert('成功', '签名保存成功');
       } else {

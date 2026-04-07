@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as SecureStore from 'expo-secure-store';
+import { getSecureItem } from '@/utils/storage';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -90,7 +90,7 @@ export default function KnowledgeCreate() {
 
   const loadCurrentUser = async () => {
     try {
-      const userStr = await SecureStore.getItemAsync('user');
+      const userStr = await getSecureItem('user');
       if (userStr) {
         setCurrentUser(JSON.parse(userStr));
       }

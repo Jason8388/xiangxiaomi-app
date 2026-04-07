@@ -14,7 +14,7 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { getSecureItem } from '@/utils/storage';
 import { cachedFetch, clearCache } from '@/utils/storage';
 
 interface Employee {
@@ -92,7 +92,7 @@ export default function OrganizationScreen() {
 
   const fetchUser = async () => {
     try {
-      const userData = await SecureStore.getItemAsync('user');
+      const userData = await getSecureItem('user');
       if (userData) {
         setUser(JSON.parse(userData));
       }

@@ -12,7 +12,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import { getSecureItem } from '@/utils/storage';
 
 interface User {
   id: number;
@@ -74,7 +74,7 @@ export default function EmployeeManagement() {
   // 加载当前登录用户信息
   const loadUserData = async () => {
     try {
-      const userStr = await SecureStore.getItemAsync('user');
+      const userStr = await getSecureItem('user');
       if (userStr) {
         setUser(JSON.parse(userStr));
       }

@@ -12,9 +12,8 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import * as SecureStore from 'expo-secure-store';
 import * as DocumentPicker from 'expo-document-picker';
-import { cachedFetch } from '@/utils/storage';
+import { getSecureItem } from '@/utils/storage';
 
 interface FileTag {
   id: number;
@@ -65,7 +64,7 @@ export default function FilesScreen() {
 
   const loadUserInfo = async () => {
     try {
-      const userStr = await SecureStore.getItemAsync('user');
+      const userStr = await getSecureItem('user');
       if (userStr) {
         setUser(JSON.parse(userStr));
       }
