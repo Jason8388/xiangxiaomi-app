@@ -950,7 +950,7 @@ export default function WorkOrderDetailScreen() {
             )}
             {renderInfoRow('任务状态', order.task_status || '', 'task_status', true)}
             {renderInfoRow(
-              '需求评估周期',
+              '需求阶段周期',
               order.demand_assessment_period ? `${order.demand_assessment_period} 天` : '',
               'demand_assessment_period',
               true
