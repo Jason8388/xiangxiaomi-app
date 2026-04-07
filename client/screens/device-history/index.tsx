@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,24 @@ import {
   Alert,
   Modal,
   TextInput,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+
+interface Attachment {
+  id: string;
+  name: string;
+  uri: string;
+  type: string;
+  size: number;
+}
 
 interface DeviceHistoryData {
   // 基本信息
@@ -66,7 +78,66 @@ interface DeviceHistoryData {
   // 研发信息
   solution_files: string;
   software_version: string;
+
+  // 附件
+  attachments: string;
 }
+
+const initialHistoryData: DeviceHistoryData = {
+  // 基本信息
+  device_name: '',
+  product_spec: '',
+  device_code: '',
+
+  // 销售订单信息
+  contract_name: '',
+  contract_number: '',
+  contract_date: '',
+  customer_name: '',
+  sales_manager: '',
+  warranty_period: '',
+
+  // 制造信息
+  production_unit: '',
+  production_order: '',
+  batch_number: '',
+  production_manager: '',
+  production_complete_date: '',
+  tester: '',
+  debug_complete_date: '',
+  quality_inspector: '',
+  factory_inspector: '',
+  factory_date: '',
+  manufacturing_sop_file: '',
+  factory_test_files: '',
+  warranty_scope_price: '',
+
+  // 交付验收信息
+  delivery_pm: '',
+  customer_contact: '',
+  delivery_location: '',
+  delivery_person: '',
+  planned_arrival_date: '',
+  actual_arrival_date: '',
+  acceptance_manager: '',
+  customer_acceptance_stakeholders: '',
+  planned_acceptance_date: '',
+  actual_acceptance_date: '',
+  warranty_expiry_date: '',
+  delivery_team: '',
+  customer_training_personnel: '',
+  device_warranty_period: '',
+  operation_sop: '',
+  training_confirmation_file: '',
+  maintenance_sop: '',
+
+  // 研发信息
+  solution_files: '',
+  software_version: '',
+
+  // 附件
+  attachments: '',
+};
 
 export default function DeviceHistory() {
   const router = useSafeRouter();
@@ -77,58 +148,9 @@ export default function DeviceHistory() {
 
   const [loading, setLoading] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [historyData, setHistoryData] = useState<DeviceHistoryData>({
-    // 基本信息
-    device_name: '',
-    product_spec: '',
-    device_code: '',
-
-    // 销售订单信息
-    contract_name: '',
-    contract_number: '',
-    contract_date: '',
-    customer_name: '',
-    sales_manager: '',
-    warranty_period: '',
-
-    // 制造信息
-    production_unit: '',
-    production_order: '',
-    batch_number: '',
-    production_manager: '',
-    production_complete_date: '',
-    tester: '',
-    debug_complete_date: '',
-    quality_inspector: '',
-    factory_inspector: '',
-    factory_date: '',
-    manufacturing_sop_file: '',
-    factory_test_files: '',
-    warranty_scope_price: '',
-
-    // 交付验收信息
-    delivery_pm: '',
-    customer_contact: '',
-    delivery_location: '',
-    delivery_person: '',
-    planned_arrival_date: '',
-    actual_arrival_date: '',
-    acceptance_manager: '',
-    customer_acceptance_stakeholders: '',
-    planned_acceptance_date: '',
-    actual_acceptance_date: '',
-    warranty_expiry_date: '',
-    delivery_team: '',
-    customer_training_personnel: '',
-    device_warranty_period: '',
-    operation_sop: '',
-    training_confirmation_file: '',
-    maintenance_sop: '',
-
-    // 研发信息
-    solution_files: '',
-    software_version: '',
-  });
+  const [historyData, setHistoryData] = useState<DeviceHistoryData>(initialHistoryData);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadHistoryData();
@@ -142,7 +164,17 @@ export default function DeviceHistory() {
       );
       const data = await response.json();
       if (response.ok) {
-        setHistoryData(data);
+        const fullData = { ...initialHistoryData, ...data };
+        setHistoryData(fullData);
+        // 解析附件
+        if (fullData.attachments) {
+          try {
+            const attachmentList = JSON.parse(fullData.attachments);
+            setAttachments(attachmentList);
+          } catch {
+            setAttachments([]);
+          }
+        }
       } else {
         Alert.alert('错误', data.error || '加载履历表失败');
       }
@@ -160,12 +192,16 @@ export default function DeviceHistory() {
 
   const handleSave = async () => {
     try {
+      const saveData = {
+        ...historyData,
+        attachments: JSON.stringify(attachments),
+      };
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(historyData),
+          body: JSON.stringify(saveData),
         }
       );
 
@@ -192,9 +228,7 @@ export default function DeviceHistory() {
           try {
             const response = await fetch(
               `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail`,
-              {
-                method: 'DELETE',
-              }
+              { method: 'DELETE' }
             );
             if (response.ok) {
               Alert.alert('成功', '删除成功');
@@ -219,6 +253,98 @@ export default function DeviceHistory() {
     Alert.alert('提示', '下载功能开发中...');
   };
 
+  // 上传附件
+  const handleUploadAttachment = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.pdf'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      const fileInfo = await FileSystem.getInfoAsync(file.uri);
+
+      setUploading(true);
+
+      // 上传到服务器
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || 'application/octet-stream',
+      } as any);
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/files/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const newAttachment: Attachment = {
+          id: Date.now().toString(),
+          name: file.name,
+          uri: data.url || file.uri,
+          type: file.mimeType || 'application/octet-stream',
+          size: fileInfo.size || 0,
+        };
+        setAttachments([...attachments, newAttachment]);
+        Alert.alert('成功', '文件上传成功');
+      } else {
+        // 即使上传失败，也添加到本地列表
+        const newAttachment: Attachment = {
+          id: Date.now().toString(),
+          name: file.name,
+          uri: file.uri,
+          type: file.mimeType || 'application/octet-stream',
+          size: fileInfo.size || 0,
+        };
+        setAttachments([...attachments, newAttachment]);
+        Alert.alert('提示', '文件已添加（本地模式）');
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      Alert.alert('错误', '上传失败');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 删除附件
+  const handleRemoveAttachment = (id: string) => {
+    Alert.alert('确认删除', '确定要删除此附件吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: () => {
+          setAttachments(attachments.filter(a => a.id !== id));
+        },
+      },
+    ]);
+  };
+
+  // 获取文件图标
+  const getFileIcon = (type: string) => {
+    if (type.includes('pdf')) return 'file-pdf';
+    if (type.includes('word') || type.includes('doc')) return 'file-word';
+    if (type.includes('excel') || type.includes('sheet') || type.includes('xls')) return 'file-excel';
+    if (type.includes('powerpoint') || type.includes('ppt')) return 'file-powerpoint';
+    return 'file';
+  };
+
+  // 格式化文件大小
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -239,6 +365,19 @@ export default function DeviceHistory() {
         <Text style={styles.sectionTitle}>{title}</Text>
       </View>
       <View style={styles.sectionContent}>{children}</View>
+    </View>
+  );
+
+  const renderFormInput = (label: string, field: keyof DeviceHistoryData, multiline = false) => (
+    <View style={styles.formGroup}>
+      <Text style={styles.formLabel}>{label}</Text>
+      <TextInput
+        style={[styles.formInput, multiline && styles.formInputMultiline]}
+        value={historyData[field] as string}
+        onChangeText={(text) => setHistoryData({ ...historyData, [field]: text })}
+        multiline={multiline}
+        numberOfLines={multiline ? 3 : 1}
+      />
     </View>
   );
 
@@ -283,7 +422,7 @@ export default function DeviceHistory() {
         </View>
       ) : (
         <ScrollView style={styles.contentContainer}>
-          {/* 信息栏1：基本信息 */}
+          {/* 基本信息 */}
           {renderInfoSection(
             '基本信息',
             'info-circle',
@@ -294,7 +433,7 @@ export default function DeviceHistory() {
             </>
           )}
 
-          {/* 信息栏2：销售订单信息 */}
+          {/* 销售订单信息 */}
           {renderInfoSection(
             '销售订单信息',
             'file-contract',
@@ -308,7 +447,7 @@ export default function DeviceHistory() {
             </>
           )}
 
-          {/* 信息栏3：制造信息 */}
+          {/* 制造信息 */}
           {renderInfoSection(
             '制造信息',
             'industry',
@@ -329,7 +468,7 @@ export default function DeviceHistory() {
             </>
           )}
 
-          {/* 信息栏4：交付验收信息 */}
+          {/* 交付验收信息 */}
           {renderInfoSection(
             '交付验收信息',
             'truck-ramp-box',
@@ -354,13 +493,40 @@ export default function DeviceHistory() {
             </>
           )}
 
-          {/* 信息栏5：研发信息 */}
+          {/* 研发信息 */}
           {renderInfoSection(
             '研发信息',
             'flask',
             <>
               {renderInfoField('方案文件', historyData.solution_files)}
               {renderInfoField('出厂软件算法版本说明', historyData.software_version)}
+            </>
+          )}
+
+          {/* 附件信息 */}
+          {renderInfoSection(
+            '附件',
+            'paperclip',
+            <>
+              {attachments.length > 0 ? (
+                attachments.map((attachment) => (
+                  <View key={attachment.id} style={styles.attachmentItem}>
+                    <FontAwesome6
+                      name={getFileIcon(attachment.type) as any}
+                      size={24}
+                      color="#1E88E5"
+                    />
+                    <View style={styles.attachmentInfo}>
+                      <Text style={styles.attachmentName}>{attachment.name}</Text>
+                      <Text style={styles.attachmentSize}>
+                        {formatFileSize(attachment.size)}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noAttachments}>暂无附件</Text>
+              )}
             </>
           )}
         </ScrollView>
@@ -373,7 +539,10 @@ export default function DeviceHistory() {
         animationType="slide"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>编辑履历表</Text>
@@ -383,49 +552,16 @@ export default function DeviceHistory() {
             </View>
 
             <ScrollView style={styles.modalBody}>
+              {/* 基本信息 */}
               <Text style={styles.modalSectionTitle}>基本信息</Text>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>设备名称</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={historyData.device_name}
-                  onChangeText={(text) => setHistoryData({ ...historyData, device_name: text })}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>产品规格</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={historyData.product_spec}
-                  onChangeText={(text) => setHistoryData({ ...historyData, product_spec: text })}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>设备编码</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={historyData.device_code}
-                  onChangeText={(text) => setHistoryData({ ...historyData, device_code: text })}
-                />
-              </View>
+              {renderFormInput('设备名称', 'device_name')}
+              {renderFormInput('产品规格', 'product_spec')}
+              {renderFormInput('设备编码', 'device_code')}
 
+              {/* 销售订单信息 */}
               <Text style={styles.modalSectionTitle}>销售订单信息</Text>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>合同名称</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={historyData.contract_name}
-                  onChangeText={(text) => setHistoryData({ ...historyData, contract_name: text })}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>合同编号</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={historyData.contract_number}
-                  onChangeText={(text) => setHistoryData({ ...historyData, contract_number: text })}
-                />
-              </View>
+              {renderFormInput('合同名称', 'contract_name')}
+              {renderFormInput('合同编号', 'contract_number')}
               <View style={styles.formGroup}>
                 <SmartDateInput
                   label="合同签订日期"
@@ -434,8 +570,147 @@ export default function DeviceHistory() {
                   placeholder="请选择合同签订日期"
                 />
               </View>
+              {renderFormInput('客户名称', 'customer_name')}
+              {renderFormInput('业务经理', 'sales_manager')}
+              {renderFormInput('设备质保期', 'warranty_period')}
 
-              <Text style={styles.modalHint}>更多字段请在完整表单中编辑...</Text>
+              {/* 制造信息 */}
+              <Text style={styles.modalSectionTitle}>制造信息</Text>
+              {renderFormInput('生产单位', 'production_unit')}
+              {renderFormInput('生产订单号', 'production_order')}
+              {renderFormInput('批次号', 'batch_number')}
+              {renderFormInput('生产负责人', 'production_manager')}
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="生产完工日期"
+                  value={historyData.production_complete_date}
+                  onChange={(date) => setHistoryData({ ...historyData, production_complete_date: date })}
+                  placeholder="请选择生产完工日期"
+                />
+              </View>
+              {renderFormInput('测试人', 'tester')}
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="调试完工日期"
+                  value={historyData.debug_complete_date}
+                  onChange={(date) => setHistoryData({ ...historyData, debug_complete_date: date })}
+                  placeholder="请选择调试完工日期"
+                />
+              </View>
+              {renderFormInput('质检员', 'quality_inspector')}
+              {renderFormInput('出厂检验人', 'factory_inspector')}
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="出厂日期"
+                  value={historyData.factory_date}
+                  onChange={(date) => setHistoryData({ ...historyData, factory_date: date })}
+                  placeholder="请选择出厂日期"
+                />
+              </View>
+              {renderFormInput('设备制造SOP文件', 'manufacturing_sop_file')}
+              {renderFormInput('出厂检验文件包', 'factory_test_files')}
+              {renderFormInput('设备质保范围与价格标准', 'warranty_scope_price', true)}
+
+              {/* 交付验收信息 */}
+              <Text style={styles.modalSectionTitle}>交付验收信息</Text>
+              {renderFormInput('项目交付PM', 'delivery_pm')}
+              {renderFormInput('客户现场对接人', 'customer_contact')}
+              {renderFormInput('交付厂区/车间区域', 'delivery_location')}
+              {renderFormInput('交付人', 'delivery_person')}
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="计划进场时间"
+                  value={historyData.planned_arrival_date}
+                  onChange={(date) => setHistoryData({ ...historyData, planned_arrival_date: date })}
+                  placeholder="请选择计划进场时间"
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="实际进场时间"
+                  value={historyData.actual_arrival_date}
+                  onChange={(date) => setHistoryData({ ...historyData, actual_arrival_date: date })}
+                  placeholder="请选择实际进场时间"
+                />
+              </View>
+              {renderFormInput('验收负责人', 'acceptance_manager')}
+              {renderFormInput('客户验收干系人', 'customer_acceptance_stakeholders')}
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="计划验收时间"
+                  value={historyData.planned_acceptance_date}
+                  onChange={(date) => setHistoryData({ ...historyData, planned_acceptance_date: date })}
+                  placeholder="请选择计划验收时间"
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="实际验收时间"
+                  value={historyData.actual_acceptance_date}
+                  onChange={(date) => setHistoryData({ ...historyData, actual_acceptance_date: date })}
+                  placeholder="请选择实际验收时间"
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <SmartDateInput
+                  label="设备质保到期时间"
+                  value={historyData.warranty_expiry_date}
+                  onChange={(date) => setHistoryData({ ...historyData, warranty_expiry_date: date })}
+                  placeholder="请选择质保到期时间"
+                />
+              </View>
+              {renderFormInput('交付协同人员', 'delivery_team')}
+              {renderFormInput('客户培训人员', 'customer_training_personnel')}
+              {renderFormInput('设备质保期', 'device_warranty_period')}
+              {renderFormInput('设备操作SOP', 'operation_sop')}
+              {renderFormInput('设备培训确认单文件', 'training_confirmation_file')}
+              {renderFormInput('设备维保SOP', 'maintenance_sop')}
+
+              {/* 研发信息 */}
+              <Text style={styles.modalSectionTitle}>研发信息</Text>
+              {renderFormInput('方案文件', 'solution_files')}
+              {renderFormInput('出厂软件算法版本说明', 'software_version', true)}
+
+              {/* 附件 */}
+              <Text style={styles.modalSectionTitle}>附件</Text>
+              <TouchableOpacity
+                style={styles.uploadButton}
+                onPress={handleUploadAttachment}
+                disabled={uploading}
+              >
+                <FontAwesome6 name="cloud-upload-alt" size={20} color="#1E88E5" />
+                <Text style={styles.uploadButtonText}>
+                  {uploading ? '上传中...' : '上传附件 (Word/PPT/Excel/PDF)'}
+                </Text>
+              </TouchableOpacity>
+
+              {attachments.length > 0 && (
+                <View style={styles.attachmentList}>
+                  {attachments.map((attachment) => (
+                    <View key={attachment.id} style={styles.attachmentRow}>
+                      <View style={styles.attachmentRowLeft}>
+                        <FontAwesome6
+                          name={getFileIcon(attachment.type) as any}
+                          size={20}
+                          color="#1E88E5"
+                        />
+                        <Text style={styles.attachmentRowName} numberOfLines={1}>
+                          {attachment.name}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleRemoveAttachment(attachment.id)}
+                        style={styles.removeButton}
+                      >
+                        <FontAwesome6 name="times" size={16} color="#E74C3C" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <Text style={styles.uploadHint}>
+                支持格式：.doc, .docx, .ppt, .pptx, .xls, .xlsx, .pdf
+              </Text>
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -453,7 +728,7 @@ export default function DeviceHistory() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Screen>
   );
@@ -541,6 +816,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2C3E50',
   },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 12,
+  },
+  attachmentInfo: {
+    flex: 1,
+  },
+  attachmentName: {
+    fontSize: 14,
+    color: '#2C3E50',
+  },
+  attachmentSize: {
+    fontSize: 12,
+    color: '#95A5A6',
+    marginTop: 2,
+  },
+  noAttachments: {
+    fontSize: 14,
+    color: '#95A5A6',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -550,7 +849,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
+    maxHeight: '95%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -571,9 +870,12 @@ const styles = StyleSheet.create({
   modalSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2C3E50',
+    color: '#1E88E5',
     marginTop: 16,
     marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E8E8',
   },
   formGroup: {
     marginBottom: 16,
@@ -592,13 +894,61 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: '#2C3E50',
+    backgroundColor: '#FFFFFF',
   },
-  modalHint: {
+  formInputMultiline: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    borderWidth: 2,
+    borderColor: '#1E88E5',
+    borderRadius: 12,
+    borderStyle: 'dashed',
+    backgroundColor: '#F5F9FF',
+  },
+  uploadButtonText: {
     fontSize: 14,
+    color: '#1E88E5',
+    fontWeight: '600',
+  },
+  attachmentList: {
+    marginTop: 12,
+    gap: 8,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  attachmentRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  attachmentRowName: {
+    fontSize: 14,
+    color: '#2C3E50',
+    flex: 1,
+  },
+  removeButton: {
+    padding: 4,
+  },
+  uploadHint: {
+    fontSize: 12,
     color: '#95A5A6',
     textAlign: 'center',
-    marginTop: 20,
-    paddingVertical: 12,
+    marginTop: 8,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -609,20 +959,20 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F5F5F5',
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#636E72',
   },
   submitButton: {
-    backgroundColor: '#3498DB',
+    backgroundColor: '#1E88E5',
   },
   submitButtonText: {
     fontSize: 16,
