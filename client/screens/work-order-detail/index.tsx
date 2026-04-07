@@ -100,7 +100,7 @@ interface Customer {
   contact_phone?: string;
 }
 
-export default function WorkOrderDetailScreen() {
+function WorkOrderDetailScreen() {
   const router = useSafeRouter();
   const { id } = useSafeSearchParams<{ id: string }>();
   const isCreateMode = !id || id === 'new';
@@ -1143,9 +1143,9 @@ export default function WorkOrderDetailScreen() {
                   {renderNumberRow('收费金额', 'quoted_price', '元')}
                   <View style={styles.uploadRow}>
                     <Text style={styles.uploadLabel}>上传报价单照片</Text>
-                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('quoted_price')}>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('quoted_price_doc')}>
                       <FontAwesome6 name="upload" size={14} color="#6C63FF" />
-                      <Text style={styles.uploadBtnText}>{order.quoted_price_doc ? '已上传' : '上传'}</Text>
+                      <Text style={styles.uploadBtnText}>{order.quoted_price ? '已上传' : '上传'}</Text>
                     </TouchableOpacity>
                   </View>
                   <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('consensus_date', order.consensus_date || '')}>
@@ -1228,9 +1228,9 @@ export default function WorkOrderDetailScreen() {
                   {renderInfoRow('收费金额', order.quoted_price ? String(order.quoted_price) : '', '', '元')}
                   <View style={styles.uploadRow}>
                     <Text style={styles.uploadLabel}>上传报价单照片</Text>
-                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('quoted_price')}>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadMedia('quoted_price_doc')}>
                       <FontAwesome6 name="upload" size={14} color="#6C63FF" />
-                      <Text style={styles.uploadBtnText}>{order.quoted_price_doc ? '已上传' : '上传'}</Text>
+                      <Text style={styles.uploadBtnText}>{order.quoted_price ? '已上传' : '上传'}</Text>
                     </TouchableOpacity>
                   </View>
                   <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('consensus_date', order.consensus_date || '')}>
