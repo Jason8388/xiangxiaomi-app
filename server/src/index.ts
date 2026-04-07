@@ -29,6 +29,7 @@ import queryRoutes from "./routes/query";
 import reportsRoutes from "./routes/reports";
 import standardMaterialListsRoutes from "./routes/standardMaterialLists";
 import uploadRoutes from "./routes/upload";
+import exportRoutes from "./routes/export";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -68,6 +69,7 @@ app.use('/api/v1/query', queryRoutes);
 app.use('/api/v1/reports', reportsRoutes);
 app.use('/api/v1/standard-material-lists', standardMaterialListsRoutes);
 app.use('/api/v1/upload', uploadRoutes);
+app.use('/api/v1/export', exportRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');

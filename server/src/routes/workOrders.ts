@@ -1,10 +1,19 @@
 import express from 'express';
 import pool, { USE_DATABASE } from '../database/db';
+import { setExportData } from './export';
 
 const router = express.Router();
 
 // 内存数据存储
 const memoryWorkOrders: any[] = [];
+const memoryCustomers: any[] = [];
+const memoryDevices: any[] = [];
+const memoryUsers: any[] = [];
+
+// 导出时同步数据
+function syncExportData() {
+  setExportData(memoryWorkOrders, memoryCustomers, memoryDevices, memoryUsers);
+}
 let memoryWorkOrderId = 1;
 let orderNoCounter = 1;
 
@@ -318,6 +327,7 @@ router.post('/', async (req, res) => {
         updated_at: new Date().toISOString(),
       };
       memoryWorkOrders.push(newOrder);
+      syncExportData();
       return res.json(newOrder);
     }
 

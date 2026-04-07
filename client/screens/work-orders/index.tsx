@@ -183,6 +183,34 @@ export default function WorkOrdersScreen() {
     router.push('/work-order-detail', { id: 'new' });
   };
 
+  // 导出工单列表
+  const handleExport = (format: 'excel' | 'csv') => {
+    const url = format === 'excel'
+      ? `${getApiBaseUrl()}/api/v1/export/export/excel`
+      : `${getApiBaseUrl()}/api/v1/export/export/csv`;
+    
+    // 创建隐藏的 a 标签触发下载
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = format === 'excel' ? '工单列表.xlsx' : '工单列表.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 显示导出选项
+  const showExportOptions = () => {
+    Alert.alert(
+      '导出工单',
+      '请选择导出格式',
+      [
+        { text: 'Excel 格式 (.xlsx)', onPress: () => handleExport('excel') },
+        { text: 'CSV 格式 (.csv)', onPress: () => handleExport('csv') },
+        { text: '取消', style: 'cancel' },
+      ]
+    );
+  };
+
   const handleEdit = (order: WorkOrder) => {
     setEditingOrder(order);
     setFormData({
@@ -371,6 +399,12 @@ export default function WorkOrdersScreen() {
             className="flex-1 py-3 rounded-2xl bg-[#6C63FF] items-center justify-center"
           >
             <Text className="text-white font-semibold text-base">新建工单</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={showExportOptions}
+            className="flex-1 py-3 rounded-2xl bg-[#00B894] items-center justify-center"
+          >
+            <Text className="text-white font-semibold text-base">导出工单</Text>
           </TouchableOpacity>
         </View>
 
