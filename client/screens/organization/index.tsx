@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { getSecureItem } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 
 
 interface Employee {
@@ -71,7 +72,7 @@ export default function OrganizationScreen() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/organization`);
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/organization`);
       const data = await res.json();
       if (res.ok) {
         setOrgData(data);
@@ -121,14 +122,12 @@ const getApiBaseUrl = () => {
   return 'http://localhost:9091';
 };
 
-const API_BASE_URL = getApiBaseUrl();
-
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
         setLoading(true);
         try {
-          const res = await fetch(`${API_BASE_URL}/api/v1/organization`);
+          const res = await fetch(`${getApiBaseUrl()}/api/v1/organization`);
           const data = await res.json();
           if (res.ok) {
             setOrgData(data);
