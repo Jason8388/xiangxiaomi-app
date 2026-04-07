@@ -166,6 +166,18 @@ router.post('/', async (req, res) => {
   }
 });
 
+// 下载导入模板
+router.get('/template', (req, res) => {
+  // CSV 格式的物料导入模板
+  const template = `物料编号,物料名称,规格型号,单位,分类,当前库存,预警库存,供应商,单价,存放位置,备注
+MAT-001,示例物料1,M8*30mm,盒,紧固件,100,50,供应商名称,15.50,A区-01-01,这是示例数据
+MAT-002,示例物料2,5L/桶,桶,润滑剂,50,20,供应商名称,128.00,B区-02-03,这是示例数据`;
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="material_template.csv"');
+  res.send(template);
+});
+
 // 获取物料详情
 router.get('/:id', async (req, res) => {
   try {

@@ -386,6 +386,55 @@ export default function MaterialManagement() {
     }
   };
 
+  // 下载导入模板
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/template`
+      );
+
+      if (!response.ok) {
+        throw new Error('获取模板失败');
+      }
+
+      const csvContent = await response.text();
+
+      if (Platform.OS === 'web') {
+        // Web 端下载
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = '物料导入模板.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // 移动端保存文件
+        const fileUri = `${FileSystem.documentDirectory}物料导入模板.csv`;
+        await (FileSystem as any).writeAsStringAsync(fileUri, csvContent, {
+          encoding: (FileSystem as any).EncodingType.UTF8,
+        });
+
+        // 使用分享功能
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/csv',
+            dialogTitle: '保存物料导入模板',
+          });
+        } else {
+          Alert.alert('成功', `模板已保存到: ${fileUri}`);
+        }
+      }
+
+      Alert.alert('成功', '模板下载成功，请按照模板格式填写后批量导入');
+    } catch (error) {
+      console.error('Download template error:', error);
+      Alert.alert('提示', '模板下载失败，请稍后重试');
+    }
+  };
+
   const handleBatchExport = async () => {
     try {
       Alert.alert('提示', '正在生成导出文件，请稍候...');
@@ -508,6 +557,10 @@ export default function MaterialManagement() {
         <TouchableOpacity style={[styles.actionButton, styles.importButton]} onPress={handleBatchImport}>
           <FontAwesome6 name="file-import" size={16} color="#FFFFFF" />
           <Text style={styles.actionButtonText}>批量导入</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, styles.templateButton]} onPress={handleDownloadTemplate}>
+          <FontAwesome6 name="download" size={16} color="#FFFFFF" />
+          <Text style={styles.actionButtonText}>模板下载</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.actionButton, styles.exportButton]} onPress={handleBatchExport}>
           <FontAwesome6 name="file-export" size={16} color="#FFFFFF" />
@@ -1022,6 +1075,9 @@ const styles = StyleSheet.create({
   },
   importButton: {
     backgroundColor: '#27AE60',
+  },
+  templateButton: {
+    backgroundColor: '#9B59B6',
   },
   exportButton: {
     backgroundColor: '#F39C12',
