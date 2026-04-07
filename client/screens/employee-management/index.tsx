@@ -53,6 +53,7 @@ export default function EmployeeManagement() {
     username: '',
     name: '',
     password: '',
+    phone: '',
     position: '',
     department_id: null as number | null,
     department_name: '',
@@ -167,6 +168,7 @@ export default function EmployeeManagement() {
       username: '',
       name: '',
       password: '',
+      phone: '',
       position: '',
       department_id: null,
       department_name: '',
@@ -194,6 +196,16 @@ export default function EmployeeManagement() {
       return;
     }
 
+    if (!newEmployee.phone) {
+      Alert.alert('提示', '手机号码不能为空');
+      return;
+    }
+
+    if (!/^1[3-9]\d{9}$/.test(newEmployee.phone)) {
+      Alert.alert('提示', '请输入正确的手机号码');
+      return;
+    }
+
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`, {
         method: 'POST',
@@ -202,6 +214,7 @@ export default function EmployeeManagement() {
           username: newEmployee.username,
           password: newEmployee.password,
           name: newEmployee.name,
+          phone: newEmployee.phone,
           position: newEmployee.position,
           department_id: newEmployee.department_id,
         }),
@@ -500,6 +513,18 @@ export default function EmployeeManagement() {
                 onChangeText={(text) => setNewEmployee({ ...newEmployee, password: text })}
                 placeholder="请输入密码（至少6位）"
                 secureTextEntry
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>手机号码 *</Text>
+              <TextInput
+                style={styles.input}
+                value={newEmployee.phone}
+                onChangeText={(text) => setNewEmployee({ ...newEmployee, phone: text })}
+                placeholder="请输入手机号码"
+                keyboardType="phone-pad"
+                maxLength={11}
               />
             </View>
 
