@@ -16,6 +16,8 @@ import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 
 interface Contact {
   name: string;
@@ -46,6 +48,11 @@ interface WorkOrderDetail {
   payment_period?: number;
   contacts?: Contact[];
   demand_date?: string;
+  // 需求信息
+  requirement_date?: string;
+  requirement_description?: string;
+  requirement_photos?: string[];
+  // 服务方案
   service_plan?: string;
   plan_hours?: number;
   material_requirements?: string;
@@ -105,6 +112,11 @@ export default function WorkOrderDetailScreen() {
   const [paymentProgressModalVisible, setPaymentProgressModalVisible] = useState(false);
   const [paymentProgressText, setPaymentProgressText] = useState('');
 
+  // 日历选择器
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [datePickerField, setDatePickerField] = useState('');
+  const [datePickerValue, setDatePickerValue] = useState(new Date());
+
   // 任务阶段选项
   const taskPhaseOptions = ['需求阶段', '实施阶段', '回款阶段', '关单存档', '异常状态'];
   const taskProgressOptions = [
@@ -134,6 +146,9 @@ export default function WorkOrderDetailScreen() {
     task_status: '计划中',
     contacts: [],
     demand_date: '',
+    requirement_date: '',
+    requirement_description: '',
+    requirement_photos: [],
     service_plan: '',
     plan_hours: 0,
     material_requirements: '',
@@ -248,6 +263,81 @@ export default function WorkOrderDetailScreen() {
     else if (field === 'invoice_application') { setSelectOptions(invoiceOptions); setSelectTitle('是否申请开票'); setSelectModalVisible(true); }
     else if (field === 'invoice_completed') { setSelectOptions(invoiceCompletedOptions); setSelectTitle('开票是否完成'); setSelectModalVisible(true); }
     else if (field === 'invoice_delivered') { setSelectOptions(invoiceDeliveredOptions); setSelectTitle('发票是否送达客户'); setSelectModalVisible(true); }
+  };
+
+  // 打开日历选择器
+  const openDatePicker = (field: string, currentValue: string) => {
+    setDatePickerField(field);
+    if (currentValue) {
+      setDatePickerValue(new Date(currentValue));
+    } else {
+      setDatePickerValue(new Date());
+    }
+    setDatePickerVisible(true);
+  };
+
+  // 处理日期选择
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setDatePickerVisible(false);
+    }
+    if (selectedDate) {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      if (isCreateMode) {
+        setOrder((prev: any) => ({ ...prev, [datePickerField]: dateStr }));
+      } else if (order) {
+        setOrder({ ...order, [datePickerField]: dateStr });
+        // 保存到服务器
+        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [datePickerField]: dateStr }),
+        });
+      }
+    }
+  };
+
+  // 上传需求照片/视频
+  const handleUploadRequirementMedia = async (type: 'photo' | 'video') => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('提示', '需要相册权限才能上传');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: type === 'photo' ? ['images'] : ['videos'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        if (isCreateMode) {
+          setOrder((prev: any) => ({
+            ...prev,
+            requirement_photos: [...(prev.requirement_photos || []), uri],
+          }));
+        } else if (order) {
+          const newPhotos = [...(order.requirement_photos || []), uri];
+          setOrder({ ...order, requirement_photos: newPhotos });
+        }
+      }
+    } catch (error) {
+      Alert.alert('错误', '上传失败');
+    }
+  };
+
+  // 删除需求照片
+  const handleDeleteRequirementPhoto = (index: number) => {
+    if (isCreateMode) {
+      setOrder((prev: any) => ({
+        ...prev,
+        requirement_photos: (prev.requirement_photos || []).filter((_: any, i: number) => i !== index),
+      }));
+    } else if (order) {
+      const newPhotos = (order.requirement_photos || []).filter((_, i) => i !== index);
+      setOrder({ ...order, requirement_photos: newPhotos });
+    }
   };
 
   const handleSelectConfirm = async () => {
@@ -590,12 +680,12 @@ export default function WorkOrderDetailScreen() {
             </View>
             <View style={styles.sectionContent}>
               {isCreateMode ? (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>接到需求日期</Text>
-                  <TextInput style={styles.input} value={order.demand_date || ''} onChangeText={(text) => handleTextChange('demand_date', text)} placeholder="点击选择日期" placeholderTextColor="#CCC" />
-                </View>
+                <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('demand_date', order.demand_date || '')}>
+                  <Text style={styles.dateLabel}>接到服务需求日期</Text>
+                  <Text style={styles.dateValue}>{order.demand_date || '点击选择日期'}</Text>
+                </TouchableOpacity>
               ) : (
-                <TouchableOpacity style={styles.dateInput} onPress={() => handleEdit('demand_date', order.demand_date || '')}>
+                <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('demand_date', order.demand_date || '')}>
                   <Text style={styles.dateLabel}>接到服务需求日期</Text>
                   <Text style={styles.dateValue}>{order.demand_date || '点击选择日期'}</Text>
                 </TouchableOpacity>
@@ -609,6 +699,116 @@ export default function WorkOrderDetailScreen() {
                   </View>
                 </View>
               )) : <Text style={styles.emptyText}>暂无联系人</Text>}
+            </View>
+          </View>
+
+          {/* 信息栏3.5：需求信息 */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <FontAwesome6 name="lightbulb" size={16} color="#FDCB6E" />
+              <Text style={styles.sectionTitle}>需求信息</Text>
+            </View>
+            <View style={styles.sectionContent}>
+              {isCreateMode ? (
+                <>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('requirement_date', order.requirement_date || '')}>
+                    <Text style={styles.dateLabel}>接到需求日期</Text>
+                    <Text style={styles.dateValue}>{order.requirement_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>需求说明</Text>
+                  </View>
+                  <TextInput
+                    style={styles.textArea}
+                    value={order.requirement_description || ''}
+                    onChangeText={(text) => handleTextChange('requirement_description', text)}
+                    placeholder="请输入需求说明"
+                    placeholderTextColor="#CCC"
+                    multiline
+                    numberOfLines={4}
+                  />
+                  <View style={styles.uploadSection}>
+                    <Text style={styles.uploadLabel}>照片或视频</Text>
+                    <View style={styles.uploadButtons}>
+                      <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadRequirementMedia('photo')}>
+                        <FontAwesome6 name="image" size={14} color="#6C63FF" />
+                        <Text style={styles.uploadBtnText}>上传照片</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadRequirementMedia('video')}>
+                        <FontAwesome6 name="video" size={14} color="#6C63FF" />
+                        <Text style={styles.uploadBtnText}>上传视频</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {order.requirement_photos && order.requirement_photos.length > 0 && (
+                      <View style={styles.photoList}>
+                        {order.requirement_photos.map((photo, index) => (
+                          <View key={index} style={styles.photoItem}>
+                            <Text style={styles.photoText}>文件 {index + 1}</Text>
+                            <TouchableOpacity onPress={() => handleDeleteRequirementPhoto(index)}>
+                              <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('requirement_date', order.requirement_date || '')}>
+                    <Text style={styles.dateLabel}>接到需求日期</Text>
+                    <Text style={styles.dateValue}>{order.requirement_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>需求说明</Text>
+                  </View>
+                  <TextInput
+                    style={styles.textArea}
+                    value={order.requirement_description || ''}
+                    onChangeText={(text) => {
+                      setOrder({ ...order, requirement_description: text });
+                    }}
+                    placeholder="请输入需求说明"
+                    placeholderTextColor="#CCC"
+                    multiline
+                    numberOfLines={4}
+                    onBlur={() => {
+                      if (order?.id && order.requirement_description !== undefined) {
+                        fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/work-orders/${order.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ requirement_description: order.requirement_description }),
+                        });
+                      }
+                    }}
+                  />
+                  <View style={styles.uploadSection}>
+                    <Text style={styles.uploadLabel}>照片或视频</Text>
+                    <View style={styles.uploadButtons}>
+                      <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadRequirementMedia('photo')}>
+                        <FontAwesome6 name="image" size={14} color="#6C63FF" />
+                        <Text style={styles.uploadBtnText}>上传照片</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.uploadBtn} onPress={() => handleUploadRequirementMedia('video')}>
+                        <FontAwesome6 name="video" size={14} color="#6C63FF" />
+                        <Text style={styles.uploadBtnText}>上传视频</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {order.requirement_photos && order.requirement_photos.length > 0 && (
+                      <View style={styles.photoList}>
+                        {order.requirement_photos.map((photo, index) => (
+                          <View key={index} style={styles.photoItem}>
+                            <Text style={styles.photoText}>文件 {index + 1}</Text>
+                            <TouchableOpacity onPress={() => handleDeleteRequirementPhoto(index)}>
+                              <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </>
+              )}
             </View>
           </View>
 
@@ -627,10 +827,10 @@ export default function WorkOrderDetailScreen() {
                   {renderInfoRow('质保期状态', order.warranty_status || '', 'warranty_status')}
                   {renderInfoRow('是否收费', order.is_charged ? '收费' : '免费', 'is_charged')}
                   {renderNumberRow('报价金额', 'quoted_price', '元')}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>共识日期</Text>
-                    <TextInput style={styles.input} value={order.consensus_date || ''} onChangeText={(text) => handleTextChange('consensus_date', text)} placeholder="选择日期" placeholderTextColor="#CCC" />
-                  </View>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('consensus_date', order.consensus_date || '')}>
+                    <Text style={styles.dateLabel}>共识日期</Text>
+                    <Text style={styles.dateValue}>{order.consensus_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <>
@@ -640,7 +840,7 @@ export default function WorkOrderDetailScreen() {
                   {renderInfoRow('质保期状态', order.warranty_status || '', 'warranty_status')}
                   {renderInfoRow('是否收费', order.is_charged ? '收费' : '免费', 'is_charged')}
                   {renderInfoRow('报价金额', order.quoted_price ? String(order.quoted_price) : '', '', '元')}
-                  <TouchableOpacity style={styles.dateInput} onPress={() => handleEdit('consensus_date', order.consensus_date || '')}>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('consensus_date', order.consensus_date || '')}>
                     <Text style={styles.dateLabel}>服务方案客户共识日期</Text>
                     <Text style={styles.dateValue}>{order.consensus_date || '点击选择日期'}</Text>
                   </TouchableOpacity>
@@ -667,17 +867,17 @@ export default function WorkOrderDetailScreen() {
               {isCreateMode ? (
                 <>
                   {renderInputRow('实施人', 'implementer', '请输入实施人')}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>完成日期</Text>
-                    <TextInput style={styles.input} value={order.implementation_complete_date || ''} onChangeText={(text) => handleTextChange('implementation_complete_date', text)} placeholder="选择日期" placeholderTextColor="#CCC" />
-                  </View>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('implementation_complete_date', order.implementation_complete_date || '')}>
+                    <Text style={styles.dateLabel}>完成日期</Text>
+                    <Text style={styles.dateValue}>{order.implementation_complete_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
                   {renderNumberRow('实际工时', 'actual_hours', '天')}
                   {renderInputRow('派工单签字人', 'work_order_signer', '请输入派工单签字人')}
                 </>
               ) : (
                 <>
                   {renderInfoRow('实施人', order.implementer || '', 'implementer')}
-                  <TouchableOpacity style={styles.dateInput} onPress={() => handleEdit('implementation_complete_date', order.implementation_complete_date || '')}>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('implementation_complete_date', order.implementation_complete_date || '')}>
                     <Text style={styles.dateLabel}>实施完成日期</Text>
                     <Text style={styles.dateValue}>{order.implementation_complete_date || '点击选择日期'}</Text>
                   </TouchableOpacity>
@@ -708,25 +908,25 @@ export default function WorkOrderDetailScreen() {
                   {renderInfoRow('是否申请开票', order.invoice_application || '', 'invoice_application')}
                   {renderInfoRow('开票是否完成', order.invoice_completed || '', 'invoice_completed')}
                   {renderInfoRow('发票是否送达', order.invoice_delivered || '', 'invoice_delivered')}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>计划回款日期</Text>
-                    <TextInput style={styles.input} value={order.planned_payment_date || ''} onChangeText={(text) => handleTextChange('planned_payment_date', text)} placeholder="选择日期" placeholderTextColor="#CCC" />
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>实际回款日期</Text>
-                    <TextInput style={styles.input} value={order.actual_payment_date || ''} onChangeText={(text) => handleTextChange('actual_payment_date', text)} placeholder="选择日期" placeholderTextColor="#CCC" />
-                  </View>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('planned_payment_date', order.planned_payment_date || '')}>
+                    <Text style={styles.dateLabel}>计划回款日期</Text>
+                    <Text style={styles.dateValue}>{order.planned_payment_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('actual_payment_date', order.actual_payment_date || '')}>
+                    <Text style={styles.dateLabel}>实际回款日期</Text>
+                    <Text style={styles.dateValue}>{order.actual_payment_date || '点击选择日期'}</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <>
                   {renderInfoRow('是否申请开票', order.invoice_application || '', 'invoice_application')}
                   {renderInfoRow('开票是否完成', order.invoice_completed || '', 'invoice_completed')}
                   {renderInfoRow('发票是否送达客户', order.invoice_delivered || '', 'invoice_delivered')}
-                  <TouchableOpacity style={styles.dateInput} onPress={() => handleEdit('planned_payment_date', order.planned_payment_date || '')}>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('planned_payment_date', order.planned_payment_date || '')}>
                     <Text style={styles.dateLabel}>计划回款日期</Text>
                     <Text style={styles.dateValue}>{order.planned_payment_date || '点击选择日期'}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.dateInput} onPress={() => handleEdit('actual_payment_date', order.actual_payment_date || '')}>
+                  <TouchableOpacity style={styles.dateInput} onPress={() => openDatePicker('actual_payment_date', order.actual_payment_date || '')}>
                     <Text style={styles.dateLabel}>实际回款日期</Text>
                     <Text style={styles.dateValue}>{order.actual_payment_date || '点击选择日期'}</Text>
                   </TouchableOpacity>
@@ -783,6 +983,40 @@ export default function WorkOrderDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* 日期选择器 */}
+      {datePickerVisible && (
+        Platform.OS === 'ios' ? (
+          <Modal visible={datePickerVisible} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.datePickerModal}>
+                <View style={styles.datePickerHeader}>
+                  <TouchableOpacity onPress={() => setDatePickerVisible(false)}>
+                    <Text style={styles.datePickerCancel}>取消</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.datePickerTitle}>选择日期</Text>
+                  <TouchableOpacity onPress={() => setDatePickerVisible(false)}>
+                    <Text style={styles.datePickerDone}>完成</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={datePickerValue}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDateChange}
+                />
+              </View>
+            </View>
+          </Modal>
+        ) : (
+          <DateTimePicker
+            value={datePickerValue}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+          />
+        )
+      )}
 
       {/* 联系人编辑弹窗 */}
       <Modal visible={contactModalVisible} transparent animationType="fade">
@@ -907,6 +1141,19 @@ const styles = StyleSheet.create({
   editItem: { marginBottom: 14 },
   editLabel: { fontSize: 13, color: '#636E72', marginBottom: 6 },
   editInput: { backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#2D3436' },
-  textArea: { height: 80, textAlignVertical: 'top' },
+  textArea: { height: 80, textAlignVertical: 'top', backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#2D3436', marginBottom: 12 },
   editFooter: { flexDirection: 'row', padding: 14, gap: 12, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  datePickerModal: { backgroundColor: '#FFF', borderRadius: 12, width: '90%', maxHeight: '50%' },
+  datePickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  datePickerCancel: { fontSize: 15, color: '#636E72' },
+  datePickerTitle: { fontSize: 16, fontWeight: '600', color: '#2D3436' },
+  datePickerDone: { fontSize: 15, color: '#6C63FF', fontWeight: '600' },
+  uploadSection: { marginTop: 8 },
+  uploadLabel: { fontSize: 13, color: '#95A5A6', marginBottom: 8 },
+  uploadButtons: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F0EEFF', borderRadius: 8, gap: 6 },
+  uploadBtnText: { fontSize: 13, color: '#6C63FF' },
+  photoList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, gap: 6 },
+  photoText: { fontSize: 12, color: '#636E72' },
 });
