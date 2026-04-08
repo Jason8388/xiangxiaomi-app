@@ -105,6 +105,8 @@ function RootLayoutInner() {
         <Stack.Screen name="reminders" options={{ title: "" }} />
         <Stack.Screen name="work-order-reminders" options={{ title: "" }} />
         <Stack.Screen name="organization" options={{ title: "" }} />
+        {/* PC端管理平台 */}
+        <Stack.Screen name="pc" options={{ title: "" }} />
       </Stack>
       {Platform.OS !== 'web' && renderDialog()}
       <Toast />

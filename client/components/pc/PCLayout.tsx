@@ -1,0 +1,105 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { PCSidebar } from './PCSidebar';
+import { PCHeader } from './PCHeader';
+
+interface PCLayoutProps {
+  children: React.ReactNode;
+  activePath?: string;
+}
+
+const routeMap: Record<string, { label: string; path: string }[]> = {
+  '/pc/dashboard': [{ label: '首页' }],
+  '/pc/customers': [{ label: '客户管理' }],
+  '/pc/customer-detail': [{ label: '客户管理', path: '/pc/customers' }, { label: '客户详情' }],
+  '/pc/devices': [{ label: '设备管理' }],
+  '/pc/device-detail': [{ label: '设备管理', path: '/pc/devices' }, { label: '设备详情' }],
+  '/pc/contracts': [{ label: '合同管理' }],
+  '/pc/contract-detail': [{ label: '合同管理', path: '/pc/contracts' }, { label: '合同详情' }],
+  '/pc/after-sales': [{ label: '售后服务' }],
+  '/pc/materials': [{ label: '物料管理' }],
+  '/pc/knowledge': [{ label: '知识库' }],
+  '/pc/meeting-minutes': [{ label: '会议纪要' }],
+  '/pc/files': [{ label: '文件管理' }],
+  '/pc/reports': [{ label: '统计报表' }],
+  '/pc/settings': [{ label: '系统设置' }],
+  '/pc/help': [{ label: '帮助中心' }],
+};
+
+export function PCLayout({ children, activePath }: PCLayoutProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  const currentPath = activePath || (typeof window !== 'undefined' ? window.location.pathname : '/pc/dashboard');
+  const breadcrumbs = routeMap[currentPath] || [{ label: '首页' }];
+
+  // 获取当前激活的菜单key
+  const getActiveKey = () => {
+    const path = currentPath.split('/').slice(0, 3).join('/');
+    for (const key in routeMap) {
+      if (key.includes(path) || currentPath.includes(key.replace('/pc/', ''))) {
+        return key.replace('/pc/', '').split('/')[0] || 'dashboard';
+      }
+    }
+    return currentPath.replace('/pc/', '').split('/')[0] || 'dashboard';
+  };
+
+  useEffect(() => {
+    // 模拟获取用户信息
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        setUser({ name: '管理员', role: '管理员' });
+      }
+    } else {
+      setUser({ name: '管理员', role: '管理员' });
+    }
+  }, []);
+
+  const handleNavigate = useCallback((path: string) => {
+    if (typeof window !== 'undefined') {
+      window.location.href = path;
+    }
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    setCollapsed(prev => !prev);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      window.location.href = '/pc/login';
+    }
+  }, []);
+
+  return (
+    <div className="pc-layout">
+      <PCSidebar
+        collapsed={collapsed}
+        activeKey={getActiveKey()}
+        onToggle={handleToggle}
+        onNavigate={handleNavigate}
+      />
+      <div className="pc-main" style={{ marginLeft: collapsed ? 64 : 220 }}>
+        <PCHeader
+          breadcrumbs={breadcrumbs}
+          user={user}
+          onLogout={handleLogout}
+          onRefresh={handleRefresh}
+        />
+        <main className="pc-content">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
