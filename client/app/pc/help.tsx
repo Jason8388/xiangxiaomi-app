@@ -1,4 +1,5 @@
 import React from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCCard } from '@/components/pc/PCComponents';
 
@@ -22,7 +23,7 @@ const guides = [
 export default function PCHelp() {
   return (
     <>
-      <style>{`<style>@import url('/assets/styles/pc-global.css');</style>`}</style>
+      
       <PCLayout>
         <div className="pc-page-header"><h1 className="pc-page-title">帮助中心</h1><p className="pc-page-description">获取系统使用帮助和操作指南</p></div>
 

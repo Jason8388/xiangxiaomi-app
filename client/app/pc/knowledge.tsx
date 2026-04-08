@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTable } from '@/components/pc/PCComponents';
 import { PCTag } from '@/components/pc/PCComponents';
@@ -81,7 +82,7 @@ export default function PCKnowledge() {
 
   return (
     <>
-      <style>{`<style>@import url('/assets/styles/pc-global.css');</style>`}</style>
+      
       <PCLayout>
         <div className="pc-page-header"><h1 className="pc-page-title">知识库</h1><p className="pc-page-description">管理技术文档、操作手册、培训资料等知识内容</p></div>
         <PCCard>

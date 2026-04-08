@@ -26,7 +26,7 @@ export function PCHeader({ breadcrumbs, user, onLogout, onRefresh }: PCHeaderPro
               {index > 0 && <span className="pc-breadcrumb-separator">/</span>}
               <span
                 className={`pc-breadcrumb-item ${item.path ? '' : 'disabled'}`}
-                onClick={() => item.path && window.location.href = item.path}
+                onClick={() => { if (item.path) window.location.href = item.path; }}
                 style={{ cursor: item.path ? 'pointer' : 'default' }}
               >
                 {item.label}

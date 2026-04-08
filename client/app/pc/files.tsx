@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTable } from '@/components/pc/PCComponents';
 import { PCTag } from '@/components/pc/PCComponents';
@@ -101,7 +102,7 @@ export default function PCFiles() {
 
   return (
     <>
-      <style>{`<style>@import url('/assets/styles/pc-global.css');</style>`}</style>
+      
       <PCLayout>
         <div className="pc-page-header"><h1 className="pc-page-title">文件管理</h1><p className="pc-page-description">统一管理项目文件，包括合同、文档、报表等资料</p></div>
         <PCCard>

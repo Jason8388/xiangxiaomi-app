@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import '@/assets/styles/pc-global.css';
 
 export default function PCLogin() {
   const [username, setUsername] = useState('');
@@ -61,9 +62,6 @@ export default function PCLogin() {
 
   return (
     <>
-      <style>{`
-        @import url('/assets/styles/pc-global.css');
-      `}</style>
       <div className="pc-login-container">
         <div className="pc-login-card">
           <div className="pc-login-logo">

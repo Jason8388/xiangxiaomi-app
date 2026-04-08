@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTable } from '@/components/pc/PCComponents';
 import { PCTag } from '@/components/pc/PCComponents';
@@ -84,7 +85,7 @@ export default function PCAfterSales() {
 
   return (
     <>
-      <style>{`<style>@import url('/assets/styles/pc-global.css');</style>`}</style>
+      
       <PCLayout>
         <div className="pc-page-header"><h1 className="pc-page-title">售后服务</h1><p className="pc-page-description">管理售后工单，包括维修、保养、安装等服务</p></div>
         <PCCard>

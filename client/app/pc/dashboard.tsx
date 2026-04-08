@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCStatCard } from '@/components/pc/PCComponents';
 import { PCTable } from '@/components/pc/PCComponents';
@@ -80,9 +81,7 @@ export default function PCDashboard() {
 
   return (
     <>
-      <style>{`
-        @import url('/assets/styles/pc-global.css');
-      `}</style>
+      
       <PCLayout>
         <div className="pc-page-header">
           <h1 className="pc-page-title">工作台</h1>

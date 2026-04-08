@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCCard } from '@/components/pc/PCComponents';
 
@@ -21,7 +22,7 @@ export default function PCSettings() {
 
   return (
     <>
-      <style>{`<style>@import url('/assets/styles/pc-global.css');</style>`}</style>
+      
       <PCLayout>
         <div className="pc-page-header"><h1 className="pc-page-title">系统设置</h1><p className="pc-page-description">管理个人信息和系统配置</p></div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTable } from '@/components/pc/PCComponents';
 import { PCTag } from '@/components/pc/PCComponents';
@@ -156,9 +157,7 @@ export default function PCCustomers() {
 
   return (
     <>
-      <style>{`
-        @import url('/assets/styles/pc-global.css');
-      `}</style>
+      
       <PCLayout>
         <div className="pc-page-header">
           <h1 className="pc-page-title">客户管理</h1>

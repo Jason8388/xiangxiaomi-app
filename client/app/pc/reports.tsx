@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCStatCard } from '@/components/pc/PCComponents';
 import { PCCard } from '@/components/pc/PCComponents';
@@ -45,7 +46,7 @@ export default function PCReports() {
 
   return (
     <>
-      <style>{`<style>@import url('/assets/styles/pc-global.css');</style>`}</style>
+      
       <PCLayout>
         <div className="pc-page-header"><h1 className="pc-page-title">统计报表</h1><p className="pc-page-description">查看业务数据统计和分析报表</p></div>
 
