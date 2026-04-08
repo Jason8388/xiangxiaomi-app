@@ -65,7 +65,7 @@ export default function PCLogin() {
       <div className="pc-login-container">
         <div className="pc-login-card">
           <div className="pc-login-logo">
-            <img src="/assets/images/icon.png" alt="项小秘" />
+            <img src="/client/assets/images/icon.png" alt="项小秘" />
             <h1 className="pc-login-title">项小秘</h1>
             <p className="pc-login-subtitle">项目管理系统</p>
           </div>
