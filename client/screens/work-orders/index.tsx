@@ -343,59 +343,59 @@ export default function WorkOrdersScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* 操作按钮区 */}
-        <View className="px-5 mb-4 flex-row gap-3">
+        <View className="px-5 mb-6 flex-row gap-4">
           <TouchableOpacity
             onPress={handleAdd}
-            className="flex-1 py-3 rounded-2xl items-center justify-center"
+            className="flex-1 py-4.5 rounded-2xl items-center justify-center"
             style={{ backgroundColor: '#8B5CF6' }}
           >
-            <Text className="text-white font-semibold text-base">新建工单</Text>
+            <Text className="text-white font-semibold text-lg">新建工单</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={showExportOptions}
-            className="flex-1 py-3 rounded-2xl items-center justify-center"
+            className="flex-1 py-4.5 rounded-2xl items-center justify-center"
             style={{ backgroundColor: '#00B894' }}
           >
-            <Text className="text-white font-semibold text-base">导出工单</Text>
+            <Text className="text-white font-semibold text-lg">导出工单</Text>
           </TouchableOpacity>
         </View>
 
         {/* 统计区域 */}
-        <View className="px-5 mb-5">
-          <Text className="text-lg font-bold text-gray-800 mb-3">工单统计</Text>
+        <View className="px-5 mb-6">
+          <Text className="text-xl font-bold text-gray-800 mb-4">工单统计</Text>
 
           {/* 第一行：2列小卡片 */}
-          <View className="flex-row gap-3 mb-3">
-            <View className="flex-1 bg-white rounded-2xl p-4">
-              <Text className="text-sm text-gray-500 mb-1">总工单数</Text>
-              <Text className="text-3xl font-bold text-gray-800">{stats.totalWorkOrders}</Text>
-              <Text className="text-sm text-gray-500 mt-1">总收费工单数</Text>
-              <Text className="text-2xl font-bold text-green-600">{stats.chargedWorkOrders}</Text>
+          <View className="flex-row gap-4 mb-4">
+            <View className="flex-1 bg-white rounded-2xl p-5">
+              <Text className="text-base text-gray-500 mb-1">总工单数</Text>
+              <Text className="text-4xl font-bold text-gray-800">{stats.totalWorkOrders}</Text>
+              <Text className="text-base text-gray-500 mt-2">总收费工单数</Text>
+              <Text className="text-3xl font-bold text-green-600">{stats.chargedWorkOrders}</Text>
             </View>
           </View>
 
           {/* 第二行：通栏卡片 */}
-          <View className="bg-white rounded-2xl p-4 mb-3">
-            <Text className="text-sm text-gray-500 mb-1">售后业绩金额</Text>
-            <Text className="text-2xl font-bold" style={{ color: '#E53935' }}>¥{stats.performanceAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
+          <View className="bg-white rounded-2xl p-5 mb-4">
+            <Text className="text-base text-gray-500 mb-1">售后业绩金额</Text>
+            <Text className="text-3xl font-bold" style={{ color: '#E53935' }}>¥{stats.performanceAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
           </View>
 
           {/* 第三行：通栏卡片 */}
-          <View className="bg-white rounded-2xl p-4">
-            <Text className="text-sm text-gray-500 mb-1">售后待收款金额</Text>
-            <Text className="text-2xl font-bold" style={{ color: '#E53935' }}>¥{stats.pendingPaymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
-            <View className="h-px bg-gray-200 my-2" />
-            <Text className="text-sm text-gray-500 mb-1">售后已收款金额</Text>
-            <Text className="text-2xl font-bold text-green-600">¥{stats.paidAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
+          <View className="bg-white rounded-2xl p-5">
+            <Text className="text-base text-gray-500 mb-1">售后待收款金额</Text>
+            <Text className="text-3xl font-bold" style={{ color: '#E53935' }}>¥{stats.pendingPaymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
+            <View className="h-px bg-gray-200 my-3" />
+            <Text className="text-base text-gray-500 mb-1">售后已收款金额</Text>
+            <Text className="text-3xl font-bold text-green-600">¥{stats.paidAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
           </View>
         </View>
 
         {/* 搜索框 */}
-        <View className="px-5 mb-4">
-          <View className="flex-row items-center bg-white rounded-2xl px-4 py-3">
-            <FontAwesome6 name="magnifying-glass" size={16} color="#9CA3AF" />
+        <View className="px-5 mb-6">
+          <View className="flex-row items-center bg-white rounded-2xl px-5 py-4">
+            <FontAwesome6 name="magnifying-glass" size={18} color="#9CA3AF" />
             <TextInput
-              className="flex-1 ml-2 text-gray-800 text-base"
+              className="flex-1 ml-3 text-gray-800 text-lg"
               placeholder="搜索工单名称、客户名称、工单编号、任务号、任务负责人"
               placeholderTextColor="#9CA3AF"
               value={searchKeyword}
@@ -405,21 +405,21 @@ export default function WorkOrdersScreen() {
         </View>
 
         {/* 工单列表 */}
-        <View className="px-5 mb-4">
-          <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-lg font-bold text-gray-800">最近工单</Text>
+        <View className="px-5 mb-6">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-xl font-bold text-gray-800">最近工单</Text>
             <TouchableOpacity onPress={() => {}}>
-              <Text className="text-sm text-purple-600">查看全部</Text>
+              <Text className="text-base text-purple-600">查看全部</Text>
             </TouchableOpacity>
           </View>
 
           {filteredOrders.length === 0 ? (
-            <View className="bg-white rounded-2xl p-8 items-center">
-              <FontAwesome6 name="clipboard-list" size={48} color="#D1D5DB" />
-              <Text className="text-base text-gray-500 mt-3">暂无工单数据</Text>
+            <View className="bg-white rounded-2xl p-10 items-center">
+              <FontAwesome6 name="clipboard-list" size={56} color="#D1D5DB" />
+              <Text className="text-lg text-gray-500 mt-4">暂无工单数据</Text>
             </View>
           ) : (
-            <View className="gap-3">
+            <View className="gap-4">
               {filteredOrders.map((order) => {
                 const statusConfig = getStatusConfig(order.stage);
                 return (
@@ -428,23 +428,23 @@ export default function WorkOrdersScreen() {
                     onPress={() => router.push('/work-order-detail', { id: order.id.toString() })}
                     activeOpacity={0.7}
                   >
-                    <View className="bg-white rounded-2xl p-4">
+                    <View className="bg-white rounded-2xl p-5">
                       {/* 标题行：工单名称 + 状态标签 */}
-                      <View className="flex-row justify-between items-start mb-2">
+                      <View className="flex-row justify-between items-start mb-3">
                         <View className="flex-1 pr-2">
-                          <Text className="text-base font-bold text-gray-800" numberOfLines={2}>
+                          <Text className="text-lg font-bold text-gray-800" numberOfLines={2}>
                             {order.name || order.description || '无描述'}
                           </Text>
-                          <Text className="text-sm text-gray-500 mt-1">
+                          <Text className="text-base text-gray-500 mt-1">
                             {order.order_no}
                           </Text>
                         </View>
                         <View
-                          className="px-3 py-1 rounded-full"
+                          className="px-4 py-2 rounded-full"
                           style={{ backgroundColor: statusConfig.bgColor }}
                         >
                           <Text
-                            className="text-xs font-semibold"
+                            className="text-sm font-semibold"
                             style={{ color: statusConfig.color }}
                           >
                             {statusConfig.text}
@@ -453,47 +453,47 @@ export default function WorkOrdersScreen() {
                       </View>
 
                       {/* 信息行：客户 + 负责人 */}
-                      <View className="flex-row gap-4 mb-3">
+                      <View className="flex-row gap-5 mb-4">
                         <View className="flex-1 flex-row items-center">
-                          <FontAwesome6 name="building" size={14} color="#9CA3AF" />
-                          <Text className="text-sm text-gray-600 ml-2" numberOfLines={1}>
+                          <FontAwesome6 name="building" size={16} color="#9CA3AF" />
+                          <Text className="text-base text-gray-600 ml-2" numberOfLines={1}>
                             {order.customer_name || '未指定'}
                           </Text>
                         </View>
                         <View className="flex-1 flex-row items-center">
-                          <FontAwesome6 name="user" size={14} color="#9CA3AF" />
-                          <Text className="text-sm text-gray-600 ml-2" numberOfLines={1}>
+                          <FontAwesome6 name="user" size={16} color="#9CA3AF" />
+                          <Text className="text-base text-gray-600 ml-2" numberOfLines={1}>
                             {order.assignee_name || '未指定'}
                           </Text>
                         </View>
                       </View>
 
                       {/* 详情行：类型 + 工时 + 报价 */}
-                      <View className="flex-row items-center mb-3 flex-wrap gap-2">
-                        <View className="flex-row items-center bg-gray-100 px-2 py-1 rounded-lg">
-                          <FontAwesome6 name="wrench" size={12} color="#6B7280" />
-                          <Text className="text-xs text-gray-600 ml-1">{order.type || '维修'}</Text>
+                      <View className="flex-row items-center mb-4 flex-wrap gap-2">
+                        <View className="flex-row items-center bg-gray-100 px-3 py-2 rounded-lg">
+                          <FontAwesome6 name="wrench" size={14} color="#6B7280" />
+                          <Text className="text-sm text-gray-600 ml-2">{order.type || '维修'}</Text>
                         </View>
                         {order.plan_hours > 0 && (
-                          <View className="flex-row items-center bg-gray-100 px-2 py-1 rounded-lg">
-                            <FontAwesome6 name="clock" size={12} color="#6B7280" />
-                            <Text className="text-xs text-gray-600 ml-1">{order.plan_hours}h</Text>
+                          <View className="flex-row items-center bg-gray-100 px-3 py-2 rounded-lg">
+                            <FontAwesome6 name="clock" size={14} color="#6B7280" />
+                            <Text className="text-sm text-gray-600 ml-2">{order.plan_hours}h</Text>
                           </View>
                         )}
                         {order.quoted_price > 0 && (
-                          <View className="flex-row items-center bg-gray-100 px-2 py-1 rounded-lg">
-                            <FontAwesome6 name="yen-sign" size={12} color="#6B7280" />
-                            <Text className="text-xs text-gray-600 ml-1">¥{order.quoted_price}</Text>
+                          <View className="flex-row items-center bg-gray-100 px-3 py-2 rounded-lg">
+                            <FontAwesome6 name="yen-sign" size={14} color="#6B7280" />
+                            <Text className="text-sm text-gray-600 ml-2">¥{order.quoted_price}</Text>
                           </View>
                         )}
                         <View
-                          className="px-2 py-1 rounded-full"
+                          className="px-3 py-2 rounded-full"
                           style={{
                             backgroundColor: order.is_charged ? 'rgba(0, 184, 148, 0.15)' : 'rgba(156, 163, 175, 0.15)'
                           }}
                         >
                           <Text
-                            className="text-xs font-semibold"
+                            className="text-sm font-semibold"
                             style={{ color: order.is_charged ? '#00B894' : '#9CA3AF' }}
                           >
                             {order.is_charged ? '有偿' : '免费'}
@@ -502,33 +502,33 @@ export default function WorkOrdersScreen() {
                       </View>
 
                       {/* 操作按钮行 */}
-                      <View className="flex-row gap-2 mt-2">
+                      <View className="flex-row gap-3 mt-3">
                         <TouchableOpacity
                           onPress={() => router.push('/work-order-detail', { id: order.id })}
-                          className="flex-1 py-2.5 rounded-full items-center justify-center"
+                          className="flex-1 py-3 rounded-full items-center justify-center"
                           style={{ backgroundColor: '#F3F4F6' }}
                         >
-                          <Text className="text-sm font-semibold text-gray-700">查看</Text>
+                          <Text className="text-base font-semibold text-gray-700">查看</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={(e) => {
                             e.stopPropagation();
                             handleEdit(order);
                           }}
-                          className="flex-1 py-2.5 rounded-full items-center justify-center"
+                          className="flex-1 py-3 rounded-full items-center justify-center"
                           style={{ backgroundColor: '#F59E0B' }}
                         >
-                          <Text className="text-sm font-semibold text-white">修改</Text>
+                          <Text className="text-base font-semibold text-white">修改</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={(e) => {
                             e.stopPropagation();
                             handleDownload(order);
                           }}
-                          className="flex-1 py-2.5 rounded-full items-center justify-center"
+                          className="flex-1 py-3 rounded-full items-center justify-center"
                           style={{ backgroundColor: '#00B894' }}
                         >
-                          <Text className="text-sm font-semibold text-white">下载</Text>
+                          <Text className="text-base font-semibold text-white">下载</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
