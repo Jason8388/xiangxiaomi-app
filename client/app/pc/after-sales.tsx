@@ -199,24 +199,23 @@ export default function PCAfterSales() {
         <span style={{ fontSize: 13, color: COLORS.text }}>{val}</span>
       )
     },
-    { 
-      key: 'priority', 
-      title: '优先级', 
+    {
+      key: 'priority',
+      title: '优先级',
       width: 90,
       render: (val: string) => {
         const config = {
-          urgent: { label: '紧急', color: COLORS.danger, bg: '#fff1f0' },
-          high: { label: '高', color: '#ff7a45', bg: '#fff7e6' },
-          normal: { label: '普通', color: COLORS.warning, bg: '#fffbe6' },
-          low: { label: '低', color: COLORS.secondary, bg: '#f5f5f5' }
+          high: { label: '高', color: COLORS.danger, bg: '#fff1f0' },
+          normal: { label: '中', color: COLORS.warning, bg: '#fffbe6' },
+          low: { label: '低', color: COLORS.success, bg: '#f6ffed' }
         };
         const { label, color, bg } = config[val as keyof typeof config] || config.normal;
         return (
-          <span style={{ 
-            display: 'inline-block', 
-            padding: '3px 10px', 
-            borderRadius: 4, 
-            fontSize: 12, 
+          <span style={{
+            display: 'inline-block',
+            padding: '3px 10px',
+            borderRadius: 4,
+            fontSize: 12,
             color: color,
             background: bg,
             fontWeight: 500
@@ -226,24 +225,24 @@ export default function PCAfterSales() {
         );
       }
     },
-    { 
-      key: 'status', 
-      title: '状态', 
+    {
+      key: 'status',
+      title: '状态',
       width: 90,
       render: (val: string) => {
         const config = {
           pending: { label: '待处理', color: COLORS.warning, bg: '#fffbe6' },
-          in_progress: { label: '处理中', color: COLORS.primary, bg: COLORS.primaryLight },
+          processing: { label: '处理中', color: COLORS.primary, bg: COLORS.primaryLight },
           completed: { label: '已完成', color: COLORS.success, bg: '#f6ffed' },
-          cancelled: { label: '已取消', color: COLORS.secondary, bg: '#f5f5f5' }
+          in_progress: { label: '处理中', color: COLORS.primary, bg: COLORS.primaryLight }
         };
         const { label, color, bg } = config[val as keyof typeof config] || config.pending;
         return (
-          <span style={{ 
-            display: 'inline-block', 
-            padding: '3px 10px', 
-            borderRadius: 4, 
-            fontSize: 12, 
+          <span style={{
+            display: 'inline-block',
+            padding: '3px 10px',
+            borderRadius: 4,
+            fontSize: 12,
             color: color,
             background: bg,
             fontWeight: 500
@@ -744,18 +743,18 @@ export default function PCAfterSales() {
               >
                 取消
               </button>
-              <button 
+              <button
                 className="workorder-btn workorder-btn-primary"
                 onClick={async () => {
                   if (!formData.description) {
-                    alert('请输入工单描述');
+                    alert('请输入工单名称');
                     return;
                   }
                   if (!formData.customer_id) {
                     alert('请选择客户');
                     return;
                   }
-                  
+
                   const payload = {
                     description: formData.description,
                     customer_id: parseInt(formData.customer_id),
@@ -770,7 +769,7 @@ export default function PCAfterSales() {
                     assignee_id: formData.assignee_id ? parseInt(formData.assignee_id) : null,
                   };
 
-                  const url = editingOrder 
+                  const url = editingOrder
                     ? `${API_BASE}/api/v1/work-orders/${editingOrder.id}`
                     : `${API_BASE}/api/v1/work-orders`;
                   
@@ -793,21 +792,24 @@ export default function PCAfterSales() {
           }
         >
           <div className="workorder-modal-form">
+            {/* 工单名称 */}
             <div className="workorder-modal-form-item">
-              <label className="workorder-modal-form-label">工单描述 <span style={{ color: COLORS.danger }}>*</span></label>
-              <textarea 
-                className="workorder-modal-form-control" 
-                style={{ height: 80, resize: 'vertical' }}
-                value={formData.description} 
-                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} 
-                placeholder="请输入工单描述..."
+              <label className="workorder-modal-form-label">工单名称 <span style={{ color: COLORS.danger }}>*</span></label>
+              <input
+                type="text"
+                className="workorder-modal-form-control"
+                value={formData.description}
+                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="请输入工单名称"
               />
             </div>
+
+            {/* 客户选择 */}
             <div className="workorder-modal-form-item">
               <label className="workorder-modal-form-label">客户 <span style={{ color: COLORS.danger }}>*</span></label>
-              <select 
+              <select
                 className="workorder-modal-form-select"
-                value={formData.customer_id} 
+                value={formData.customer_id}
                 onChange={e => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
               >
                 <option value="">请选择客户</option>
@@ -816,11 +818,28 @@ export default function PCAfterSales() {
                 ))}
               </select>
             </div>
+
+            {/* 任务负责人 */}
+            <div className="workorder-modal-form-item">
+              <label className="workorder-modal-form-label">任务负责人</label>
+              <select
+                className="workorder-modal-form-select"
+                value={formData.assignee_id}
+                onChange={e => setFormData(prev => ({ ...prev, assignee_id: e.target.value }))}
+              >
+                <option value="">请选择负责人</option>
+                {users.map((u: any) => (
+                  <option key={u.id} value={u.id}>{u.username}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 设备选择 */}
             <div className="workorder-modal-form-item">
               <label className="workorder-modal-form-label">设备</label>
-              <select 
+              <select
                 className="workorder-modal-form-select"
-                value={formData.device_id} 
+                value={formData.device_id}
                 onChange={e => setFormData(prev => ({ ...prev, device_id: e.target.value }))}
               >
                 <option value="">请选择设备</option>
@@ -829,112 +848,192 @@ export default function PCAfterSales() {
                 ))}
               </select>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">类型</label>
-                <select 
-                  className="workorder-modal-form-select"
-                  value={formData.type} 
-                  onChange={e => setFormData(prev => ({ ...prev, type: e.target.value }))}
-                >
-                  <option value="维修">维修</option>
-                  <option value="保养">保养</option>
-                  <option value="安装">安装</option>
-                  <option value="巡检">巡检</option>
-                  <option value="升级">升级</option>
-                </select>
-              </div>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">优先级</label>
-                <select 
-                  className="workorder-modal-form-select"
-                  value={formData.priority} 
-                  onChange={e => setFormData(prev => ({ ...prev, priority: e.target.value }))}
-                >
-                  <option value="urgent">紧急</option>
-                  <option value="high">高</option>
-                  <option value="normal">普通</option>
-                  <option value="low">低</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">状态</label>
-                <select 
-                  className="workorder-modal-form-select"
-                  value={formData.status} 
-                  onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                >
-                  <option value="pending">待处理</option>
-                  <option value="in_progress">处理中</option>
-                  <option value="completed">已完成</option>
-                  <option value="cancelled">已取消</option>
-                </select>
-              </div>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">阶段</label>
-                <select 
-                  className="workorder-modal-form-select"
-                  value={formData.stage} 
-                  onChange={e => setFormData(prev => ({ ...prev, stage: e.target.value }))}
-                >
-                  <option value="pending">待处理</option>
-                  <option value="scheduled">已安排</option>
-                  <option value="in_progress">进行中</option>
-                  <option value="completed">已完成</option>
-                </select>
+
+            {/* 工单类型 */}
+            <div className="workorder-modal-form-item">
+              <label className="workorder-modal-form-label">工单类型</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                {['维修', '保养', '安装', '其他'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, type: t }))}
+                    style={{
+                      padding: '10px',
+                      border: '1px solid',
+                      borderRadius: '8px',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      background: formData.type === t ? COLORS.primary : COLORS.card,
+                      borderColor: formData.type === t ? COLORS.primary : COLORS.border,
+                      color: formData.type === t ? 'white' : COLORS.text,
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">计划工时</label>
-                <input 
-                  type="number" 
-                  className="workorder-modal-form-control" 
-                  value={formData.plan_hours} 
-                  onChange={e => setFormData(prev => ({ ...prev, plan_hours: e.target.value }))} 
-                  placeholder="0"
-                />
-              </div>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">报价</label>
-                <input 
-                  type="number" 
-                  className="workorder-modal-form-control" 
-                  value={formData.quoted_price} 
-                  onChange={e => setFormData(prev => ({ ...prev, quoted_price: e.target.value }))} 
-                  placeholder="0"
-                />
+
+            {/* 工单阶段 */}
+            <div className="workorder-modal-form-item">
+              <label className="workorder-modal-form-label">工单阶段</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                {[
+                  { label: '待派工', value: 'pending' },
+                  { label: '已派工', value: 'assigned' },
+                  { label: '处理中', value: 'processing' },
+                  { label: '已完成', value: 'completed' },
+                ].map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, stage: s.value }))}
+                    style={{
+                      padding: '10px',
+                      border: '1px solid',
+                      borderRadius: '8px',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      background: formData.stage === s.value ? COLORS.primary : COLORS.card,
+                      borderColor: formData.stage === s.value ? COLORS.primary : COLORS.border,
+                      color: formData.stage === s.value ? 'white' : COLORS.text,
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">负责人</label>
-                <select 
-                  className="workorder-modal-form-select"
-                  value={formData.assignee_id} 
-                  onChange={e => setFormData(prev => ({ ...prev, assignee_id: e.target.value }))}
-                >
-                  <option value="">请选择负责人</option>
-                  {users.map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.username}</option>
-                  ))}
-                </select>
+
+            {/* 优先级 */}
+            <div className="workorder-modal-form-item">
+              <label className="workorder-modal-form-label">优先级</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {[
+                  { label: '低', value: 'low' },
+                  { label: '中', value: 'normal' },
+                  { label: '高', value: 'high' },
+                ].map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, priority: p.value }))}
+                    style={{
+                      padding: '10px',
+                      border: '1px solid',
+                      borderRadius: '8px',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      background: formData.priority === p.value ? COLORS.primary : COLORS.card,
+                      borderColor: formData.priority === p.value ? COLORS.primary : COLORS.border,
+                      color: formData.priority === p.value ? 'white' : COLORS.text,
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
-              <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">是否收费</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                  <input 
-                    type="checkbox" 
-                    id="is_charged"
-                    checked={formData.is_charged}
-                    onChange={e => setFormData(prev => ({ ...prev, is_charged: e.target.checked }))}
+            </div>
+
+            {/* 计划工时 */}
+            <div className="workorder-modal-form-item">
+              <label className="workorder-modal-form-label">计划工时（小时）</label>
+              <input
+                type="number"
+                className="workorder-modal-form-control"
+                value={formData.plan_hours}
+                onChange={e => setFormData(prev => ({ ...prev, plan_hours: e.target.value }))}
+                placeholder="请输入计划工时"
+              />
+            </div>
+
+            {/* 有偿服务开关 */}
+            <div className="workorder-modal-form-item">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: COLORS.bg, borderRadius: '8px' }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: COLORS.title }}>有偿服务</span>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, is_charged: !prev.is_charged }))}
+                  style={{
+                    width: 48,
+                    height: 28,
+                    borderRadius: 14,
+                    padding: 2,
+                    cursor: 'pointer',
+                    transition: 'background 0.3s ease',
+                    background: formData.is_charged ? COLORS.primary : COLORS.secondary,
+                    border: 'none',
+                    position: 'relative',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'block',
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      background: 'white',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      transition: 'transform 0.3s ease',
+                      transform: formData.is_charged ? 'translateX(20px)' : 'translateX(0)',
+                    }}
                   />
-                  <label htmlFor="is_charged" style={{ fontSize: 14, color: COLORS.text }}>收费工单</label>
+                </button>
+              </div>
+            </div>
+
+            {/* 报价金额 */}
+            <div className="workorder-modal-form-item">
+              <label className="workorder-modal-form-label">报价金额（元）</label>
+              <input
+                type="number"
+                className="workorder-modal-form-control"
+                value={formData.quoted_price}
+                onChange={e => setFormData(prev => ({ ...prev, quoted_price: e.target.value }))}
+                placeholder="请输入报价金额"
+              />
+            </div>
+
+            {/* 工单状态（仅编辑时显示） */}
+            {editingOrder && (
+              <div className="workorder-modal-form-item">
+                <label className="workorder-modal-form-label">工单状态</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {[
+                    { label: '待处理', value: 'pending' },
+                    { label: '处理中', value: 'processing' },
+                    { label: '已完成', value: 'completed' },
+                  ].map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, status: s.value }))}
+                      style={{
+                        padding: '10px',
+                        border: '1px solid',
+                        borderRadius: '8px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        background: formData.status === s.value ? COLORS.primary : COLORS.card,
+                        borderColor: formData.status === s.value ? COLORS.primary : COLORS.border,
+                        color: formData.status === s.value ? 'white' : COLORS.text,
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </PCModal>
 
