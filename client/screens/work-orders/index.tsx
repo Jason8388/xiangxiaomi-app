@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard, StyleSheet } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import { getSecureItem } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
 
 interface WorkOrder {
@@ -54,6 +52,7 @@ export default function WorkOrdersScreen() {
     paidAmount: 0,
   });
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -90,6 +89,12 @@ export default function WorkOrdersScreen() {
   useEffect(() => {
     let filtered = workOrders;
 
+    // 状态筛选
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(order => order.stage === filterStatus);
+    }
+
+    // 关键词搜索
     if (searchKeyword.trim()) {
       const keyword = searchKeyword.toLowerCase();
       filtered = filtered.filter(
@@ -103,7 +108,7 @@ export default function WorkOrdersScreen() {
     }
 
     setFilteredOrders(filtered);
-  }, [searchKeyword, workOrders]);
+  }, [searchKeyword, filterStatus, workOrders]);
 
   const fetchWorkOrders = async (): Promise<WorkOrder[]> => {
     try {
@@ -198,18 +203,6 @@ export default function WorkOrdersScreen() {
     }
   };
 
-  const showExportOptions = () => {
-    Alert.alert(
-      '导出工单',
-      '请选择导出格式',
-      [
-        { text: 'Excel 格式 (.xlsx)', onPress: () => handleExport('excel') },
-        { text: 'CSV 格式 (.csv)', onPress: () => handleExport('csv') },
-        { text: '取消', style: 'cancel' },
-      ]
-    );
-  };
-
   const handleEdit = (order: WorkOrder) => {
     setEditingOrder(order);
     setFormData({
@@ -255,10 +248,6 @@ export default function WorkOrdersScreen() {
         },
       },
     ]);
-  };
-
-  const handleDownload = async (order: WorkOrder) => {
-    Alert.alert('提示', '工单下载功能正在开发中，敬请期待！');
   };
 
   const handleSave = async () => {
@@ -322,225 +311,211 @@ export default function WorkOrdersScreen() {
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'pending':
-        return { text: '待派工', color: '#F5A623', bgColor: 'rgba(245, 166, 35, 0.15)' };
+        return { text: '待派工', color: '#F59E0B', bgColor: '#FEF3C7' };
       case 'assigned':
-        return { text: '已派工', color: '#F5A623', bgColor: 'rgba(245, 166, 35, 0.15)' };
+        return { text: '已派工', color: '#F59E0B', bgColor: '#FEF3C7' };
       case 'processing':
-        return { text: '处理中', color: '#6C63FF', bgColor: 'rgba(108, 99, 255, 0.15)' };
+        return { text: '处理中', color: '#8B5CF6', bgColor: '#EDE9FE' };
       case 'completed':
-        return { text: '已完成', color: '#00B894', bgColor: 'rgba(0, 184, 148, 0.15)' };
+        return { text: '已完成', color: '#10B981', bgColor: '#D1FAE5' };
       default:
-        return { text: status, color: '#B2BEC3', bgColor: 'rgba(178, 190, 195, 0.15)' };
+        return { text: status, color: '#9CA3AF', bgColor: '#F3F4F6' };
     }
+  };
+
+  const priorityConfig = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return { text: '高', color: '#EF4444' };
+      case 'normal':
+        return { text: '中', color: '#F59E0B' };
+      case 'low':
+        return { text: '低', color: '#10B981' };
+      default:
+        return { text: '中', color: '#F59E0B' };
+    }
+  };
+
+  const StatCard = ({ icon, title, value, color, iconBg }: any) => (
+    <View style={[styles.statCard, { borderColor: color }]}>
+      <View style={[styles.statIcon, { backgroundColor: iconBg }]}>
+        <FontAwesome6 name={icon} size={20} color={color} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statTitle}>{title}</Text>
+    </View>
+  );
+
+  const FilterTab = ({ label, value, active }: any) => (
+    <TouchableOpacity
+      onPress={() => setFilterStatus(value)}
+      style={[styles.filterTab, active && { backgroundColor: '#8B5CF6' }]}
+    >
+      <Text style={[styles.filterTabText, active && { color: '#FFFFFF' }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+
+  const WorkOrderCard = ({ order }: any) => {
+    const statusConfig = getStatusConfig(order.stage);
+    const priorityConfigData = priorityConfig(order.priority);
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push('/work-order-detail', { id: order.id.toString() })}
+        activeOpacity={0.7}
+      >
+        {/* 头部 */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {order.description || '无描述'}
+            </Text>
+            <Text style={styles.cardSubtitle}>{order.order_no}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
+            <Text style={[styles.statusText, { color: statusConfig.color }]}>
+              {statusConfig.text}
+            </Text>
+          </View>
+        </View>
+
+        {/* 内容 */}
+        <View style={styles.cardContent}>
+          <View style={styles.infoRow}>
+            <FontAwesome6 name="building" size={14} color="#9CA3AF" />
+            <Text style={styles.infoText}>{order.customer_name || '未指定'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <FontAwesome6 name="wrench" size={14} color="#9CA3AF" />
+            <Text style={styles.infoText}>{order.type || '维修'}</Text>
+            {order.plan_hours > 0 && (
+              <>
+                <View style={styles.dot} />
+                <Text style={styles.infoText}>{order.plan_hours}h</Text>
+              </>
+            )}
+            {order.quoted_price > 0 && (
+              <>
+                <View style={styles.dot} />
+                <Text style={[styles.infoText, { color: '#EF4444' }]}>
+                  ¥{order.quoted_price.toLocaleString()}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* 底部 */}
+        <View style={styles.cardFooter}>
+          <View style={styles.priorityBadge}>
+            <View style={[styles.priorityDot, { backgroundColor: priorityConfigData.color }]} />
+            <Text style={[styles.priorityText, { color: priorityConfigData.color }]}>
+              {priorityConfigData.text}优先级
+            </Text>
+          </View>
+          {order.assignee_name && (
+            <View style={styles.assigneeBadge}>
+              <FontAwesome6 name="user" size={12} color="#6B7280" />
+              <Text style={styles.assigneeText}>{order.assignee_name}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
     <Screen>
-      <PageHeader title="工单管理" showHome />
-
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 120 }}
-      >
-        {/* 操作按钮区 */}
-        <View className="px-5 mb-6 flex-row gap-4">
-          <TouchableOpacity
-            onPress={handleAdd}
-            className="flex-1 py-4.5 rounded-2xl items-center justify-center"
-            style={{ backgroundColor: '#8B5CF6' }}
-          >
-            <Text className="text-white font-semibold text-lg">新建工单</Text>
+      {/* 顶部标题区 */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>工单管理</Text>
+          <Text style={styles.headerSubtitle}>共 {stats.totalWorkOrders} 条工单</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => handleExport('excel')}>
+            <FontAwesome6 name="file-export" size={20} color="#6B7280" />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={showExportOptions}
-            className="flex-1 py-4.5 rounded-2xl items-center justify-center"
-            style={{ backgroundColor: '#00B894' }}
-          >
-            <Text className="text-white font-semibold text-lg">导出工单</Text>
+          <TouchableOpacity style={styles.headerButton} onPress={handleAdd}>
+            <FontAwesome6 name="plus" size={20} color="#8B5CF6" />
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* 统计区域 */}
-        <View className="px-5 mb-6">
-          <Text className="text-xl font-bold text-gray-800 mb-4">工单统计</Text>
-
-          {/* 第一行：2列小卡片 */}
-          <View className="flex-row gap-4 mb-4">
-            <View className="flex-1 bg-white rounded-2xl p-5">
-              <Text className="text-base text-gray-500 mb-1">总工单数</Text>
-              <Text className="text-4xl font-bold text-gray-800">{stats.totalWorkOrders}</Text>
-              <Text className="text-base text-gray-500 mt-2">总收费工单数</Text>
-              <Text className="text-3xl font-bold text-green-600">{stats.chargedWorkOrders}</Text>
-            </View>
-          </View>
-
-          {/* 第二行：通栏卡片 */}
-          <View className="bg-white rounded-2xl p-5 mb-4">
-            <Text className="text-base text-gray-500 mb-1">售后业绩金额</Text>
-            <Text className="text-3xl font-bold" style={{ color: '#E53935' }}>¥{stats.performanceAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
-          </View>
-
-          {/* 第三行：通栏卡片 */}
-          <View className="bg-white rounded-2xl p-5">
-            <Text className="text-base text-gray-500 mb-1">售后待收款金额</Text>
-            <Text className="text-3xl font-bold" style={{ color: '#E53935' }}>¥{stats.pendingPaymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
-            <View className="h-px bg-gray-200 my-3" />
-            <Text className="text-base text-gray-500 mb-1">售后已收款金额</Text>
-            <Text className="text-3xl font-bold text-green-600">¥{stats.paidAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</Text>
-          </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+      >
+        {/* 统计卡片 */}
+        <View style={styles.statsContainer}>
+          <StatCard
+            icon="clipboard-list"
+            title="总工单"
+            value={stats.totalWorkOrders}
+            color="#8B5CF6"
+            iconBg="#EDE9FE"
+          />
+          <StatCard
+            icon="clock"
+            title="处理中"
+            value={stats.totalWorkOrders - stats.chargedWorkOrders}
+            color="#F59E0B"
+            iconBg="#FEF3C7"
+          />
+          <StatCard
+            icon="check-circle"
+            title="已完成"
+            value={stats.chargedWorkOrders}
+            color="#10B981"
+            iconBg="#D1FAE5"
+          />
         </View>
 
         {/* 搜索框 */}
-        <View className="px-5 mb-6">
-          <View className="flex-row items-center bg-white rounded-2xl px-5 py-4">
-            <FontAwesome6 name="magnifying-glass" size={18} color="#9CA3AF" />
-            <TextInput
-              className="flex-1 ml-3 text-gray-800 text-lg"
-              placeholder="搜索工单名称、客户名称、工单编号、任务号、任务负责人"
-              placeholderTextColor="#9CA3AF"
-              value={searchKeyword}
-              onChangeText={setSearchKeyword}
-            />
-          </View>
+        <View style={styles.searchContainer}>
+          <FontAwesome6 name="search" size={18} color="#9CA3AF" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="搜索工单..."
+            placeholderTextColor="#9CA3AF"
+            value={searchKeyword}
+            onChangeText={setSearchKeyword}
+          />
+          {searchKeyword.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchKeyword('')}>
+              <FontAwesome6 name="xmark" size={16} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* 工单列表 */}
-        <View className="px-5 mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xl font-bold text-gray-800">最近工单</Text>
-            <TouchableOpacity onPress={() => {}}>
-              <Text className="text-base text-purple-600">查看全部</Text>
-            </TouchableOpacity>
-          </View>
+        {/* 筛选标签 */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+          <FilterTab label="全部" value="all" active={filterStatus === 'all'} />
+          <FilterTab label="待派工" value="pending" active={filterStatus === 'pending'} />
+          <FilterTab label="处理中" value="processing" active={filterStatus === 'processing'} />
+          <FilterTab label="已完成" value="completed" active={filterStatus === 'completed'} />
+        </ScrollView>
 
+        {/* 工单列表 */}
+        <View style={styles.listContainer}>
           {filteredOrders.length === 0 ? (
-            <View className="bg-white rounded-2xl p-10 items-center">
-              <FontAwesome6 name="clipboard-list" size={56} color="#D1D5DB" />
-              <Text className="text-lg text-gray-500 mt-4">暂无工单数据</Text>
+            <View style={styles.emptyContainer}>
+              <FontAwesome6 name="clipboard-list" size={64} color="#E5E7EB" />
+              <Text style={styles.emptyText}>暂无工单</Text>
+              <Text style={styles.emptySubtext}>点击右上角 + 创建新工单</Text>
             </View>
           ) : (
-            <View className="gap-4">
-              {filteredOrders.map((order) => {
-                const statusConfig = getStatusConfig(order.stage);
-                return (
-                  <TouchableOpacity
-                    key={order.id}
-                    onPress={() => router.push('/work-order-detail', { id: order.id.toString() })}
-                    activeOpacity={0.7}
-                  >
-                    <View className="bg-white rounded-2xl p-5">
-                      {/* 标题行：工单名称 + 状态标签 */}
-                      <View className="flex-row justify-between items-start mb-3">
-                        <View className="flex-1 pr-2">
-                          <Text className="text-lg font-bold text-gray-800" numberOfLines={2}>
-                            {order.name || order.description || '无描述'}
-                          </Text>
-                          <Text className="text-base text-gray-500 mt-1">
-                            {order.order_no}
-                          </Text>
-                        </View>
-                        <View
-                          className="px-4 py-2 rounded-full"
-                          style={{ backgroundColor: statusConfig.bgColor }}
-                        >
-                          <Text
-                            className="text-sm font-semibold"
-                            style={{ color: statusConfig.color }}
-                          >
-                            {statusConfig.text}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* 信息行：客户 + 负责人 */}
-                      <View className="flex-row gap-5 mb-4">
-                        <View className="flex-1 flex-row items-center">
-                          <FontAwesome6 name="building" size={16} color="#9CA3AF" />
-                          <Text className="text-base text-gray-600 ml-2" numberOfLines={1}>
-                            {order.customer_name || '未指定'}
-                          </Text>
-                        </View>
-                        <View className="flex-1 flex-row items-center">
-                          <FontAwesome6 name="user" size={16} color="#9CA3AF" />
-                          <Text className="text-base text-gray-600 ml-2" numberOfLines={1}>
-                            {order.assignee_name || '未指定'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* 详情行：类型 + 工时 + 报价 */}
-                      <View className="flex-row items-center mb-4 flex-wrap gap-2">
-                        <View className="flex-row items-center bg-gray-100 px-3 py-2 rounded-lg">
-                          <FontAwesome6 name="wrench" size={14} color="#6B7280" />
-                          <Text className="text-sm text-gray-600 ml-2">{order.type || '维修'}</Text>
-                        </View>
-                        {order.plan_hours > 0 && (
-                          <View className="flex-row items-center bg-gray-100 px-3 py-2 rounded-lg">
-                            <FontAwesome6 name="clock" size={14} color="#6B7280" />
-                            <Text className="text-sm text-gray-600 ml-2">{order.plan_hours}h</Text>
-                          </View>
-                        )}
-                        {order.quoted_price > 0 && (
-                          <View className="flex-row items-center bg-gray-100 px-3 py-2 rounded-lg">
-                            <FontAwesome6 name="yen-sign" size={14} color="#6B7280" />
-                            <Text className="text-sm text-gray-600 ml-2">¥{order.quoted_price}</Text>
-                          </View>
-                        )}
-                        <View
-                          className="px-3 py-2 rounded-full"
-                          style={{
-                            backgroundColor: order.is_charged ? 'rgba(0, 184, 148, 0.15)' : 'rgba(156, 163, 175, 0.15)'
-                          }}
-                        >
-                          <Text
-                            className="text-sm font-semibold"
-                            style={{ color: order.is_charged ? '#00B894' : '#9CA3AF' }}
-                          >
-                            {order.is_charged ? '有偿' : '免费'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* 操作按钮行 */}
-                      <View className="flex-row gap-3 mt-3">
-                        <TouchableOpacity
-                          onPress={() => router.push('/work-order-detail', { id: order.id })}
-                          className="flex-1 py-3 rounded-full items-center justify-center"
-                          style={{ backgroundColor: '#F3F4F6' }}
-                        >
-                          <Text className="text-base font-semibold text-gray-700">查看</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleEdit(order);
-                          }}
-                          className="flex-1 py-3 rounded-full items-center justify-center"
-                          style={{ backgroundColor: '#F59E0B' }}
-                        >
-                          <Text className="text-base font-semibold text-white">修改</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleDownload(order);
-                          }}
-                          className="flex-1 py-3 rounded-full items-center justify-center"
-                          style={{ backgroundColor: '#00B894' }}
-                        >
-                          <Text className="text-base font-semibold text-white">下载</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <>
+              {filteredOrders.map((order) => (
+                <WorkOrderCard key={order.id} order={order} />
+              ))}
+            </>
           )}
         </View>
       </ScrollView>
 
-      {/* 新建/编辑工单弹窗 */}
+      {/* 编辑弹窗 */}
       <Modal
         visible={modalVisible}
         transparent
@@ -552,66 +527,54 @@ export default function WorkOrdersScreen() {
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <View className="flex-1 justify-end bg-black-50">
-              <View className="bg-white rounded-t-3xl p-5" style={{ maxHeight: '90%' }}>
-                <View className="flex-row justify-between items-center mb-5">
-                  <Text className="text-xl font-bold text-gray-800">
-                    {editingOrder ? '编辑工单' : '新建工单'}
-                  </Text>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{editingOrder ? '编辑工单' : '新建工单'}</Text>
                   <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <FontAwesome6 name="xmark" size={24} color="#9CA3AF" />
+                    <FontAwesome6 name="xmark" size={24} color="#6B7280" />
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  {/* 表单内容 */}
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">工单名称 *</Text>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>工单名称 *</Text>
                     <TextInput
-                      className="bg-gray-100 rounded-xl px-4 py-3 text-gray-800"
+                      style={styles.formInput}
                       placeholder="请输入工单名称"
                       value={formData.description}
                       onChangeText={(text) => setFormData({ ...formData, description: text })}
                     />
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">客户 *</Text>
-                    <View className="bg-gray-100 rounded-xl px-4 py-3">
-                      <Text className="text-gray-800">
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>客户 *</Text>
+                    <View style={styles.formSelect}>
+                      <Text style={styles.formSelectText}>
                         {customers.find((c) => c.id.toString() === formData.customer_id)?.name || '请选择客户'}
                       </Text>
                     </View>
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">任务负责人</Text>
-                    <View className="bg-gray-100 rounded-xl px-4 py-3">
-                      <Text className="text-gray-800">
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>任务负责人</Text>
+                    <View style={styles.formSelect}>
+                      <Text style={styles.formSelectText}>
                         {users.find((u) => u.id.toString() === formData.assignee_id)?.username || '请选择负责人'}
                       </Text>
                     </View>
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">设备</Text>
-                    <View className="bg-gray-100 rounded-xl px-4 py-3">
-                      <Text className="text-gray-800">
-                        {devices.find((d) => d.id.toString() === formData.device_id)?.device_name || '请选择设备'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">工单类型</Text>
-                    <View className="flex-row gap-2 flex-wrap">
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>工单类型</Text>
+                    <View style={styles.formTags}>
                       {['维修', '保养', '安装', '其他'].map((type) => (
                         <TouchableOpacity
                           key={type}
                           onPress={() => setFormData({ ...formData, type })}
-                          className={`px-4 py-2 rounded-xl ${formData.type === type ? 'bg-purple-600' : 'bg-gray-100'}`}
+                          style={[styles.formTag, formData.type === type && styles.formTagActive]}
                         >
-                          <Text className={`text-sm font-semibold ${formData.type === type ? 'text-white' : 'text-gray-700'}`}>
+                          <Text style={[styles.formTagText, formData.type === type && styles.formTagTextActive]}>
                             {type}
                           </Text>
                         </TouchableOpacity>
@@ -619,9 +582,9 @@ export default function WorkOrdersScreen() {
                     </View>
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">工单阶段</Text>
-                    <View className="flex-row gap-2 flex-wrap">
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>工单阶段</Text>
+                    <View style={styles.formTags}>
                       {[
                         { label: '待派工', value: 'pending' },
                         { label: '已派工', value: 'assigned' },
@@ -631,9 +594,9 @@ export default function WorkOrdersScreen() {
                         <TouchableOpacity
                           key={stage.value}
                           onPress={() => setFormData({ ...formData, stage: stage.value })}
-                          className={`px-4 py-2 rounded-xl ${formData.stage === stage.value ? 'bg-purple-600' : 'bg-gray-100'}`}
+                          style={[styles.formTag, formData.stage === stage.value && styles.formTagActive]}
                         >
-                          <Text className={`text-sm font-semibold ${formData.stage === stage.value ? 'text-white' : 'text-gray-700'}`}>
+                          <Text style={[styles.formTagText, formData.stage === stage.value && styles.formTagTextActive]}>
                             {stage.label}
                           </Text>
                         </TouchableOpacity>
@@ -641,9 +604,9 @@ export default function WorkOrdersScreen() {
                     </View>
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">优先级</Text>
-                    <View className="flex-row gap-2 flex-wrap">
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>优先级</Text>
+                    <View style={styles.formTags}>
                       {[
                         { label: '低', value: 'low' },
                         { label: '中', value: 'normal' },
@@ -652,9 +615,9 @@ export default function WorkOrdersScreen() {
                         <TouchableOpacity
                           key={priority.value}
                           onPress={() => setFormData({ ...formData, priority: priority.value })}
-                          className={`px-4 py-2 rounded-xl ${formData.priority === priority.value ? 'bg-purple-600' : 'bg-gray-100'}`}
+                          style={[styles.formTag, formData.priority === priority.value && styles.formTagActive]}
                         >
-                          <Text className={`text-sm font-semibold ${formData.priority === priority.value ? 'text-white' : 'text-gray-700'}`}>
+                          <Text style={[styles.formTagText, formData.priority === priority.value && styles.formTagTextActive]}>
                             {priority.label}
                           </Text>
                         </TouchableOpacity>
@@ -662,10 +625,10 @@ export default function WorkOrdersScreen() {
                     </View>
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">计划工时（小时）</Text>
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>计划工时（小时）</Text>
                     <TextInput
-                      className="bg-gray-100 rounded-xl px-4 py-3 text-gray-800"
+                      style={styles.formInput}
                       placeholder="请输入计划工时"
                       keyboardType="decimal-pad"
                       value={formData.plan_hours}
@@ -673,25 +636,20 @@ export default function WorkOrdersScreen() {
                     />
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">有偿服务</Text>
-                    <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
-                      <TouchableOpacity
-                        onPress={() => setFormData({ ...formData, is_charged: !formData.is_charged })}
-                        className={`w-12 h-7 rounded-full p-1 ${formData.is_charged ? 'bg-purple-600 justify-end' : 'bg-gray-300 justify-start'}`}
-                      >
-                        <View className="w-5 h-5 bg-white rounded-full shadow" />
-                      </TouchableOpacity>
-                      <Text className="text-sm text-gray-700 ml-3">
-                        {formData.is_charged ? '是' : '否'}
-                      </Text>
-                    </View>
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>有偿服务</Text>
+                    <TouchableOpacity
+                      onPress={() => setFormData({ ...formData, is_charged: !formData.is_charged })}
+                      style={[styles.toggle, formData.is_charged && styles.toggleActive]}
+                    >
+                      <View style={[styles.toggleKnob, formData.is_charged && styles.toggleKnobActive]} />
+                    </TouchableOpacity>
                   </View>
 
-                  <View className="mb-4">
-                    <Text className="text-sm font-semibold text-gray-700 mb-2">报价金额（元）</Text>
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>报价金额（元）</Text>
                     <TextInput
-                      className="bg-gray-100 rounded-xl px-4 py-3 text-gray-800"
+                      style={styles.formInput}
                       placeholder="请输入报价金额"
                       keyboardType="decimal-pad"
                       value={formData.quoted_price}
@@ -700,9 +658,9 @@ export default function WorkOrdersScreen() {
                   </View>
 
                   {editingOrder && (
-                    <View className="mb-6">
-                      <Text className="text-sm font-semibold text-gray-700 mb-2">工单状态</Text>
-                      <View className="flex-row gap-2 flex-wrap">
+                    <View style={styles.formSection}>
+                      <Text style={styles.formLabel}>工单状态</Text>
+                      <View style={styles.formTags}>
                         {[
                           { label: '待处理', value: 'pending' },
                           { label: '处理中', value: 'processing' },
@@ -711,9 +669,9 @@ export default function WorkOrdersScreen() {
                           <TouchableOpacity
                             key={status.value}
                             onPress={() => setFormData({ ...formData, status: status.value })}
-                            className={`px-4 py-2 rounded-xl ${formData.status === status.value ? 'bg-purple-600' : 'bg-gray-100'}`}
+                            style={[styles.formTag, formData.status === status.value && styles.formTagActive]}
                           >
-                            <Text className={`text-sm font-semibold ${formData.status === status.value ? 'text-white' : 'text-gray-700'}`}>
+                            <Text style={[styles.formTagText, formData.status === status.value && styles.formTagTextActive]}>
                               {status.label}
                             </Text>
                           </TouchableOpacity>
@@ -723,20 +681,18 @@ export default function WorkOrdersScreen() {
                   )}
                 </ScrollView>
 
-                {/* 操作按钮 */}
-                <View className="flex-row gap-3 mt-4">
+                <View style={styles.modalFooter}>
                   <TouchableOpacity
+                    style={styles.modalButton}
                     onPress={() => setModalVisible(false)}
-                    className="flex-1 py-3 rounded-2xl bg-gray-100 items-center justify-center"
                   >
-                    <Text className="text-base font-semibold text-gray-700">取消</Text>
+                    <Text style={styles.modalButtonText}>取消</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    style={[styles.modalButton, styles.modalButtonPrimary]}
                     onPress={handleSave}
-                    className="flex-1 py-3 rounded-2xl items-center justify-center"
-                    style={{ backgroundColor: '#8B5CF6' }}
                   >
-                    <Text className="text-base font-semibold text-white">保存</Text>
+                    <Text style={styles.modalButtonTextPrimary}>保存</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -747,3 +703,337 @@ export default function WorkOrdersScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 100,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 2,
+    borderStyle: 'solid',
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  statTitle: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#111827',
+  },
+  filterContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    gap: 8,
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  filterTabText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  listContainer: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  cardHeaderLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardContent: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  assigneeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  assigneeText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalBody: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+  },
+  formSection: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  formInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#111827',
+  },
+  formSelect: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  formSelectText: {
+    fontSize: 16,
+    color: '#111827',
+  },
+  formTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  formTag: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  formTagActive: {
+    backgroundColor: '#8B5CF6',
+  },
+  formTagText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  formTagTextActive: {
+    color: '#FFFFFF',
+  },
+  toggle: {
+    width: 52,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#D1D5DB',
+    padding: 2,
+  },
+  toggleActive: {
+    backgroundColor: '#8B5CF6',
+  },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toggleKnobActive: {
+    transform: [{ translateX: 24 }],
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#8B5CF6',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  modalButtonTextPrimary: {
+    color: '#FFFFFF',
+  },
+});
