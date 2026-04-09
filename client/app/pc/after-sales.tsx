@@ -280,37 +280,37 @@ export default function PCAfterSales() {
         <span style={{ fontSize: 13, color: COLORS.secondary }}>{val}</span>
       )
     },
-    { 
-      key: 'actions', 
-      title: '操作', 
-      width: 140, 
+    {
+      key: 'actions',
+      title: '操作',
+      width: 180,
       render: (_: any, record: WorkOrder) => (
         <div style={{ display: 'flex', gap: 12 }}>
-          <button 
-            style={{ 
-              border: 'none', 
-              background: 'none', 
+          <button
+            style={{
+              border: 'none',
+              background: 'none',
               padding: 0,
-              fontSize: 13, 
-              color: COLORS.primary, 
-              cursor: 'pointer' 
+              fontSize: 13,
+              color: COLORS.primary,
+              cursor: 'pointer'
             }}
             onClick={() => { setViewingOrder(record); setDetailVisible(true); }}
           >
             详情
           </button>
-          <button 
-            style={{ 
-              border: 'none', 
-              background: 'none', 
+          <button
+            style={{
+              border: 'none',
+              background: 'none',
               padding: 0,
-              fontSize: 13, 
-              color: COLORS.primary, 
-              cursor: 'pointer' 
+              fontSize: 13,
+              color: COLORS.primary,
+              cursor: 'pointer'
             }}
-            onClick={() => { 
-              setEditingOrder(record); 
-              setFormData({ 
+            onClick={() => {
+              setEditingOrder(record);
+              setFormData({
                 description: record.description,
                 customer_id: String(record.customer_id),
                 device_id: String(record.device_id || ''),
@@ -322,22 +322,37 @@ export default function PCAfterSales() {
                 is_charged: record.is_charged,
                 quoted_price: String(record.quoted_price || ''),
                 assignee_id: String(record.assignee_id || '')
-              }); 
-              setModalVisible(true); 
+              });
+              setModalVisible(true);
             }}
           >
             编辑
           </button>
-          <button 
-            style={{ 
-              border: 'none', 
-              background: 'none', 
+          <button
+            style={{
+              border: 'none',
+              background: 'none',
               padding: 0,
-              fontSize: 13, 
-              color: COLORS.secondary, 
-              cursor: 'pointer' 
+              fontSize: 13,
+              color: COLORS.success,
+              cursor: 'pointer'
             }}
-            onClick={() => { 
+            onClick={() => {
+              alert('下载功能正在开发中，敬请期待！');
+            }}
+          >
+            下载
+          </button>
+          <button
+            style={{
+              border: 'none',
+              background: 'none',
+              padding: 0,
+              fontSize: 13,
+              color: COLORS.secondary,
+              cursor: 'pointer'
+            }}
+            onClick={() => {
               if (confirm('确定要删除该工单吗？')) {
                 fetch(`${API_BASE}/api/v1/work-orders/${record.id}`, { method: 'DELETE' })
                   .then(() => {
@@ -350,16 +365,18 @@ export default function PCAfterSales() {
             删除
           </button>
         </div>
-      ) 
+      )
     },
   ];
 
   const filteredOrders = orders.filter(o => {
     const keyword = searchText.toLowerCase();
-    return !keyword || 
+    return !keyword ||
       (o.order_no && o.order_no.toLowerCase().includes(keyword)) ||
       (o.description && o.description.toLowerCase().includes(keyword)) ||
-      (o.customer_name && o.customer_name.toLowerCase().includes(keyword));
+      (o.customer_name && o.customer_name.toLowerCase().includes(keyword)) ||
+      (o.device_name && o.device_name.toLowerCase().includes(keyword)) ||
+      (o.assignee_name && o.assignee_name.toLowerCase().includes(keyword));
   });
 
   return (
