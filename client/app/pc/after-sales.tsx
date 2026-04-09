@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
-import { PCStatCard } from '@/components/pc/PCComponents';
 import { PCTable } from '@/components/pc/PCComponents';
 import { PCCard } from '@/components/pc/PCComponents';
 import { PCSearchBar } from '@/components/pc/PCComponents';
@@ -28,74 +27,131 @@ const COLORS = {
 interface WorkOrder {
   id: number;
   order_no: string;
-  title: string;
-  customer_name: string;
-  device_name: string;
-  type: 'repair' | 'maintenance' | 'installation';
-  priority: 'urgent' | 'normal' | 'low';
-  status: 'pending' | 'processing' | 'completed';
+  description: string;
+  customer_id: number;
+  device_id?: number;
+  type: string;
+  priority: string;
+  status: string;
+  stage: string;
+  plan_hours: number;
+  is_charged: boolean;
+  quoted_price: number;
+  assignee_id?: number;
+  created_by: number;
+  customer_name?: string;
+  device_name?: string;
+  assignee_name?: string;
   created_at: string;
-  description?: string;
-  handler?: string;
-  completion_time?: string;
 }
 
-const typeMap = { repair: '维修', maintenance: '保养', installation: '安装' };
-const typeIconMap = { repair: '🔧', maintenance: '⚙️', installation: '📦' };
+interface WorkOrderStats {
+  totalWorkOrders: number;
+  chargedWorkOrders: number;
+  performanceAmount: number;
+  pendingPaymentAmount: number;
+  paidAmount: number;
+}
 
 export default function PCAfterSales() {
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
   const [viewingOrder, setViewingOrder] = useState<WorkOrder | null>(null);
-  const [formData, setFormData] = useState({ 
-    order_no: '', 
-    title: '', 
-    customer_name: '', 
-    device_name: '', 
-    type: 'repair' as const, 
-    priority: 'normal' as const, 
-    status: 'pending' as const, 
-    description: '', 
-    handler: '' 
+  const [stats, setStats] = useState<WorkOrderStats>({
+    totalWorkOrders: 0,
+    chargedWorkOrders: 0,
+    performanceAmount: 0,
+    pendingPaymentAmount: 0,
+    paidAmount: 0,
   });
+  const [formData, setFormData] = useState({ 
+    description: '', 
+    customer_id: '', 
+    device_id: '', 
+    type: '维修', 
+    priority: 'normal', 
+    status: 'pending',
+    stage: 'pending',
+    plan_hours: '',
+    is_charged: false,
+    quoted_price: '',
+    assignee_id: '' 
+  });
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/after-sales`);
+      const response = await fetch(`${API_BASE}/api/v1/work-orders`);
       const data = await response.json();
-      const list = Array.isArray(data) ? data : (data.orders || []);
+      const list = Array.isArray(data) ? data : (data.data || []);
       setOrders(list);
       setPagination(prev => ({ ...prev, total: list.length }));
     } catch (error) {
-      setOrders([
-        { id: 1, order_no: 'WO-2024-001', title: '设备故障维修', customer_name: '北京科技有限公司', device_name: '变频器A-001', type: 'repair', priority: 'urgent', status: 'pending', created_at: '2024-03-20', description: '设备无法启动，需要紧急维修', handler: '张师傅' },
-        { id: 2, order_no: 'WO-2024-002', title: '定期保养服务', customer_name: '上海网络技术', device_name: 'PLC控制柜', type: 'maintenance', priority: 'normal', status: 'processing', created_at: '2024-03-18', description: '季度例行保养维护', handler: '李师傅' },
-        { id: 3, order_no: 'WO-2024-003', title: '新设备安装调试', customer_name: '广州智能科技', device_name: '伺服驱动器', type: 'installation', priority: 'low', status: 'completed', created_at: '2024-03-15', description: '新采购设备安装调试完成', handler: '王师傅', completion_time: '2024-03-18' },
-        { id: 4, order_no: 'WO-2024-004', title: '电路板更换', customer_name: '深圳电子厂', device_name: '工业主板', type: 'repair', priority: 'urgent', status: 'processing', created_at: '2024-03-19', description: '电路板损坏需要更换', handler: '赵师傅' },
-        { id: 5, order_no: 'WO-2024-005', title: '年度设备体检', customer_name: '杭州制造', device_name: '数控机床', type: 'maintenance', priority: 'normal', status: 'pending', created_at: '2024-03-21', description: '年度设备全面体检', handler: '' },
-      ]);
-      setPagination(prev => ({ ...prev, total: 5 }));
+      console.error('获取工单列表失败:', error);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  const fetchStats = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/work-orders/stats`);
+      const data = await response.json();
+      if (data) {
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('获取统计数据失败:', error);
+    }
+  }, []);
 
-  const stats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    completed: orders.filter(o => o.status === 'completed').length,
-  };
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/customers`);
+      const data = await response.json();
+      setCustomers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('获取客户列表失败:', error);
+    }
+  }, []);
+
+  const fetchDevices = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/devices`);
+      const data = await response.json();
+      setDevices(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('获取设备列表失败:', error);
+    }
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/users`);
+      const data = await response.json();
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('获取用户列表失败:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+    fetchStats();
+    fetchCustomers();
+    fetchDevices();
+    fetchUsers();
+  }, [fetchOrders, fetchStats, fetchCustomers, fetchDevices, fetchUsers]);
 
   const columns = [
     { 
@@ -112,14 +168,11 @@ export default function PCAfterSales() {
       )
     },
     { 
-      key: 'title', 
-      title: '工单标题', 
+      key: 'description', 
+      title: '工单描述', 
       width: 200,
-      render: (val: string, record: WorkOrder) => (
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.title, marginBottom: 2 }}>{val}</div>
-          <div style={{ fontSize: 12, color: COLORS.secondary }}>{typeIconMap[record.type]} {typeMap[record.type]}</div>
-        </div>
+      render: (val: string) => (
+        <span style={{ fontSize: 14, color: COLORS.title }}>{val}</span>
       )
     },
     { 
@@ -127,7 +180,7 @@ export default function PCAfterSales() {
       title: '客户名称', 
       width: 140,
       render: (val: string) => (
-        <span style={{ fontSize: 14, color: COLORS.text }}>{val}</span>
+        <span style={{ fontSize: 14, color: COLORS.text }}>{val || '-'}</span>
       )
     },
     { 
@@ -139,16 +192,25 @@ export default function PCAfterSales() {
       )
     },
     { 
+      key: 'type', 
+      title: '类型', 
+      width: 80,
+      render: (val: string) => (
+        <span style={{ fontSize: 13, color: COLORS.text }}>{val}</span>
+      )
+    },
+    { 
       key: 'priority', 
       title: '优先级', 
       width: 90,
       render: (val: string) => {
         const config = {
           urgent: { label: '紧急', color: COLORS.danger, bg: '#fff1f0' },
+          high: { label: '高', color: '#ff7a45', bg: '#fff7e6' },
           normal: { label: '普通', color: COLORS.warning, bg: '#fffbe6' },
           low: { label: '低', color: COLORS.secondary, bg: '#f5f5f5' }
         };
-        const { label, color, bg } = config[val as keyof typeof config];
+        const { label, color, bg } = config[val as keyof typeof config] || config.normal;
         return (
           <span style={{ 
             display: 'inline-block', 
@@ -171,10 +233,11 @@ export default function PCAfterSales() {
       render: (val: string) => {
         const config = {
           pending: { label: '待处理', color: COLORS.warning, bg: '#fffbe6' },
-          processing: { label: '处理中', color: COLORS.primary, bg: COLORS.primaryLight },
-          completed: { label: '已完成', color: COLORS.success, bg: '#f6ffed' }
+          in_progress: { label: '处理中', color: COLORS.primary, bg: COLORS.primaryLight },
+          completed: { label: '已完成', color: COLORS.success, bg: '#f6ffed' },
+          cancelled: { label: '已取消', color: COLORS.secondary, bg: '#f5f5f5' }
         };
-        const { label, color, bg } = config[val as keyof typeof config];
+        const { label, color, bg } = config[val as keyof typeof config] || config.pending;
         return (
           <span style={{ 
             display: 'inline-block', 
@@ -191,12 +254,22 @@ export default function PCAfterSales() {
       }
     },
     { 
-      key: 'handler', 
+      key: 'assignee_name', 
       title: '负责人', 
       width: 80,
       render: (val: string) => (
         <span style={{ fontSize: 14, color: val ? COLORS.text : COLORS.secondary }}>
           {val || '待指派'}
+        </span>
+      )
+    },
+    { 
+      key: 'quoted_price', 
+      title: '报价', 
+      width: 100,
+      render: (val: number) => (
+        <span style={{ fontSize: 14, color: COLORS.title, fontWeight: 500 }}>
+          {val ? `¥${val.toLocaleString()}` : '-'}
         </span>
       )
     },
@@ -238,11 +311,23 @@ export default function PCAfterSales() {
             }}
             onClick={() => { 
               setEditingOrder(record); 
-              setFormData({ ...record }); 
+              setFormData({ 
+                description: record.description,
+                customer_id: String(record.customer_id),
+                device_id: String(record.device_id || ''),
+                type: record.type,
+                priority: record.priority,
+                status: record.status,
+                stage: record.stage,
+                plan_hours: String(record.plan_hours || ''),
+                is_charged: record.is_charged,
+                quoted_price: String(record.quoted_price || ''),
+                assignee_id: String(record.assignee_id || '')
+              }); 
               setModalVisible(true); 
             }}
           >
-            {record.status === 'pending' ? '处理' : '编辑'}
+            编辑
           </button>
           <button 
             style={{ 
@@ -255,7 +340,11 @@ export default function PCAfterSales() {
             }}
             onClick={() => { 
               if (confirm('确定要删除该工单吗？')) {
-                setOrders(prev => prev.filter(o => o.id !== record.id));
+                fetch(`${API_BASE}/api/v1/work-orders/${record.id}`, { method: 'DELETE' })
+                  .then(() => {
+                    fetchOrders();
+                    fetchStats();
+                  });
               }
             }}
           >
@@ -267,9 +356,11 @@ export default function PCAfterSales() {
   ];
 
   const filteredOrders = orders.filter(o => {
-    const matchSearch = !searchText || o.title.includes(searchText) || o.order_no.includes(searchText) || o.customer_name.includes(searchText);
-    const matchStatus = !statusFilter || o.status === statusFilter;
-    return matchSearch && matchStatus;
+    const keyword = searchText.toLowerCase();
+    return !keyword || 
+      (o.order_no && o.order_no.toLowerCase().includes(keyword)) ||
+      (o.description && o.description.toLowerCase().includes(keyword)) ||
+      (o.customer_name && o.customer_name.toLowerCase().includes(keyword));
   });
 
   return (
@@ -481,11 +572,6 @@ export default function PCAfterSales() {
           color: ${COLORS.title};
           font-weight: 500;
         }
-        @media (max-width: 1366px) {
-          .workorder-stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
       `}</style>
       
       <div className="workorder-page">
@@ -506,15 +592,17 @@ export default function PCAfterSales() {
             onClick={() => { 
               setEditingOrder(null); 
               setFormData({ 
-                order_no: `WO-${new Date().getFullYear()}-${String(orders.length + 1).padStart(3, '0')}`, 
-                title: '', 
-                customer_name: '', 
-                device_name: '', 
-                type: 'repair', 
+                description: '', 
+                customer_id: '', 
+                device_id: '', 
+                type: '维修', 
                 priority: 'normal', 
                 status: 'pending',
-                description: '',
-                handler: ''
+                stage: 'pending',
+                plan_hours: '',
+                is_charged: false,
+                quoted_price: '',
+                assignee_id: '' 
               }); 
               setModalVisible(true); 
             }}
@@ -526,13 +614,14 @@ export default function PCAfterSales() {
             onClick={() => {
               const data = filteredOrders.map(o => ({
                 工单编号: o.order_no,
-                工单标题: o.title,
+                工单描述: o.description,
                 客户名称: o.customer_name,
                 设备名称: o.device_name,
-                工单类型: typeMap[o.type],
-                优先级: o.priority === 'urgent' ? '紧急' : o.priority === 'normal' ? '普通' : '低',
-                状态: o.status === 'pending' ? '待处理' : o.status === 'processing' ? '处理中' : '已完成',
-                负责人: o.handler || '',
+                类型: o.type,
+                优先级: o.priority,
+                状态: o.status,
+                负责人: o.assignee_name || '',
+                报价: o.quoted_price || '',
                 创建时间: o.created_at
               }));
               const csv = [Object.keys(data[0]).join(','), ...data.map(row => Object.values(row).join(','))].join('\n');
@@ -553,55 +642,55 @@ export default function PCAfterSales() {
             <div className="workorder-stat-icon" style={{ background: COLORS.primaryLight, color: COLORS.primary }}>
               📋
             </div>
-            <div className="workorder-stat-value">{stats.total}</div>
+            <div className="workorder-stat-value">{stats.totalWorkOrders}</div>
             <div className="workorder-stat-label">工单总数</div>
           </div>
           <div className="workorder-stat-card">
             <div className="workorder-stat-icon" style={{ background: '#fffbe6', color: COLORS.warning }}>
-              ⏳
+              💰
             </div>
-            <div className="workorder-stat-value">{stats.pending}</div>
-            <div className="workorder-stat-label">待处理</div>
+            <div className="workorder-stat-value">{stats.chargedWorkOrders}</div>
+            <div className="workorder-stat-label">收费工单</div>
           </div>
           <div className="workorder-stat-card">
             <div className="workorder-stat-icon" style={{ background: COLORS.primaryLight, color: COLORS.primary }}>
-              🔄
+              💵
             </div>
-            <div className="workorder-stat-value">{stats.processing}</div>
-            <div className="workorder-stat-label">处理中</div>
+            <div className="workorder-stat-value">¥{stats.performanceAmount.toLocaleString()}</div>
+            <div className="workorder-stat-label">业绩金额</div>
           </div>
           <div className="workorder-stat-card">
-            <div className="workorder-stat-icon" style={{ background: '#f6ffed', color: COLORS.success }}>
-              ✅
+            <div className="workorder-stat-icon" style={{ background: '#fff1f0', color: COLORS.danger }}>
+              📥
             </div>
-            <div className="workorder-stat-value">{stats.completed}</div>
-            <div className="workorder-stat-label">已完成</div>
+            <div className="workorder-stat-value">¥{stats.pendingPaymentAmount.toLocaleString()}</div>
+            <div className="workorder-stat-label">待收款</div>
           </div>
         </div>
 
         {/* 筛选标签 */}
         <div className="workorder-filter-tabs">
           <button 
-            className={`workorder-filter-tab ${!statusFilter ? 'active' : ''}`}
-            onClick={() => setStatusFilter('')}
+            className={`workorder-filter-tab ${!searchText ? 'active' : ''}`}
+            onClick={() => setSearchText('')}
           >
             全部
           </button>
           <button 
-            className={`workorder-filter-tab ${statusFilter === 'pending' ? 'active' : ''}`}
-            onClick={() => setStatusFilter(statusFilter === 'pending' ? '' : 'pending')}
+            className={`workorder-filter-tab ${searchText === 'pending' ? 'active' : ''}`}
+            onClick={() => setSearchText(searchText === 'pending' ? '' : 'pending')}
           >
             待处理
           </button>
           <button 
-            className={`workorder-filter-tab ${statusFilter === 'processing' ? 'active' : ''}`}
-            onClick={() => setStatusFilter(statusFilter === 'processing' ? '' : 'processing')}
+            className={`workorder-filter-tab ${searchText === 'in_progress' ? 'active' : ''}`}
+            onClick={() => setSearchText(searchText === 'in_progress' ? '' : 'in_progress')}
           >
             处理中
           </button>
           <button 
-            className={`workorder-filter-tab ${statusFilter === 'completed' ? 'active' : ''}`}
-            onClick={() => setStatusFilter(statusFilter === 'completed' ? '' : 'completed')}
+            className={`workorder-filter-tab ${searchText === 'completed' ? 'active' : ''}`}
+            onClick={() => setSearchText(searchText === 'completed' ? '' : 'completed')}
           >
             已完成
           </button>
@@ -611,7 +700,7 @@ export default function PCAfterSales() {
         <div className="workorder-table-container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <PCSearchBar 
-              placeholder="搜索工单编号、标题或客户..." 
+              placeholder="搜索工单编号、描述或客户..." 
               value={searchText} 
               onChange={setSearchText} 
               onSearch={() => {}} 
@@ -644,7 +733,7 @@ export default function PCAfterSales() {
         {/* 新建/编辑工单弹窗 */}
         <PCModal 
           visible={modalVisible} 
-          title={editingOrder ? '处理工单' : '新建工单'} 
+          title={editingOrder ? '编辑工单' : '新建工单'} 
           onClose={() => setModalVisible(false)} 
           width={560}
           footer={
@@ -657,20 +746,44 @@ export default function PCAfterSales() {
               </button>
               <button 
                 className="workorder-btn workorder-btn-primary"
-                onClick={() => {
-                  if (!formData.title) {
-                    alert('请输入工单标题');
+                onClick={async () => {
+                  if (!formData.description) {
+                    alert('请输入工单描述');
                     return;
                   }
-                  if (!formData.customer_name) {
-                    alert('请输入客户名称');
+                  if (!formData.customer_id) {
+                    alert('请选择客户');
                     return;
                   }
-                  if (editingOrder) {
-                    setOrders(prev => prev.map(o => o.id === editingOrder.id ? { ...o, ...formData } : o));
-                  } else {
-                    setOrders(prev => [...prev, { id: Date.now(), ...formData, created_at: new Date().toISOString().split('T')[0] }]);
-                  }
+                  
+                  const payload = {
+                    description: formData.description,
+                    customer_id: parseInt(formData.customer_id),
+                    device_id: formData.device_id ? parseInt(formData.device_id) : null,
+                    type: formData.type,
+                    priority: formData.priority,
+                    status: formData.status,
+                    stage: formData.stage,
+                    plan_hours: formData.plan_hours ? parseFloat(formData.plan_hours) : 0,
+                    is_charged: formData.is_charged,
+                    quoted_price: formData.quoted_price ? parseFloat(formData.quoted_price) : 0,
+                    assignee_id: formData.assignee_id ? parseInt(formData.assignee_id) : null,
+                  };
+
+                  const url = editingOrder 
+                    ? `${API_BASE}/api/v1/work-orders/${editingOrder.id}`
+                    : `${API_BASE}/api/v1/work-orders`;
+                  
+                  const method = editingOrder ? 'PUT' : 'POST';
+                  
+                  await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                  });
+                  
+                  fetchOrders();
+                  fetchStats();
                   setModalVisible(false);
                 }}
               >
@@ -681,52 +794,54 @@ export default function PCAfterSales() {
         >
           <div className="workorder-modal-form">
             <div className="workorder-modal-form-item">
-              <label className="workorder-modal-form-label">工单编号</label>
-              <input 
+              <label className="workorder-modal-form-label">工单描述 <span style={{ color: COLORS.danger }}>*</span></label>
+              <textarea 
                 className="workorder-modal-form-control" 
-                value={formData.order_no} 
-                onChange={e => setFormData(prev => ({ ...prev, order_no: e.target.value }))} 
-                placeholder="自动生成"
+                style={{ height: 80, resize: 'vertical' }}
+                value={formData.description} 
+                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} 
+                placeholder="请输入工单描述..."
               />
             </div>
             <div className="workorder-modal-form-item">
-              <label className="workorder-modal-form-label">工单标题 <span style={{ color: COLORS.danger }}>*</span></label>
-              <input 
-                className="workorder-modal-form-control" 
-                value={formData.title} 
-                onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} 
-                placeholder="请输入工单标题"
-              />
+              <label className="workorder-modal-form-label">客户 <span style={{ color: COLORS.danger }}>*</span></label>
+              <select 
+                className="workorder-modal-form-select"
+                value={formData.customer_id} 
+                onChange={e => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
+              >
+                <option value="">请选择客户</option>
+                {customers.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
             <div className="workorder-modal-form-item">
-              <label className="workorder-modal-form-label">客户名称 <span style={{ color: COLORS.danger }}>*</span></label>
-              <input 
-                className="workorder-modal-form-control" 
-                value={formData.customer_name} 
-                onChange={e => setFormData(prev => ({ ...prev, customer_name: e.target.value }))} 
-                placeholder="请输入客户名称"
-              />
-            </div>
-            <div className="workorder-modal-form-item">
-              <label className="workorder-modal-form-label">设备名称</label>
-              <input 
-                className="workorder-modal-form-control" 
-                value={formData.device_name} 
-                onChange={e => setFormData(prev => ({ ...prev, device_name: e.target.value }))} 
-                placeholder="请输入设备名称"
-              />
+              <label className="workorder-modal-form-label">设备</label>
+              <select 
+                className="workorder-modal-form-select"
+                value={formData.device_id} 
+                onChange={e => setFormData(prev => ({ ...prev, device_id: e.target.value }))}
+              >
+                <option value="">请选择设备</option>
+                {devices.filter((d: any) => !formData.customer_id || d.customer_id === parseInt(formData.customer_id)).map((d: any) => (
+                  <option key={d.id} value={d.id}>{d.device_name}</option>
+                ))}
+              </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">工单类型</label>
+                <label className="workorder-modal-form-label">类型</label>
                 <select 
                   className="workorder-modal-form-select"
                   value={formData.type} 
-                  onChange={e => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
+                  onChange={e => setFormData(prev => ({ ...prev, type: e.target.value }))}
                 >
-                  <option value="repair">🔧 维修</option>
-                  <option value="maintenance">⚙️ 保养</option>
-                  <option value="installation">📦 安装</option>
+                  <option value="维修">维修</option>
+                  <option value="保养">保养</option>
+                  <option value="安装">安装</option>
+                  <option value="巡检">巡检</option>
+                  <option value="升级">升级</option>
                 </select>
               </div>
               <div className="workorder-modal-form-item">
@@ -734,46 +849,91 @@ export default function PCAfterSales() {
                 <select 
                   className="workorder-modal-form-select"
                   value={formData.priority} 
-                  onChange={e => setFormData(prev => ({ ...prev, priority: e.target.value as any }))}
+                  onChange={e => setFormData(prev => ({ ...prev, priority: e.target.value }))}
                 >
-                  <option value="urgent">🔥 紧急</option>
-                  <option value="normal">一般</option>
-                  <option value="low">○ 低</option>
+                  <option value="urgent">紧急</option>
+                  <option value="high">高</option>
+                  <option value="normal">普通</option>
+                  <option value="low">低</option>
                 </select>
               </div>
             </div>
-            <div className="workorder-modal-form-item">
-              <label className="workorder-modal-form-label">负责人</label>
-              <input 
-                className="workorder-modal-form-control" 
-                value={formData.handler} 
-                onChange={e => setFormData(prev => ({ ...prev, handler: e.target.value }))} 
-                placeholder="请输入负责人姓名"
-              />
-            </div>
-            {editingOrder && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className="workorder-modal-form-item">
-                <label className="workorder-modal-form-label">工单状态</label>
+                <label className="workorder-modal-form-label">状态</label>
                 <select 
                   className="workorder-modal-form-select"
                   value={formData.status} 
-                  onChange={e => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                  onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
                 >
-                  <option value="pending">⏳ 待处理</option>
-                  <option value="processing">🔄 处理中</option>
-                  <option value="completed">✅ 已完成</option>
+                  <option value="pending">待处理</option>
+                  <option value="in_progress">处理中</option>
+                  <option value="completed">已完成</option>
+                  <option value="cancelled">已取消</option>
                 </select>
               </div>
-            )}
-            <div className="workorder-modal-form-item">
-              <label className="workorder-modal-form-label">工单描述</label>
-              <textarea 
-                className="workorder-modal-form-control" 
-                style={{ height: 100, resize: 'vertical' }}
-                value={formData.description} 
-                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} 
-                placeholder="请输入工单详细描述..."
-              />
+              <div className="workorder-modal-form-item">
+                <label className="workorder-modal-form-label">阶段</label>
+                <select 
+                  className="workorder-modal-form-select"
+                  value={formData.stage} 
+                  onChange={e => setFormData(prev => ({ ...prev, stage: e.target.value }))}
+                >
+                  <option value="pending">待处理</option>
+                  <option value="scheduled">已安排</option>
+                  <option value="in_progress">进行中</option>
+                  <option value="completed">已完成</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="workorder-modal-form-item">
+                <label className="workorder-modal-form-label">计划工时</label>
+                <input 
+                  type="number" 
+                  className="workorder-modal-form-control" 
+                  value={formData.plan_hours} 
+                  onChange={e => setFormData(prev => ({ ...prev, plan_hours: e.target.value }))} 
+                  placeholder="0"
+                />
+              </div>
+              <div className="workorder-modal-form-item">
+                <label className="workorder-modal-form-label">报价</label>
+                <input 
+                  type="number" 
+                  className="workorder-modal-form-control" 
+                  value={formData.quoted_price} 
+                  onChange={e => setFormData(prev => ({ ...prev, quoted_price: e.target.value }))} 
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="workorder-modal-form-item">
+                <label className="workorder-modal-form-label">负责人</label>
+                <select 
+                  className="workorder-modal-form-select"
+                  value={formData.assignee_id} 
+                  onChange={e => setFormData(prev => ({ ...prev, assignee_id: e.target.value }))}
+                >
+                  <option value="">请选择负责人</option>
+                  {users.map((u: any) => (
+                    <option key={u.id} value={u.id}>{u.username}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="workorder-modal-form-item">
+                <label className="workorder-modal-form-label">是否收费</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  <input 
+                    type="checkbox" 
+                    id="is_charged"
+                    checked={formData.is_charged}
+                    onChange={e => setFormData(prev => ({ ...prev, is_charged: e.target.checked }))}
+                  />
+                  <label htmlFor="is_charged" style={{ fontSize: 14, color: COLORS.text }}>收费工单</label>
+                </div>
+              </div>
             </div>
           </div>
         </PCModal>
@@ -798,7 +958,19 @@ export default function PCAfterSales() {
                   setDetailVisible(false);
                   if (viewingOrder) {
                     setEditingOrder(viewingOrder);
-                    setFormData({ ...viewingOrder });
+                    setFormData({ 
+                      description: viewingOrder.description,
+                      customer_id: String(viewingOrder.customer_id),
+                      device_id: String(viewingOrder.device_id || ''),
+                      type: viewingOrder.type,
+                      priority: viewingOrder.priority,
+                      status: viewingOrder.status,
+                      stage: viewingOrder.stage,
+                      plan_hours: String(viewingOrder.plan_hours || ''),
+                      is_charged: viewingOrder.is_charged,
+                      quoted_price: String(viewingOrder.quoted_price || ''),
+                      assignee_id: String(viewingOrder.assignee_id || '')
+                    });
                     setModalVisible(true);
                   }
                 }}
@@ -818,66 +990,63 @@ export default function PCAfterSales() {
                     <div className="workorder-detail-item-value">{viewingOrder.order_no}</div>
                   </div>
                   <div className="workorder-detail-item">
-                    <div className="workorder-detail-item-label">工单标题</div>
-                    <div className="workorder-detail-item-value">{viewingOrder.title}</div>
+                    <div className="workorder-detail-item-label">工单描述</div>
+                    <div className="workorder-detail-item-value">{viewingOrder.description}</div>
                   </div>
                   <div className="workorder-detail-item">
                     <div className="workorder-detail-item-label">客户名称</div>
-                    <div className="workorder-detail-item-value">{viewingOrder.customer_name}</div>
+                    <div className="workorder-detail-item-value">{viewingOrder.customer_name || '-'}</div>
                   </div>
                   <div className="workorder-detail-item">
                     <div className="workorder-detail-item-label">设备名称</div>
                     <div className="workorder-detail-item-value">{viewingOrder.device_name || '-'}</div>
                   </div>
                   <div className="workorder-detail-item">
-                    <div className="workorder-detail-item-label">工单类型</div>
-                    <div className="workorder-detail-item-value">{typeIconMap[viewingOrder.type]} {typeMap[viewingOrder.type]}</div>
+                    <div className="workorder-detail-item-label">类型</div>
+                    <div className="workorder-detail-item-value">{viewingOrder.type}</div>
                   </div>
                   <div className="workorder-detail-item">
                     <div className="workorder-detail-item-label">优先级</div>
                     <div className="workorder-detail-item-value" style={{ 
                       color: viewingOrder.priority === 'urgent' ? COLORS.danger : 
-                            viewingOrder.priority === 'normal' ? COLORS.warning : COLORS.secondary 
+                            viewingOrder.priority === 'high' ? '#ff7a45' : COLORS.text 
                     }}>
                       {viewingOrder.priority === 'urgent' ? '🔥 ' : ''}
-                      {viewingOrder.priority === 'urgent' ? '紧急' : viewingOrder.priority === 'normal' ? '普通' : '低'}
+                      {viewingOrder.priority === 'urgent' ? '紧急' : viewingOrder.priority === 'high' ? '高' : viewingOrder.priority === 'normal' ? '普通' : '低'}
+                    </div>
+                  </div>
+                  <div className="workorder-detail-item">
+                    <div className="workorder-detail-item-label">状态</div>
+                    <div className="workorder-detail-item-value" style={{ 
+                      display: 'inline-block',
+                      padding: '4px 12px', 
+                      borderRadius: 4, 
+                      fontSize: 13,
+                      background: viewingOrder.status === 'pending' ? '#fffbe6' :
+                                viewingOrder.status === 'in_progress' ? COLORS.primaryLight : 
+                                viewingOrder.status === 'completed' ? '#f6ffed' : '#f5f5f5',
+                      color: viewingOrder.status === 'pending' ? COLORS.warning :
+                            viewingOrder.status === 'in_progress' ? COLORS.primary : 
+                            viewingOrder.status === 'completed' ? COLORS.success : COLORS.secondary
+                    }}>
+                      {viewingOrder.status === 'pending' ? '待处理' :
+                       viewingOrder.status === 'in_progress' ? '处理中' : 
+                       viewingOrder.status === 'completed' ? '已完成' : '已取消'}
                     </div>
                   </div>
                   <div className="workorder-detail-item">
                     <div className="workorder-detail-item-label">负责人</div>
-                    <div className="workorder-detail-item-value">{viewingOrder.handler || '待指派'}</div>
+                    <div className="workorder-detail-item-value">{viewingOrder.assignee_name || '待指派'}</div>
+                  </div>
+                  <div className="workorder-detail-item">
+                    <div className="workorder-detail-item-label">报价</div>
+                    <div className="workorder-detail-item-value" style={{ fontWeight: 600 }}>
+                      {viewingOrder.quoted_price ? `¥${viewingOrder.quoted_price.toLocaleString()}` : '-'}
+                    </div>
                   </div>
                   <div className="workorder-detail-item">
                     <div className="workorder-detail-item-label">创建时间</div>
                     <div className="workorder-detail-item-value">{viewingOrder.created_at}</div>
-                  </div>
-                </div>
-              </div>
-              {viewingOrder.description && (
-                <div className="workorder-detail-section">
-                  <div className="workorder-detail-section-title">工单描述</div>
-                  <div className="workorder-detail-item">
-                    <div className="workorder-detail-item-value" style={{ lineHeight: 1.8 }}>
-                      {viewingOrder.description}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="workorder-detail-section">
-                <div className="workorder-detail-section-title">处理状态</div>
-                <div className="workorder-detail-item">
-                  <div className="workorder-detail-item-value" style={{ 
-                    display: 'inline-block',
-                    padding: '4px 12px', 
-                    borderRadius: 4, 
-                    fontSize: 13,
-                    background: viewingOrder.status === 'pending' ? '#fffbe6' :
-                              viewingOrder.status === 'processing' ? COLORS.primaryLight : '#f6ffed',
-                    color: viewingOrder.status === 'pending' ? COLORS.warning :
-                            viewingOrder.status === 'processing' ? COLORS.primary : COLORS.success
-                  }}>
-                    {viewingOrder.status === 'pending' ? '⏳ 待处理' :
-                     viewingOrder.status === 'processing' ? '🔄 处理中' : '✅ 已完成'}
                   </div>
                 </div>
               </div>

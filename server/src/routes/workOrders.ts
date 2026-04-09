@@ -5,17 +5,130 @@ import { setExportData } from './export';
 const router = express.Router();
 
 // 内存数据存储
-const memoryWorkOrders: any[] = [];
-const memoryCustomers: any[] = [];
-const memoryDevices: any[] = [];
-const memoryUsers: any[] = [];
+const memoryWorkOrders: any[] = [
+  {
+    id: 1,
+    order_no: 'WO202501220001',
+    description: '电梯控制板故障，需要更换主板',
+    customer_id: 1,
+    device_id: 1,
+    type: '维修',
+    priority: 'urgent',
+    status: 'pending',
+    stage: 'scheduled',
+    plan_hours: 4.0,
+    is_charged: true,
+    quoted_price: 5800.00,
+    assignee_id: 2,
+    created_by: 1,
+    customer_name: '上海张江科技园',
+    device_name: 'A栋电梯1号',
+    assignee_name: '李明',
+    created_at: '2025-01-22 09:30:00'
+  },
+  {
+    id: 2,
+    order_no: 'WO202501220002',
+    description: '电梯门系统异常，需调整门机参数',
+    customer_id: 2,
+    device_id: 2,
+    type: '维修',
+    priority: 'high',
+    status: 'in_progress',
+    stage: 'in_progress',
+    plan_hours: 3.0,
+    is_charged: true,
+    quoted_price: 3200.00,
+    assignee_id: 3,
+    created_by: 1,
+    customer_name: '北京中关村软件园',
+    device_name: 'B栋电梯2号',
+    assignee_name: '王伟',
+    created_at: '2025-01-22 10:15:00'
+  },
+  {
+    id: 3,
+    order_no: 'WO202501220003',
+    description: '年度例行保养检查',
+    customer_id: 1,
+    device_id: 1,
+    type: '保养',
+    priority: 'normal',
+    status: 'completed',
+    stage: 'completed',
+    plan_hours: 2.0,
+    is_charged: false,
+    quoted_price: 0.00,
+    assignee_id: 2,
+    created_by: 1,
+    customer_name: '上海张江科技园',
+    device_name: 'A栋电梯1号',
+    assignee_name: '李明',
+    created_at: '2025-01-22 11:00:00'
+  },
+  {
+    id: 4,
+    order_no: 'WO202501220004',
+    description: '电梯空调系统安装',
+    customer_id: 3,
+    device_id: 3,
+    type: '安装',
+    priority: 'high',
+    status: 'pending',
+    stage: 'pending',
+    plan_hours: 8.0,
+    is_charged: true,
+    quoted_price: 15000.00,
+    assignee_id: null,
+    created_by: 1,
+    customer_name: '深圳南山区科技园',
+    device_name: 'C栋电梯3号',
+    assignee_name: null,
+    created_at: '2025-01-22 13:30:00'
+  },
+  {
+    id: 5,
+    order_no: 'WO202501220005',
+    description: '电梯控制系统升级改造',
+    customer_id: 2,
+    device_id: 2,
+    type: '升级',
+    priority: 'urgent',
+    status: 'in_progress',
+    stage: 'in_progress',
+    plan_hours: 12.0,
+    is_charged: true,
+    quoted_price: 28000.00,
+    assignee_id: 3,
+    created_by: 1,
+    customer_name: '北京中关村软件园',
+    device_name: 'B栋电梯2号',
+    assignee_name: '王伟',
+    created_at: '2025-01-22 14:45:00'
+  }
+];
+const memoryCustomers: any[] = [
+  { id: 1, name: '上海张江科技园', contact_person: '张三', contact_phone: '13800138000' },
+  { id: 2, name: '北京中关村软件园', contact_person: '李四', contact_phone: '13800138001' },
+  { id: 3, name: '深圳南山区科技园', contact_person: '王五', contact_phone: '13800138002' }
+];
+const memoryDevices: any[] = [
+  { id: 1, device_name: 'A栋电梯1号', customer_id: 1 },
+  { id: 2, device_name: 'B栋电梯2号', customer_id: 2 },
+  { id: 3, device_name: 'C栋电梯3号', customer_id: 3 }
+];
+const memoryUsers: any[] = [
+  { id: 1, username: '管理员' },
+  { id: 2, username: '李明' },
+  { id: 3, username: '王伟' }
+];
 
 // 导出时同步数据
 function syncExportData() {
   setExportData(memoryWorkOrders, memoryCustomers, memoryDevices, memoryUsers);
 }
-let memoryWorkOrderId = 1;
-let orderNoCounter = 1;
+let memoryWorkOrderId = 6;
+let orderNoCounter = 6;
 
 // 生成工单编号
 function generateOrderNo() {
