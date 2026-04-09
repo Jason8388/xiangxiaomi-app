@@ -36,6 +36,7 @@ interface FormDataType {
   priority: string;
   description: string;
   stage: string;
+  status: string;
   plan_hours: string;
   is_charged: boolean;
   quoted_price: string;
@@ -65,6 +66,7 @@ export default function WorkOrdersScreen() {
     priority: 'normal',
     description: '',
     stage: 'pending',
+    status: 'pending',
     plan_hours: '',
     is_charged: false,
     quoted_price: '',
@@ -217,6 +219,7 @@ export default function WorkOrdersScreen() {
       priority: order.priority || 'normal',
       description: order.description || '',
       stage: order.stage || 'pending',
+      status: order.status || 'pending',
       plan_hours: order.plan_hours?.toString() || '',
       is_charged: order.is_charged || false,
       quoted_price: order.quoted_price?.toString() || '',
@@ -274,7 +277,7 @@ export default function WorkOrdersScreen() {
               body: JSON.stringify({
                 description: formData.description,
                 priority: formData.priority,
-                status: editingOrder.status,
+                status: formData.status,
                 stage: formData.stage,
                 plan_hours: formData.plan_hours ? parseFloat(formData.plan_hours) : 0,
                 is_charged: formData.is_charged,
@@ -685,7 +688,7 @@ export default function WorkOrdersScreen() {
                     </View>
                   </View>
 
-                  <View className="mb-6">
+                  <View className="mb-4">
                     <Text className="text-sm font-semibold text-gray-700 mb-2">报价金额（元）</Text>
                     <TextInput
                       className="bg-gray-100 rounded-xl px-4 py-3 text-gray-800"
@@ -695,6 +698,29 @@ export default function WorkOrdersScreen() {
                       onChangeText={(text) => setFormData({ ...formData, quoted_price: text })}
                     />
                   </View>
+
+                  {editingOrder && (
+                    <View className="mb-6">
+                      <Text className="text-sm font-semibold text-gray-700 mb-2">工单状态</Text>
+                      <View className="flex-row gap-2 flex-wrap">
+                        {[
+                          { label: '待处理', value: 'pending' },
+                          { label: '处理中', value: 'processing' },
+                          { label: '已完成', value: 'completed' },
+                        ].map((status) => (
+                          <TouchableOpacity
+                            key={status.value}
+                            onPress={() => setFormData({ ...formData, status: status.value })}
+                            className={`px-4 py-2 rounded-xl ${formData.status === status.value ? 'bg-purple-600' : 'bg-gray-100'}`}
+                          >
+                            <Text className={`text-sm font-semibold ${formData.status === status.value ? 'text-white' : 'text-gray-700'}`}>
+                              {status.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                 </ScrollView>
 
                 {/* 操作按钮 */}

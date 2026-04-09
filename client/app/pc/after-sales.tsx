@@ -419,7 +419,7 @@ export default function PCAfterSales() {
         }
         .workorder-stats-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(5, 1fr);
           gap: 16px;
           margin-bottom: 24px;
         }
@@ -635,7 +635,7 @@ export default function PCAfterSales() {
           </button>
         </div>
 
-        {/* 数据概览区 - 4个统计卡片 */}
+        {/* 数据概览区 - 5个统计卡片 */}
         <div className="workorder-stats-grid">
           <div className="workorder-stat-card">
             <div className="workorder-stat-icon" style={{ background: COLORS.primaryLight, color: COLORS.primary }}>
@@ -664,6 +664,13 @@ export default function PCAfterSales() {
             </div>
             <div className="workorder-stat-value">¥{stats.pendingPaymentAmount.toLocaleString()}</div>
             <div className="workorder-stat-label">待收款</div>
+          </div>
+          <div className="workorder-stat-card">
+            <div className="workorder-stat-icon" style={{ background: '#f6ffed', color: COLORS.success }}>
+              ✅
+            </div>
+            <div className="workorder-stat-value">¥{stats.paidAmount.toLocaleString()}</div>
+            <div className="workorder-stat-label">已收款</div>
           </div>
         </div>
 
