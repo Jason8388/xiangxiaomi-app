@@ -1,4 +1,5 @@
 import React from 'react';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 interface PCHeaderProps {
   breadcrumbs: { label: string; path?: string }[];
@@ -18,8 +19,8 @@ export function PCHeader({ breadcrumbs, user, onLogout, onRefresh }: PCHeaderPro
 
   return (
     <header className="pc-header">
+      {/* 左侧：面包屑导航 */}
       <div className="pc-header-left">
-        {/* 面包屑导航 */}
         <div className="pc-breadcrumb">
           {breadcrumbs.map((item, index) => (
             <React.Fragment key={index}>
@@ -36,6 +37,7 @@ export function PCHeader({ breadcrumbs, user, onLogout, onRefresh }: PCHeaderPro
         </div>
       </div>
 
+      {/* 右侧：操作按钮 */}
       <div className="pc-header-right">
         {/* 刷新按钮 */}
         <button
@@ -43,16 +45,17 @@ export function PCHeader({ breadcrumbs, user, onLogout, onRefresh }: PCHeaderPro
           onClick={onRefresh}
           title="刷新数据"
         >
-          🔄 刷新
+          <FontAwesome6 name="rotate" size={14} />
+          <span>刷新</span>
         </button>
 
-        {/* 通知 */}
+        {/* 通知按钮 */}
         <button
           className="pc-btn pc-btn-text pc-btn-sm"
           title="通知"
           style={{ position: 'relative' }}
         >
-          🔔
+          <FontAwesome6 name="bell" size={14} />
           <span style={{
             position: 'absolute',
             top: -2,
@@ -67,10 +70,7 @@ export function PCHeader({ breadcrumbs, user, onLogout, onRefresh }: PCHeaderPro
         {/* 用户信息 */}
         {user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div
-              className="pc-avatar"
-              style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}
-            >
+            <div className="pc-avatar">
               {user.avatar ? (
                 <img src={user.avatar} alt={user.name} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
               ) : (
@@ -78,18 +78,19 @@ export function PCHeader({ breadcrumbs, user, onLogout, onRefresh }: PCHeaderPro
               )}
             </div>
             <div style={{ lineHeight: 1.3 }}>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{user.name}</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)' }}>{user.name}</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{user.role}</div>
             </div>
           </div>
         )}
 
-        {/* 退出登录 */}
+        {/* 退出登录按钮 */}
         <button
           className="pc-btn pc-btn-default pc-btn-sm"
           onClick={onLogout}
         >
-          退出
+          <FontAwesome6 name="right-from-bracket" size={14} />
+          <span>退出</span>
         </button>
       </div>
     </header>

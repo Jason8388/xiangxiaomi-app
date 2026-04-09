@@ -1,29 +1,30 @@
 import React, { useState } from 'react';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 interface NavItem {
   key: string;
-  icon: string;
+  icon: keyof typeof FontAwesome6.glyphMap;
   label: string;
   path?: string;
   children?: NavItem[];
 }
 
 const navItems: NavItem[] = [
-  { key: 'dashboard', icon: '🏠', label: '工作台', path: '/pc/dashboard' },
-  { key: 'customers', icon: '👥', label: '客户管理', path: '/pc/customers' },
-  { key: 'devices', icon: '📱', label: '设备管理', path: '/pc/devices' },
-  { key: 'contracts', icon: '📋', label: '合同管理', path: '/pc/contracts' },
-  { key: 'after-sales', icon: '🔧', label: '售后服务', path: '/pc/after-sales' },
-  { key: 'materials', icon: '📦', label: '物料管理', path: '/pc/materials' },
-  { key: 'knowledge', icon: '📚', label: '知识库', path: '/pc/knowledge' },
-  { key: 'meeting-minutes', icon: '📝', label: '会议纪要', path: '/pc/meeting-minutes' },
-  { key: 'files', icon: '📁', label: '文件管理', path: '/pc/files' },
-  { key: 'reports', icon: '📊', label: '统计报表', path: '/pc/reports' },
+  { key: 'dashboard', icon: 'gauge-high', label: '工作台', path: '/pc/dashboard' },
+  { key: 'customers', icon: 'users', label: '客户管理', path: '/pc/customers' },
+  { key: 'devices', icon: 'mobile-screen', label: '设备管理', path: '/pc/devices' },
+  { key: 'contracts', icon: 'file-contract', label: '合同管理', path: '/pc/contracts' },
+  { key: 'after-sales', icon: 'screwdriver-wrench', label: '售后服务', path: '/pc/after-sales' },
+  { key: 'materials', icon: 'box-open', label: '物料管理', path: '/pc/materials' },
+  { key: 'knowledge', icon: 'book-open', label: '知识库', path: '/pc/knowledge' },
+  { key: 'meeting-minutes', icon: 'clipboard-list', label: '会议纪要', path: '/pc/meeting-minutes' },
+  { key: 'files', icon: 'folder-open', label: '文件管理', path: '/pc/files' },
+  { key: 'reports', icon: 'chart-pie', label: '统计报表', path: '/pc/reports' },
 ];
 
 const systemItems: NavItem[] = [
-  { key: 'settings', icon: '⚙️', label: '系统设置', path: '/pc/settings' },
-  { key: 'help', icon: '❓', label: '帮助中心', path: '/pc/help' },
+  { key: 'settings', icon: 'gear', label: '系统设置', path: '/pc/settings' },
+  { key: 'help', icon: 'circle-question', label: '帮助中心', path: '/pc/help' },
 ];
 
 interface PCSidebarProps {
@@ -58,15 +59,16 @@ export function PCSidebar({ collapsed, activeKey, onToggle, onNavigate }: PCSide
         <div
           className={`pc-nav-item ${isActive ? 'active' : ''}`}
           onClick={() => handleItemClick(item)}
-          style={{ paddingLeft: level === 0 ? undefined : 44 }}
           title={collapsed ? item.label : undefined}
         >
-          <span className="pc-nav-icon">{item.icon}</span>
+          <FontAwesome6 name={item.icon} size={16} style={{ width: 24, textAlign: 'center' }} />
           <span className="pc-nav-text">{item.label}</span>
           {hasChildren && !collapsed && (
-            <span style={{ marginLeft: 'auto', fontSize: 12 }}>
-              {isExpanded ? '▼' : '▶'}
-            </span>
+            <FontAwesome6
+              name={isExpanded ? 'chevron-down' : 'chevron-right'}
+              size={12}
+              style={{ marginLeft: 'auto' }}
+            />
           )}
         </div>
         {hasChildren && isExpanded && !collapsed && (
@@ -80,30 +82,49 @@ export function PCSidebar({ collapsed, activeKey, onToggle, onNavigate }: PCSide
 
   return (
     <aside className={`pc-sidebar ${collapsed ? 'collapsed' : ''}`}>
+      {/* 侧边栏头部 */}
       <div className="pc-sidebar-header">
-        <img src="/assets/images/icon.png" alt="Logo" className="pc-sidebar-logo" />
+        <div
+          className="pc-avatar"
+          style={{
+            width: 32,
+            height: 32,
+            background: 'linear-gradient(135deg, #1677ff 0%, #0958d9 100%)',
+            color: '#ffffff',
+            fontSize: 16,
+            fontWeight: 'bold',
+          }}
+        >
+          项
+        </div>
         <span className="pc-sidebar-title">项小秘</span>
       </div>
 
+      {/* 侧边栏导航 */}
       <nav className="pc-nav">
-        <div style={{ padding: '8px 12px', fontSize: 11, color: '#999', textTransform: 'uppercase' }}>
+        <div className="pc-nav-group-title">
           {collapsed ? '•••' : '功能菜单'}
         </div>
         {navItems.map(item => renderNavItem(item))}
 
-        <div style={{ padding: '8px 12px', fontSize: 11, color: '#999', textTransform: 'uppercase', marginTop: 16 }}>
+        <div className="pc-nav-group-title" style={{ marginTop: 16 }}>
           {collapsed ? '•••' : '系统'}
         </div>
         {systemItems.map(item => renderNavItem(item))}
       </nav>
 
-      <div style={{ padding: 16, borderTop: '1px solid var(--color-border)' }}>
+      {/* 侧边栏底部 */}
+      <div className="pc-sidebar-footer">
         <div
           className="pc-nav-item"
           onClick={onToggle}
           style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
         >
-          <span className="pc-nav-icon">{collapsed ? '▶' : '◀'}</span>
+          <FontAwesome6
+            name={collapsed ? 'chevron-right' : 'chevron-left'}
+            size={14}
+            style={{ width: 24, textAlign: 'center' }}
+          />
           <span className="pc-nav-text">{collapsed ? '展开' : '收起'}</span>
         </div>
       </div>

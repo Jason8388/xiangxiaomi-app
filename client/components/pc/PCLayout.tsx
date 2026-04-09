@@ -45,7 +45,7 @@ export function PCLayout({ children, activePath }: PCLayoutProps) {
 
   useEffect(() => {
     // 模拟获取用户信息
-    const storedUser = localStorage.getItem('user');
+    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
@@ -89,7 +89,7 @@ export function PCLayout({ children, activePath }: PCLayoutProps) {
         onToggle={handleToggle}
         onNavigate={handleNavigate}
       />
-      <div className="pc-main" style={{ marginLeft: collapsed ? 64 : 220 }}>
+      <div className={`pc-main ${collapsed ? 'collapsed' : ''}`}>
         <PCHeader
           breadcrumbs={breadcrumbs}
           user={user}
