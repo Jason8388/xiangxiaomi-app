@@ -431,7 +431,7 @@ export default function PCAfterSales() {
         {/* 主内容卡片 */}
         <PCCard>
           {/* 工具栏 */}
-          <PCToolbar 
+          <PCToolbar
             left={
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <PCSearchBar 
@@ -458,7 +458,7 @@ export default function PCAfterSales() {
                   ))}
                 </div>
               </div>
-            } 
+            }
             right={
               <button 
                 className="pc-btn pc-btn-primary" 
@@ -480,7 +480,7 @@ export default function PCAfterSales() {
               >
                 + 新建工单
               </button>
-            }}
+            }
           />
           
           {/* 数据表格 */}
