@@ -106,6 +106,48 @@ function WorkOrderDetailScreen() {
   const { id } = useSafeSearchParams<{ id: string }>();
   const isCreateMode = !id || id === 'new';
 
+  // 解析进度记录，兼容字符串和数组两种格式
+  const parseProgressNotes = (notes: any): ProgressNote[] => {
+    if (!notes) return [];
+    if (Array.isArray(notes)) return notes;
+    if (typeof notes === 'string') {
+      try {
+        const parsed = JSON.parse(notes);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // 如果是普通字符串，将其转换为一条记录
+        return [{
+          id: Date.now().toString(),
+          content: notes,
+          created_at: new Date().toISOString()
+        }];
+      }
+    }
+    return [];
+  };
+
+  // 解析付款进度，兼容字符串和数组两种格式
+  const parsePaymentProgress = (progress: any): PaymentProgress[] => {
+    if (!progress) return [];
+    if (Array.isArray(progress)) return progress;
+    if (typeof progress === 'string') {
+      try {
+        const parsed = JSON.parse(progress);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // 如果是普通字符串，将其转换为一条记录
+        return [{
+          id: Date.now().toString(),
+          payment_percentage: 0,
+          payment_amount: 0,
+          payment_date: '',
+          payment_remarks: progress
+        }];
+      }
+    }
+    return [];
+  };
+
   const [loading, setLoading] = useState(!isCreateMode);
   const [submitting, setSubmitting] = useState(false);
   const [order, setOrder] = useState<WorkOrderDetail | null>(null);
@@ -313,7 +355,8 @@ function WorkOrderDetailScreen() {
         contract_id: data.contract_id,
         contract_no: data.contract_no || '',
         contract_name: data.contract_name || '',
-        progress_notes: data.progress_notes || [],
+        progress_notes: parseProgressNotes(data.progress_notes),
+        payment_progress: parsePaymentProgress(data.payment_progress),
         implementer: data.implementer || '',
         implementation_complete_date: data.implementation_complete_date || '',
         actual_hours: data.actual_hours || 0,
@@ -325,7 +368,6 @@ function WorkOrderDetailScreen() {
         invoice_delivered: data.invoice_delivered || '',
         planned_payment_date: data.planned_payment_date || '',
         actual_payment_date: data.actual_payment_date || '',
-        payment_progress: data.payment_progress || [],
         created_at: data.created_at,
       });
     } catch (error) {
@@ -959,10 +1001,10 @@ function WorkOrderDetailScreen() {
               </View>
 
               {/* 历史记录 */}
-              {order.progress_notes && order.progress_notes.length > 0 ? (
+              {order.progress_notes && Array.isArray(order.progress_notes) && order.progress_notes.length > 0 ? (
                 <View style={styles.progressHistory}>
                   <Text style={styles.progressHistoryTitle}>历史记录</Text>
-                  {order.progress_notes.slice().reverse().map((note, index) => (
+                  {[...order.progress_notes].reverse().map((note, index) => (
                     <View key={note.id} style={styles.progressNoteItem}>
                       <View style={styles.progressNoteHeader}>
                         <Text style={styles.progressNoteDate}>
@@ -1365,12 +1407,16 @@ function WorkOrderDetailScreen() {
                         <FontAwesome6 name="plus" size={12} color="#6C63FF" /><Text style={styles.addBtnText}>新增进度</Text>
                       </TouchableOpacity>
                     </View>
-                    {order.payment_progress && order.payment_progress.length > 0 ? order.payment_progress.map((item, index) => (
-                      <View key={item.id || index} style={styles.progressItem}>
-                        <Text style={styles.progressText}>{item.progress}</Text>
-                        <Text style={styles.progressDate}>{item.updated_at?.split('T')[0]}</Text>
-                      </View>
-                    )) : <Text style={styles.emptyText}>暂无回款进度</Text>}
+                    {order.payment_progress && Array.isArray(order.payment_progress) && order.payment_progress.length > 0 ? (
+                      order.payment_progress.map((item, index) => (
+                        <View key={item.id || index} style={styles.progressItem}>
+                          <Text style={styles.progressText}>{item.progress}</Text>
+                          <Text style={styles.progressDate}>{item.updated_at?.split('T')[0]}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={styles.emptyText}>暂无回款进度</Text>
+                    )}
                   </View>
                 </>
               )}
