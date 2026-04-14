@@ -104,6 +104,9 @@ export default function MeetingMinuteCreate() {
   };
 
   const handleSubmit = async () => {
+    console.log('handleSubmit 被调用');
+    console.log('formData:', formData);
+
     if (!formData.meeting_name.trim()) {
       Alert.alert('提示', '请输入会议名称');
       return;
@@ -153,6 +156,7 @@ export default function MeetingMinuteCreate() {
         Alert.alert('错误', error.message || '操作失败');
       }
     } catch (error) {
+      console.error('提交错误:', error);
       Alert.alert('错误', '操作失败');
     } finally {
       setLoading(false);
@@ -229,8 +233,8 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议日期 */}
           <View style={styles.formGroup}>
+            <Text style={styles.label}>会议日期 <Text style={styles.required}>*</Text></Text>
             <SmartDateInput
-              label="会议日期"
               value={formData.meeting_date}
               onChange={(date) => setFormData(prev => ({ ...prev, meeting_date: date }))}
               placeholder="请选择会议日期"
@@ -499,6 +503,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 24,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   submitButtonDisabled: {
     backgroundColor: '#B2BEC3',

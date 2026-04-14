@@ -103,7 +103,8 @@ export const SmartDateInput = ({
   const showDatePicker = () => {
     // 【关键点】打开日期控件前，必须强制收起键盘！
     // 否则键盘会遮挡 iOS 的底部滚轮，或者导致 Android 焦点混乱
-    Keyboard.dismiss(); 
+    console.log('showDatePicker 被调用');
+    Keyboard.dismiss();
     setDatePickerVisibility(true);
   };
 
@@ -186,45 +187,41 @@ export const SmartDateInput = ({
 
 // 设计样式
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-  },
+  container: {},
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151', // Gray 700
+    color: '#374151',
     marginBottom: 8,
     marginLeft: 2,
   },
   inputBox: {
-    height: 52, // 增加高度提升触控体验
+    height: 52,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12, // 更圆润的角
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB', // Gray 200
-    // 增加轻微阴影提升层次感 (iOS)
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    // Android
-    elevation: 1,
+    elevation: 2,
   },
   inputBoxError: {
-    borderColor: '#EF4444', // Red 500
-    backgroundColor: '#FEF2F2', // Red 50
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
   },
   text: {
     fontSize: 16,
-    color: '#111827', // Gray 900
+    color: '#111827',
     flex: 1,
   },
   placeholder: {
-    color: '#9CA3AF', // Gray 400 - 标准占位符颜色
+    color: '#9CA3AF',
   },
   icon: {
     marginLeft: 12,
