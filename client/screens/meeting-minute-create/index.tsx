@@ -21,10 +21,13 @@ import { getApiBaseUrl } from '@/utils/api';
 
 interface FormData {
   meeting_name: string;
+  meeting_type: string;
   meeting_date: string;
   meeting_location: string;
   attendees: string;
+  host: string;
   recorder: string;
+  topics: string;
   key_points: string;
   summary: string;
   tags: string[];
@@ -43,10 +46,13 @@ export default function MeetingMinuteCreate() {
   const [user, setUser] = useState<any>(null);
   const [formData, setFormData] = useState<FormData>({
     meeting_name: '',
+    meeting_type: 'other',
     meeting_date: '',
     meeting_location: '',
     attendees: '',
+    host: '',
     recorder: '',
+    topics: '',
     key_points: '',
     summary: '',
     tags: [],
@@ -87,10 +93,13 @@ export default function MeetingMinuteCreate() {
       if (response.ok) {
         setFormData({
           meeting_name: data.meeting_name || '',
+          meeting_type: data.meeting_type || 'other',
           meeting_date: data.meeting_date ? data.meeting_date.split('T')[0] : '',
           meeting_location: data.meeting_location || '',
           attendees: data.attendees || '',
+          host: data.host || '',
           recorder: data.recorder || '',
+          topics: data.topics || '',
           key_points: data.key_points || '',
           summary: data.summary || '',
           tags: Array.isArray(data.tags) ? data.tags.map((t: any) => t.tag || t) : [],
@@ -138,25 +147,32 @@ export default function MeetingMinuteCreate() {
         ? `${getApiBaseUrl()}/api/v1/meeting-minutes/${id}`
         : `${getApiBaseUrl()}/api/v1/meeting-minutes`;
 
+      console.log('[提交] URL:', url);
+      console.log('[提交] Method:', isEdit ? 'PUT' : 'POST');
+      console.log('[提交] 提交数据:', JSON.stringify(formData, null, 2));
+
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          user_id: user?.id,
-        }),
+        body: JSON.stringify(formData),
       });
 
+      console.log('[提交] 响应状态:', response.status);
+      console.log('[提交] 响应OK:', response.ok);
+
       if (response.ok) {
+        const result = await response.json();
+        console.log('[提交] 响应数据:', result);
         Alert.alert('成功', isEdit ? '修改成功' : '创建成功', [
           { text: '确定', onPress: () => router.back() },
         ]);
       } else {
         const error = await response.json();
+        console.error('[提交] 错误响应:', error);
         Alert.alert('错误', error.message || '操作失败');
       }
     } catch (error) {
-      console.error('提交错误:', error);
+      console.error('[提交] 网络错误:', error);
       Alert.alert('错误', '操作失败');
     } finally {
       setLoading(false);
