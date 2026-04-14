@@ -217,8 +217,8 @@ export default function MeetingMinuteCreate() {
     <Screen>
       <PageHeader title={isEdit ? '修改会议纪要' : '新增会议纪要'} />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView style={styles.container} contentContainerStyle={styles.containerContent}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.containerContent} keyboardShouldPersistTaps="handled">
           {/* 会议名称 */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>会议名称 <Text style={styles.required}>*</Text></Text>

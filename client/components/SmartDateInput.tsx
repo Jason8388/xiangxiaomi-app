@@ -1,14 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
   Keyboard,
   Platform,
   useColorScheme,
   ViewStyle,
-  TextStyle
+  TextStyle,
+  Modal,
+  DatePickerIOS,
+  TimePickerAndroid
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import dayjs from 'dayjs';
@@ -103,19 +106,24 @@ export const SmartDateInput = ({
   const showDatePicker = () => {
     // 【关键点】打开日期控件前，必须强制收起键盘！
     // 否则键盘会遮挡 iOS 的底部滚轮，或者导致 Android 焦点混乱
-    console.log('showDatePicker 被调用');
+    console.log('[SmartDateInput] showDatePicker 被调用');
+    console.log('[SmartDateInput] isDatePickerVisible 当前值:', isDatePickerVisible);
     Keyboard.dismiss();
     setDatePickerVisibility(true);
+    console.log('[SmartDateInput] isDatePickerVisible 设置为 true');
   };
 
   const hideDatePicker = () => {
+    console.log('[SmartDateInput] hideDatePicker 被调用');
     setDatePickerVisibility(false);
   };
 
   const handleConfirm = (date: Date) => {
+    console.log('[SmartDateInput] handleConfirm 被调用, 日期:', date);
     hideDatePicker();
     // 采用带本地偏移的 ISO 字符串，避免 date 模式在非 UTC 时区出现跨天
     const serverString = dayjs(date).format(format);
+    console.log('[SmartDateInput] 格式化后的日期:', serverString);
     onChange(serverString);
   };
 
@@ -127,60 +135,71 @@ export const SmartDateInput = ({
       {/* 标题 */}
       {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
 
-      {/* 
-         这里用 TouchableOpacity 模拟 Input。
-         模拟组件永远不会唤起键盘。
-      */}
-      <TouchableOpacity 
-        style={[
-          styles.inputBox, 
-          error ? styles.inputBoxError : null,
-          inputStyle
-        ]} 
-        onPress={showDatePicker}
-        activeOpacity={0.7}
-      >
-        <Text 
-          style={[
-            styles.text,
-            textStyle,
-            !value && styles.placeholder,
-            !value && placeholderTextStyle
-          ]}
-          numberOfLines={1}
-        >
-          {displayString || placeholder}
-        </Text>
-        
-        <FontAwesome6 
-          name={iconName} 
-          size={iconSize} 
-          color={iconColor || (value ? '#4B5563' : '#9CA3AF')} 
-          style={styles.icon}
-        />
-      </TouchableOpacity>
-      
-      {error && <Text style={[styles.errorText, errorTextStyle]}>{error}</Text>}
+      {Platform.OS === 'web' ? (
+        <View style={styles.webInputWrapper}>
+          <input
+            type={mode === 'time' ? 'time' : 'date'}
+            value={displayString}
+            onChange={(e: any) => {
+              const date = dayjs(e.target.value);
+              if (date.isValid()) {
+                onChange(date.format(format));
+              }
+            }}
+            style={styles.webInput}
+            placeholder={placeholder}
+          />
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={[
+              styles.inputBox,
+              error ? styles.inputBoxError : null,
+              inputStyle
+            ]}
+            onPress={showDatePicker}
+            activeOpacity={0.7}
+            pointerEvents="auto"
+            testID="date-input-button"
+          >
+            <Text
+              style={[
+                styles.text,
+                textStyle,
+                !value && styles.placeholder,
+                !value && placeholderTextStyle
+              ]}
+              numberOfLines={1}
+            >
+              {displayString || placeholder}
+            </Text>
 
-      {/* 
-         DateTimePickerModal 是 React Native Modal。
-         它会覆盖在所有 View 之上。
-      */}
-      <DateTimePickerModal
-        isVisible={isDatePickerVisible}
-        mode={mode}
-        date={dateObjectForPicker} // 传入 Date 对象
-        onConfirm={handleConfirm}
-        onCancel={hideDatePicker}
-        // iOS 只有用这个 display 样式才最稳，避免乱七八糟的 inline 样式
-        display={Platform.OS === 'ios' ? 'spinner' : 'default'} 
-        // 自动适配系统深色模式，或者根据 isDark 变量控制
-        isDarkModeEnabled={isDark}
-        // 强制使用中文环境
-        locale="zh-CN"
-        confirmTextIOS="确定"
-        cancelTextIOS="取消"
-      />
+            <FontAwesome6
+              name={iconName}
+              size={iconSize}
+              color={iconColor || (value ? '#4B5563' : '#9CA3AF')}
+              style={styles.icon}
+            />
+          </TouchableOpacity>
+
+          <DateTimePickerModal
+            isVisible={isDatePickerVisible}
+            mode={mode}
+            date={dateObjectForPicker}
+            onConfirm={handleConfirm}
+            onCancel={hideDatePicker}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            isDarkModeEnabled={isDark}
+            locale="zh-CN"
+            confirmTextIOS="确定"
+            cancelTextIOS="取消"
+            testID="date-picker-modal"
+          />
+        </>
+      )}
+
+      {error && <Text style={[styles.errorText, errorTextStyle]}>{error}</Text>}
     </View>
   );
 };
@@ -210,6 +229,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    zIndex: 1,
   },
   inputBoxError: {
     borderColor: '#EF4444',
@@ -231,5 +251,21 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     fontSize: 12,
     color: '#EF4444',
-  }
+  },
+  webInputWrapper: {
+    height: 52,
+  },
+  webInput: {
+    width: '100%',
+    height: '100%',
+    fontSize: 16,
+    color: '#111827',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    cursor: 'pointer',
+  } as any,
 });
