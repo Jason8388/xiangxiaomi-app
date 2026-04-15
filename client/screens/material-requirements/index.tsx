@@ -36,6 +36,8 @@ interface MaterialRequirement {
 }
 
 export default function MaterialRequirements() {
+  // 物料需求管理组件
+  console.log('[物料需求] 组件渲染');
   const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -145,7 +147,7 @@ export default function MaterialRequirements() {
 
   const handleDelete = (requirement: MaterialRequirement) => {
     console.log('[物料需求删除] 删除需求单:', requirement);
-    console.log('[物料需求删除] 设置删除确认弹窗');
+    console.log('[物料需求删除] 设置删除确认弹窗 - v2');
     setDeletingRequirement(requirement);
     setDeleteConfirmVisible(true);
   };
