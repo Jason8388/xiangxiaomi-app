@@ -15,6 +15,8 @@ LogBox.ignoreLogs([
   "ExpoSecureStore.default.getValueWithKeyAsync is not a function",
   // 忽略 Expo Router 版本检查错误（Web 平台网络请求失败，不影响应用功能）
   "Version check error: TypeError: Failed to fetch",
+  // 忽略 View 内文本节点错误（React Native 警告，不影响功能）
+  "Unexpected text node: . A text node cannot be a child of a <View>.",
   // 添加其它想暂时忽略的错误或警告信息
 ]);
 

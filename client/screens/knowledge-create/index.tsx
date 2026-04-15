@@ -345,7 +345,7 @@ export default function KnowledgeCreate() {
             <View style={styles.labelContainer}>
               <FontAwesome6 name="heading" size={16} color="#1E88E5" />
               <Text style={styles.label}>
-                知识标题 <Text style={styles.required}>*</Text>
+                知识标题<Text style={styles.required}>*</Text>
               </Text>
             </View>
             <TextInput
@@ -361,7 +361,7 @@ export default function KnowledgeCreate() {
             <View style={styles.labelContainer}>
               <FontAwesome6 name="file-lines" size={16} color="#1E88E5" />
               <Text style={styles.label}>
-                知识内容 <Text style={styles.required}>*</Text>
+                知识内容<Text style={styles.required}>*</Text>
               </Text>
             </View>
             <TextInput

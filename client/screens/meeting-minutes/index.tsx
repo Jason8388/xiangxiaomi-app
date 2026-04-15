@@ -249,14 +249,23 @@ export default function MeetingMinutes() {
       {/* 标签 */}
       {item.tags && item.tags.length > 0 && (
         <View style={styles.tagContainer}>
-          {item.tags.slice(0, 5).map((tag, index) => (
-            <View
-              key={tag.id || index}
-              style={[styles.tag, { backgroundColor: tag.color || '#6C63FF' }]}
-            >
-              <Text style={styles.tagText}>{tag.name}</Text>
-            </View>
-          ))}
+          {item.tags.slice(0, 5).map((tag: any, index: number) => {
+            // 处理两种标签格式：字符串和对象
+            const tagName = typeof tag === 'string' ? tag : tag.name || tag.tag || '';
+            const tagColor = typeof tag === 'string' ? '#6C63FF' : (tag.color || '#6C63FF');
+            const tagId = typeof tag === 'string' ? index : (tag.id || index);
+
+            if (!tagName) return null;
+
+            return (
+              <View
+                key={tagId}
+                style={[styles.tag, { backgroundColor: tagColor }]}
+              >
+                <Text style={styles.tagText}>{tagName}</Text>
+              </View>
+            );
+          })}
           {item.tags.length > 5 && (
             <Text style={styles.moreTagsText}>+{item.tags.length - 5}</Text>
           )}
