@@ -198,6 +198,7 @@ router.get('/:id', async (req, res) => {
         qr_code_url: '',
         photos: device.photos || [],
         remarks: device.remarks || '',
+        service_number: device.service_number || '',
       };
       res.json(formattedDevice);
     } else {
@@ -226,24 +227,46 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
 
     if (USE_MEMORY_STORAGE) {
       // 使用内存存储
-      const { customer_id, contract_id, device_name, serial_no, model, purchase_date, warranty_expire, status, qr_code } = req.body;
+      const {
+        device_number,
+        device_name,
+        device_model,
+        device_type,
+        customer_name,
+        factory_date,
+        acceptance_date,
+        warranty_end_date,
+        contract_name,
+        contract_number,
+        location,
+        remarks,
+        qr_code,
+        service_number,
+      } = req.body;
 
-      if (!device_name) {
+      if (!device_number || !device_name) {
         return res.status(400).json({ error: '缺少必填字段' });
       }
 
       const newDevice = {
         id: memoryDevices.length + 1,
-        customer_id: parseInt(customer_id) || 1,
-        contract_id: parseInt(contract_id) || null,
-        device_name,
-        serial_no,
-        model,
-        purchase_date,
-        warranty_expire,
-        status: status || 'normal',
+        device_number: device_number || `D${String(memoryDevices.length + 1).padStart(4, '0')}`,
+        device_name: device_name,
+        device_model: device_model || '',
+        factory_serial_number: device_number, // 使用设备编号作为出厂序列号
+        device_type: device_type || '其它',
+        customer_name: customer_name || '',
+        factory_date: factory_date || '',
+        acceptance_date: acceptance_date || '',
+        warranty_end_date: warranty_end_date || '',
+        status: '正常',
+        contract_name: contract_name || '',
+        contract_number: contract_number || '',
+        location: location || '',
         qr_code: qr_code || `S${memoryDevices.length + 1}`,
-        site_photos: [] as string[],
+        photos: [] as string[],
+        remarks: remarks || '',
+        service_number: service_number || '',
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -253,7 +276,7 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
         Object.keys(files).forEach((key) => {
           if (files[key] && files[key][0]) {
             const photoBuffer = files[key][0].buffer;
-            newDevice.site_photos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
+            newDevice.photos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
           }
         });
       }
@@ -338,7 +361,8 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
         contract_name,
         contract_number,
         location,
-        remarks
+        remarks,
+        service_number
       } = req.body;
 
       const deviceIndex = memoryDevices.findIndex((d) => d.id === parseInt(id as string));
@@ -359,6 +383,7 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
       if (contract_number !== undefined) device.contract_number = contract_number;
       if (location !== undefined) device.location = location;
       if (remarks !== undefined) device.remarks = remarks;
+      if (service_number !== undefined) device.service_number = service_number;
       device.updated_at = new Date();
 
       // 处理照片
@@ -474,8 +499,21 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM devices WHERE id = $1', [id]);
-    res.json({ message: '删除成功' });
+    const deviceId = parseInt(id as string);
+
+    if (USE_MEMORY_STORAGE) {
+      // 使用内存存储
+      const deviceIndex = memoryDevices.findIndex((d) => d.id === deviceId);
+      if (deviceIndex === -1) {
+        return res.status(404).json({ error: '设备不存在' });
+      }
+      memoryDevices.splice(deviceIndex, 1);
+      res.json({ message: '删除成功' });
+    } else {
+      // 使用数据库
+      await pool.query('DELETE FROM devices WHERE id = $1', [id]);
+      res.json({ message: '删除成功' });
+    }
   } catch (error) {
     console.error('Delete device error:', error);
     res.status(500).json({ error: '服务器错误' });
