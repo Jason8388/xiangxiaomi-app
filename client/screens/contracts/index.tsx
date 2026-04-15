@@ -235,12 +235,17 @@ export default function ContractManagement() {
   };
 
   const handleSave = async () => {
+    console.log('[合同保存] handleSave 被调用');
+    console.log('[合同保存] formData:', formData);
+
     if (!formData.contract_number || !formData.contract_name || !formData.customer_name) {
+      console.log('[合同保存] 验证失败 - 必填字段为空');
       Alert.alert('提示', '合同编号、合同名称和客户名称不能为空');
       return;
     }
 
     try {
+      console.log('[合同保存] 开始提交...');
       const response = editingContract
         ? await fetch(
             `${getApiBaseUrl()}/api/v1/contracts/${editingContract.id}`,
@@ -262,17 +267,21 @@ export default function ContractManagement() {
             }),
           });
 
+      console.log('[合同保存] 响应状态:', response.status);
       const data = await response.json();
+      console.log('[合同保存] 响应数据:', data);
 
       if (response.ok) {
         Alert.alert('成功', editingContract ? '修改成功' : '创建成功');
         setModalVisible(false);
         fetchContracts();
       } else {
-        throw new Error(data.error || '操作失败');
+        console.error('[合同保存] 错误响应:', data);
+        throw new Error(data.error || data.message || '操作失败');
       }
     } catch (error: any) {
-      Alert.alert('错误', error.message);
+      console.error('[合同保存] 异常:', error);
+      Alert.alert('错误', error.message || '操作失败');
     }
   };
 

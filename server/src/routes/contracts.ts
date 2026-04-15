@@ -80,39 +80,68 @@ router.get('/:id', async (req, res) => {
 // 创建合同
 router.post('/', async (req, res) => {
   try {
-    const { customer_id, customer_name, contract_no, title, sign_date, acceptance_date, warranty_end_date, amount, status, content } = req.body;
+    const {
+      contract_number,
+      contract_name,
+      customer_name,
+      business_manager,
+      sign_date,
+      acceptance_date,
+      warranty_end_date,
+      contract_amount,
+      remarks,
+      tags,
+    } = req.body;
 
-    if (!customer_id || !contract_no) {
-      return res.status(400).json({ error: '缺少必填字段' });
+    if (!contract_number || !contract_name || !customer_name) {
+      return res.status(400).json({ error: '缺少必填字段：合同编号、合同名称、客户名称' });
     }
 
-    try {
-      const result = await queryWithRetry(
-        'INSERT INTO contracts (customer_id, contract_no, title, sign_date, acceptance_date, warranty_end_date, amount, status, content) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-        [customer_id, contract_no, title || contract_no, sign_date, acceptance_date, warranty_end_date, amount, status || 'active', content]
-      );
-      res.json(result.rows[0]);
-    } catch (dbError: any) {
-      console.error('Database error, using memory storage:', dbError.message);
-      const newContract = {
-        id: memoryContractId++,
-        customer_id,
-        customer_name,
-        contract_no,
-        title: title || contract_no,
-        sign_date,
-        acceptance_date,
-        warranty_end_date,
-        amount,
-        status: status || 'active',
-        content,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      memoryContracts.push(newContract);
-      res.json(newContract);
-    }
-  } catch (error: any) {
+    // 使用内存存储创建合同
+    const newContract = {
+      id: memoryContractId++,
+      contract_no: contract_number,
+      title: contract_name,
+      customer_name: customer_name,
+      business_manager: business_manager || '',
+      amount: contract_amount ? parseFloat(contract_amount) : 0,
+      sign_date: sign_date || '',
+      acceptance_date: acceptance_date || '',
+      warranty_end_date: warranty_end_date || '',
+      status: 'active',
+      remarks: remarks || '',
+      tags: tags || [],
+      addresses: [],
+      contacts: [],
+      device_count: 0,
+      work_order_count: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    memoryContracts.unshift(newContract);
+
+    // 返回格式化后的合同数据
+    const formattedContract = {
+      id: newContract.id,
+      contract_number: newContract.contract_no,
+      contract_name: newContract.title,
+      customer_name: newContract.customer_name,
+      business_manager: newContract.business_manager,
+      sign_date: newContract.sign_date,
+      acceptance_date: newContract.acceptance_date,
+      warranty_end_date: newContract.warranty_end_date,
+      contract_amount: newContract.amount,
+      remarks: newContract.remarks,
+      tags: newContract.tags,
+      addresses: newContract.addresses,
+      contacts: newContract.contacts,
+      device_count: newContract.device_count,
+      work_order_count: newContract.work_order_count,
+    };
+
+    res.status(201).json(formattedContract);
+  } catch (error) {
     console.error('Create contract error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
