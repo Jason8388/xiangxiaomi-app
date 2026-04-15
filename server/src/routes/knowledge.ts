@@ -141,7 +141,16 @@ router.get('/:id', async (req, res) => {
         return res.status(404).json({ error: '知识不存在' });
       }
 
-      res.json(result.rows[0]);
+      const knowledge = result.rows[0];
+      // 如果 author_name 为空，使用默认值
+      if (!knowledge.author_name) {
+        knowledge.author_name = '未知用户';
+      }
+      // 添加 author 字段用于前端兼容
+      knowledge.author = knowledge.author_name;
+      knowledge.author_name = knowledge.author_name;
+
+      res.json(knowledge);
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
       const memoryItem = memoryKnowledgeList.find(k => k.id === parseInt(id));
@@ -226,6 +235,8 @@ router.post('/', upload.array('files', 10), async (req, res) => {
         content: content || '',
         tags: parsedTags,
         author_id,
+        author: '当前用户',
+        author_name: '当前用户',
         attachments,
         views: 0,
         likes: 0,
