@@ -31,16 +31,60 @@ async function queryWithRetry(query: string, params: any[] = [], retries = 3, de
 let memoryDevices: any[] = [
   {
     id: 1,
-    customer_id: 1,
-    contract_id: 1,
-    device_name: '服务器-1',
-    serial_no: 'SN00001',
-    model: 'MDL-2024-1',
-    purchase_date: '2024-01-01',
-    warranty_expire: '2025-01-01',
-    status: 'normal',
-    site_photos: [],
-    qr_code: 'S1',
+    device_number: 'D0001',
+    device_name: '智能焊接机器人-X100',
+    device_model: 'X100-PRO',
+    factory_serial_number: 'SN202401150001',
+    device_type: '智能焊接',
+    customer_name: '航天科技集团',
+    factory_date: '2024-01-15',
+    acceptance_date: '2024-02-15',
+    warranty_end_date: '2025-01-15',
+    status: '正常',
+    contract_name: '焊接设备采购合同-2024-001',
+    contract_number: 'HT-2024-001',
+    location: '生产车间A区-01号工位',
+    qr_code: 'QR-2024-001',
+    photos: [],
+    remarks: '首次安装调试完成，运行正常',
+  },
+  {
+    id: 2,
+    device_number: 'D0002',
+    device_name: '智能测温仪-T500',
+    device_model: 'T500-ULTRA',
+    factory_serial_number: 'SN202402200002',
+    device_type: '智能测温',
+    customer_name: '电子科技股份',
+    factory_date: '2024-02-20',
+    acceptance_date: '2024-03-20',
+    warranty_end_date: '2025-02-20',
+    status: '正常',
+    contract_name: '测温设备采购合同-2024-002',
+    contract_number: 'HT-2024-002',
+    location: '质检中心-03号检测台',
+    qr_code: 'QR-2024-002',
+    photos: [],
+    remarks: '精度校准完成，检测范围-50℃至500℃',
+  },
+  {
+    id: 3,
+    device_number: 'D0003',
+    device_name: '外观品检机-AI200',
+    device_model: 'AI200-SMART',
+    factory_serial_number: 'SN202403100003',
+    device_type: '外观品检',
+    customer_name: '精密制造公司',
+    factory_date: '2024-03-10',
+    acceptance_date: '2024-04-10',
+    warranty_end_date: '2025-03-10',
+    status: '维修中',
+    contract_name: '品检设备采购合同-2024-003',
+    contract_number: 'HT-2024-003',
+    location: '质检车间-B区-05号工位',
+    qr_code: 'QR-2024-003',
+    photos: [],
+    remarks: '视觉系统故障，待维修更换',
   },
 ];
 
@@ -118,6 +162,59 @@ router.get('/customer/:customerId', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get customer devices error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 获取设备详情
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (USE_MEMORY_STORAGE) {
+      // 使用内存存储
+      const device = memoryDevices.find((d) => d.id === parseInt(id as string));
+      if (!device) {
+        return res.status(404).json({ error: '设备不存在' });
+      }
+
+      // 直接返回内存数据，格式化日期字段
+      const formattedDevice = {
+        id: device.id,
+        device_number: device.device_number || `D${String(device.id).padStart(4, '0')}`,
+        device_name: device.device_name,
+        device_model: device.device_model || '',
+        factory_serial_number: device.factory_serial_number || '',
+        device_type: device.device_type || '其它',
+        customer_name: device.customer_name || '',
+        factory_date: device.factory_date || '',
+        acceptance_date: device.acceptance_date || '',
+        warranty_end_date: device.warranty_end_date || '',
+        status: device.status || '正常',
+        contract_name: device.contract_name || '',
+        contract_number: device.contract_number || '',
+        location: device.location || '',
+        qr_code_id: device.qr_code || '',
+        qr_code_url: '',
+        photos: device.photos || [],
+        remarks: device.remarks || '',
+      };
+      res.json(formattedDevice);
+    } else {
+      // 使用数据库
+      const result = await pool.query(
+        'SELECT * FROM devices WHERE id = $1',
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: '设备不存在' });
+      }
+
+      res.json(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Get device detail error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
 });
@@ -229,7 +326,20 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
 
     if (USE_MEMORY_STORAGE) {
       // 使用内存存储
-      const { device_name, serial_no, model, purchase_date, warranty_expire, status, qr_code } = req.body;
+      const {
+        device_number,
+        device_name,
+        device_model,
+        device_type,
+        customer_name,
+        factory_date,
+        acceptance_date,
+        warranty_end_date,
+        contract_name,
+        contract_number,
+        location,
+        remarks
+      } = req.body;
 
       const deviceIndex = memoryDevices.findIndex((d) => d.id === parseInt(id as string));
       if (deviceIndex === -1) {
@@ -237,22 +347,27 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
       }
 
       const device = memoryDevices[deviceIndex];
-      device.device_name = device_name || device.device_name;
-      device.serial_no = serial_no || device.serial_no;
-      device.model = model || device.model;
-      device.purchase_date = purchase_date || device.purchase_date;
-      device.warranty_expire = warranty_expire || device.warranty_expire;
-      device.status = status || device.status;
-      device.qr_code = qr_code || device.qr_code;
+      if (device_number !== undefined) device.device_number = device_number;
+      if (device_name !== undefined) device.device_name = device_name;
+      if (device_model !== undefined) device.device_model = device_model;
+      if (device_type !== undefined) device.device_type = device_type;
+      if (customer_name !== undefined) device.customer_name = customer_name;
+      if (factory_date !== undefined) device.factory_date = factory_date;
+      if (acceptance_date !== undefined) device.acceptance_date = acceptance_date;
+      if (warranty_end_date !== undefined) device.warranty_end_date = warranty_end_date;
+      if (contract_name !== undefined) device.contract_name = contract_name;
+      if (contract_number !== undefined) device.contract_number = contract_number;
+      if (location !== undefined) device.location = location;
+      if (remarks !== undefined) device.remarks = remarks;
       device.updated_at = new Date();
 
       // 处理照片
       if (files && Object.keys(files).length > 0) {
-        device.site_photos = [] as string[];
+        device.photos = [] as string[];
         Object.keys(files).forEach((key) => {
           if (files[key] && files[key][0]) {
             const photoBuffer = files[key][0].buffer;
-            device.site_photos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
+            device.photos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
           }
         });
       }
