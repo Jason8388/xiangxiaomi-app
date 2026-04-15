@@ -52,6 +52,8 @@ export default function CustomerManagement() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [contacts, setContacts] = useState<ContactPerson[]>([]);
   const [formData, setFormData] = useState({
@@ -249,32 +251,39 @@ export default function CustomerManagement() {
   };
 
   const handleDelete = (customer: Customer) => {
-    Alert.alert('确认删除', `确定要删除客户"${customer.name}"吗？`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const response = await fetch(
-              `${getApiBaseUrl()}/api/v1/customers/${customer.id}`,
-              {
-                method: 'DELETE',
-              }
-            );
-            const data = await response.json();
-            if (response.ok) {
-              Alert.alert('成功', '删除成功');
-              fetchCustomers();
-            } else {
-              throw new Error(data.error || '删除失败');
-            }
-          } catch (error: any) {
-            Alert.alert('错误', error.message);
-          }
-        },
-      },
-    ]);
+    console.log('[客户删除] 删除客户:', customer);
+    setDeletingCustomer(customer);
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingCustomer) return;
+
+    try {
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/customers/${deletingCustomer.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      const data = await response.json();
+      console.log('[客户删除] 删除响应:', data);
+      if (response.ok) {
+        setDeleteConfirmVisible(false);
+        setDeletingCustomer(null);
+        fetchCustomers();
+      } else {
+        throw new Error(data.error || '删除失败');
+      }
+    } catch (error: any) {
+      console.error('[客户删除] 删除失败:', error);
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmVisible(false);
+    setDeletingCustomer(null);
   };
 
   return (
@@ -680,6 +689,42 @@ export default function CustomerManagement() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* 删除确认 Modal */}
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertContent}>
+            <View style={styles.alertIconContainer}>
+              <FontAwesome6 name="triangle-exclamation" size={48} color="#E74C3C" />
+            </View>
+            <Text style={styles.alertTitle}>确认删除</Text>
+            <Text style={styles.alertMessage}>
+              您确定要删除客户"{deletingCustomer?.name || '未知客户'}"吗？
+            </Text>
+            <Text style={styles.alertSubText}>此操作不可恢复</Text>
+
+            <View style={styles.alertButtons}>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertCancelButton]}
+                onPress={handleCancelDelete}
+              >
+                <Text style={styles.alertCancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertDeleteButton]}
+                onPress={handleConfirmDelete}
+              >
+                <Text style={styles.alertDeleteButtonText}>删除</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -1043,5 +1088,79 @@ const styles = StyleSheet.create({
   selectOptionTextActive: {
     color: '#1E88E5',
     fontWeight: '600',
+  },
+  // 删除确认样式
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  alertContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  alertIconContainer: {
+    marginBottom: 16,
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginBottom: 8,
+  },
+  alertMessage: {
+    fontSize: 16,
+    color: '#34495E',
+    textAlign: 'center',
+    marginBottom: 4,
+    lineHeight: 22,
+  },
+  alertSubText: {
+    fontSize: 14,
+    color: '#7F8C8D',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertCancelButton: {
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  alertDeleteButton: {
+    backgroundColor: '#E74C3C',
+  },
+  alertCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  alertDeleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
