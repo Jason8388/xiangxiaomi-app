@@ -202,11 +202,11 @@ export default function ContractManagement() {
   const handleEdit = (contract: Contract) => {
     setEditingContract(contract);
     setFormData({
-      contract_number: contract.contract_number,
-      contract_name: contract.contract_name,
-      customer_name: contract.customer_name,
-      business_manager: contract.business_manager,
-      sign_date: contract.sign_date,
+      contract_number: contract.contract_number || '',
+      contract_name: contract.contract_name || '',
+      customer_name: contract.customer_name || '',
+      business_manager: contract.business_manager || '',
+      sign_date: contract.sign_date || '',
       acceptance_date: contract.acceptance_date || '',
       warranty_end_date: contract.warranty_end_date || '',
       contract_amount: contract.contract_amount?.toString() || '',
@@ -286,7 +286,7 @@ export default function ContractManagement() {
   };
 
   const handleDelete = (contract: Contract) => {
-    Alert.alert('确认删除', `确定要删除合同"${contract.contract_name}"吗？`, [
+    Alert.alert('确认删除', `确定要删除合同"${contract.title}"吗？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',
