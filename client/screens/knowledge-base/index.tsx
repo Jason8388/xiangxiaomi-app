@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Modal,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
@@ -31,6 +32,8 @@ export default function KnowledgeBase() {
   const [cards, setCards] = useState<KnowledgeCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [deletingCard, setDeletingCard] = useState<KnowledgeCard | null>(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -96,29 +99,40 @@ export default function KnowledgeBase() {
   };
 
   const handleDelete = (card: KnowledgeCard) => {
-    Alert.alert('确认删除', `确定要删除知识卡"${card.title}"吗？`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const response = await fetch(
-              `${getApiBaseUrl()}/api/v1/knowledge/${card.id}`,
-              {
-                method: 'DELETE',
-              }
-            );
-            if (response.ok) {
-              Alert.alert('成功', '删除成功');
-              loadKnowledgeCards();
-            }
-          } catch (error) {
-            Alert.alert('错误', '删除失败');
-          }
-        },
-      },
-    ]);
+    console.log('[知识库删除] 删除知识卡:', card);
+    setDeletingCard(card);
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingCard) return;
+
+    console.log('[知识库删除] 确认删除，ID:', deletingCard.id);
+    try {
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/knowledge/${deletingCard.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      console.log('[知识库删除] 删除响应:', response);
+      if (response.ok) {
+        setDeleteConfirmVisible(false);
+        setDeletingCard(null);
+        loadKnowledgeCards();
+      } else {
+        console.error('[知识库删除] 删除失败:', response.status);
+        Alert.alert('错误', '删除失败');
+      }
+    } catch (error) {
+      console.error('[知识库删除] 删除异常:', error);
+      Alert.alert('错误', '删除失败');
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmVisible(false);
+    setDeletingCard(null);
   };
 
   const formatDate = (dateStr: string) => {
@@ -225,6 +239,37 @@ export default function KnowledgeBase() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* 删除确认 Modal */}
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>确认删除</Text>
+            <Text style={styles.modalMessage}>
+              确定要删除知识卡"{deletingCard?.title}"吗？
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleCancelDelete}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={handleConfirmDelete}
+              >
+                <Text style={styles.deleteButtonText}>删除</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -366,5 +411,55 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 30,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 320,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#636E72',
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F0F0F0',
+  },
+  cancelButtonText: {
+    color: '#636E72',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  deleteButton: {
+    backgroundColor: '#FF6B6B',
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
