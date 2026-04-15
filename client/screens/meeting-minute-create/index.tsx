@@ -163,12 +163,16 @@ export default function MeetingMinuteCreate() {
       if (response.ok) {
         const result = await response.json();
         console.log('[提交] 响应数据:', result);
-        Alert.alert('成功', isEdit ? '修改成功' : '创建成功', [
-          { text: '确定', onPress: () => router.back() },
-        ]);
+        setLoading(false);
+        Alert.alert('成功', isEdit ? '修改成功' : '创建成功');
+        // 自动返回上一页
+        setTimeout(() => {
+          router.back();
+        }, 500);
       } else {
         const error = await response.json();
         console.error('[提交] 错误响应:', error);
+        setLoading(false);
         Alert.alert('错误', error.message || '操作失败');
       }
     } catch (error) {
