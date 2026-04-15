@@ -40,6 +40,43 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 获取合同详情
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 从内存存储获取
+    const contract = memoryContracts.find((c) => c.id === parseInt(id as string));
+    if (!contract) {
+      return res.status(404).json({ error: '合同不存在' });
+    }
+
+    // 格式化字段以匹配前端期望
+    const formattedContract = {
+      id: contract.id,
+      contract_number: contract.contract_no,
+      contract_name: contract.title,
+      customer_name: contract.customer_name,
+      business_manager: contract.business_manager || '',
+      sign_date: contract.sign_date || '',
+      acceptance_date: contract.acceptance_date || '',
+      warranty_end_date: contract.warranty_end_date || '',
+      contract_amount: contract.amount || 0,
+      remarks: contract.remarks || '',
+      tags: contract.tags || [],
+      addresses: contract.addresses || [],
+      contacts: contract.contacts || [],
+      device_count: contract.device_count || 0,
+      work_order_count: contract.work_order_count || 0,
+    };
+
+    res.json(formattedContract);
+  } catch (error) {
+    console.error('Get contract detail error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
 // 创建合同
 router.post('/', async (req, res) => {
   try {
@@ -85,18 +122,41 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { start_date, end_date, amount, status } = req.body;
+    const {
+      contract_number,
+      contract_name,
+      customer_name,
+      business_manager,
+      sign_date,
+      acceptance_date,
+      warranty_end_date,
+      contract_amount,
+      remarks,
+      tags,
+    } = req.body;
 
-    const result = await pool.query(
-      'UPDATE contracts SET start_date = $1, end_date = $2, amount = $3, status = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [start_date, end_date, amount, status, id]
-    );
-
-    if (result.rows.length === 0) {
+    // 从内存存储获取
+    const contractIndex = memoryContracts.findIndex((c) => c.id === parseInt(id as string));
+    if (contractIndex === -1) {
       return res.status(404).json({ error: '合同不存在' });
     }
 
-    res.json(result.rows[0]);
+    const contract = memoryContracts[contractIndex];
+
+    // 更新字段
+    if (contract_number !== undefined) contract.contract_no = contract_number;
+    if (contract_name !== undefined) contract.title = contract_name;
+    if (customer_name !== undefined) contract.customer_name = customer_name;
+    if (business_manager !== undefined) contract.business_manager = business_manager;
+    if (sign_date !== undefined) contract.sign_date = sign_date;
+    if (acceptance_date !== undefined) contract.acceptance_date = acceptance_date;
+    if (warranty_end_date !== undefined) contract.warranty_end_date = warranty_end_date;
+    if (contract_amount !== undefined) contract.amount = contract_amount;
+    if (remarks !== undefined) contract.remarks = remarks;
+    if (tags !== undefined) contract.tags = tags;
+    contract.updated_at = new Date().toISOString();
+
+    res.json(contract);
   } catch (error) {
     console.error('Update contract error:', error);
     res.status(500).json({ error: '服务器错误' });
