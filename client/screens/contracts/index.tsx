@@ -292,13 +292,15 @@ export default function ContractManagement() {
   };
 
   const handleDelete = (contract: Contract) => {
-    Alert.alert('确认删除', `确定要删除合同"${contract.title}"吗？`, [
+    console.log('[合同删除] 删除合同:', contract);
+    Alert.alert('确认删除', `确定要删除合同"${contract.contract_name}"吗？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',
         style: 'destructive',
         onPress: async () => {
           try {
+            console.log('[合同删除] 发送删除请求，ID:', contract.id);
             const response = await fetch(
               `${getApiBaseUrl()}/api/v1/contracts/${contract.id}`,
               {
@@ -306,6 +308,7 @@ export default function ContractManagement() {
               }
             );
             const data = await response.json();
+            console.log('[合同删除] 删除响应:', data);
             if (response.ok) {
               Alert.alert('成功', '删除成功');
               fetchContracts();
@@ -313,6 +316,7 @@ export default function ContractManagement() {
               throw new Error(data.error || '删除失败');
             }
           } catch (error: any) {
+            console.error('[合同删除] 删除失败:', error);
             Alert.alert('错误', error.message);
           }
         },

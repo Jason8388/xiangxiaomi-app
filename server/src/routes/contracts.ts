@@ -158,7 +158,15 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM contracts WHERE id = $1', [id]);
+    const contractId = parseInt(id as string);
+
+    // 从内存存储删除
+    const contractIndex = memoryContracts.findIndex((c) => c.id === contractId);
+    if (contractIndex === -1) {
+      return res.status(404).json({ error: '合同不存在' });
+    }
+
+    memoryContracts.splice(contractIndex, 1);
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('Delete contract error:', error);
