@@ -40,6 +40,8 @@ export default function MaterialRequirements() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRequirement, setEditingRequirement] = useState<MaterialRequirement | null>(null);
+  const [deletingRequirement, setDeletingRequirement] = useState<MaterialRequirement | null>(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -128,6 +130,10 @@ export default function MaterialRequirements() {
         Alert.alert('成功', editingRequirement ? '修改成功' : '创建成功');
         setModalVisible(false);
         loadRequirements();
+        // 自动返回上一页
+        setTimeout(() => {
+          router.back();
+        }, 500);
       } else {
         throw new Error(data.error || '操作失败');
       }
@@ -137,32 +143,39 @@ export default function MaterialRequirements() {
   };
 
   const handleDelete = (requirement: MaterialRequirement) => {
-    Alert.alert('确认删除', `确定要删除物料需求单"${requirement.title}"吗？`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const response = await fetch(
-              `${getApiBaseUrl()}/api/v1/material-requirements/${requirement.id}`,
-              {
-                method: 'DELETE',
-              }
-            );
-            const data = await response.json();
-            if (response.ok) {
-              Alert.alert('成功', '删除成功');
-              loadRequirements();
-            } else {
-              throw new Error(data.error || '删除失败');
-            }
-          } catch (error: any) {
-            Alert.alert('错误', error.message);
-          }
-        },
-      },
-    ]);
+    console.log('[物料需求删除] 删除需求单:', requirement);
+    setDeletingRequirement(requirement);
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingRequirement) return;
+
+    try {
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/material-requirements/${deletingRequirement.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      const data = await response.json();
+      console.log('[物料需求删除] 删除响应:', data);
+      if (response.ok) {
+        setDeleteConfirmVisible(false);
+        setDeletingRequirement(null);
+        loadRequirements();
+      } else {
+        throw new Error(data.error || '删除失败');
+      }
+    } catch (error: any) {
+      console.error('[物料需求删除] 删除失败:', error);
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmVisible(false);
+    setDeletingRequirement(null);
   };
 
   const handleViewDetail = (requirement: MaterialRequirement) => {
@@ -612,6 +625,42 @@ export default function MaterialRequirements() {
           </View>
         </View>
       </Modal>
+
+      {/* 删除确认 Modal */}
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertContent}>
+            <View style={styles.alertIconContainer}>
+              <FontAwesome6 name="triangle-exclamation" size={48} color="#E74C3C" />
+            </View>
+            <Text style={styles.alertTitle}>确认删除</Text>
+            <Text style={styles.alertMessage}>
+              您确定要删除物料需求单"{deletingRequirement?.title}"吗？
+            </Text>
+            <Text style={styles.alertSubText}>此操作不可恢复</Text>
+
+            <View style={styles.alertButtons}>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertCancelButton]}
+                onPress={handleCancelDelete}
+              >
+                <Text style={styles.alertCancelButtonText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertDeleteButton]}
+                onPress={handleConfirmDelete}
+              >
+                <Text style={styles.alertDeleteButtonText}>删除</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -900,6 +949,80 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  // 删除确认样式
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  alertContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  alertIconContainer: {
+    marginBottom: 16,
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginBottom: 8,
+  },
+  alertMessage: {
+    fontSize: 16,
+    color: '#34495E',
+    textAlign: 'center',
+    marginBottom: 4,
+    lineHeight: 22,
+  },
+  alertSubText: {
+    fontSize: 14,
+    color: '#7F8C8D',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertCancelButton: {
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  alertDeleteButton: {
+    backgroundColor: '#E74C3C',
+  },
+  alertCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  alertDeleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
 });
