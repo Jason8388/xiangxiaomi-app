@@ -193,7 +193,7 @@ router.get('/search/:keyword', async (req, res) => {
 // 创建知识库（支持文件上传）
 router.post('/', upload.array('files', 10), async (req, res) => {
   try {
-    const { title, content, tags, author_id } = req.body;
+    const { title, content, tags, author_id, creator } = req.body;
     const files = req.files as Express.Multer.File[];
 
     if (!title) {
@@ -220,10 +220,13 @@ router.post('/', upload.array('files', 10), async (req, res) => {
       }
     }
 
+    // 获取创建者姓名，如果没有则使用默认值
+    const creatorName = creator || '当前用户';
+
     try {
       const result = await queryWithRetry(
-        'INSERT INTO knowledge (title, content, tags, author_id, attachments) VALUES ($1, $2, $3, $4, $5) RETURNING id, title',
-        [title, content || '', parsedTags, author_id, JSON.stringify(attachments)]
+        'INSERT INTO knowledge (title, content, tags, author_id, attachments, author_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, title',
+        [title, content || '', parsedTags, author_id, JSON.stringify(attachments), creatorName]
       );
       res.status(201).json({ id: result.rows[0].id, title: result.rows[0].title });
     } catch (dbError: any) {
@@ -235,8 +238,8 @@ router.post('/', upload.array('files', 10), async (req, res) => {
         content: content || '',
         tags: parsedTags,
         author_id,
-        author: '当前用户',
-        author_name: '当前用户',
+        author: creatorName,
+        author_name: creatorName,
         attachments,
         views: 0,
         likes: 0,
