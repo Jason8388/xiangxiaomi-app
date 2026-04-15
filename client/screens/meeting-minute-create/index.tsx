@@ -237,7 +237,9 @@ export default function MeetingMinuteCreate() {
         <ScrollView style={styles.container} contentContainerStyle={styles.containerContent} keyboardShouldPersistTaps="handled">
           {/* 会议名称 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>会议名称 <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>
+              会议名称<Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={styles.input}
               value={formData.meeting_name}
@@ -249,7 +251,9 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议日期 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>会议日期 <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>
+              会议日期<Text style={styles.required}>*</Text>
+            </Text>
             <SmartDateInput
               value={formData.meeting_date}
               onChange={(date) => setFormData(prev => ({ ...prev, meeting_date: date }))}
@@ -259,7 +263,9 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议地点 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>会议地点 <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>
+              会议地点<Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={styles.input}
               value={formData.meeting_location}
@@ -271,7 +277,9 @@ export default function MeetingMinuteCreate() {
 
           {/* 参会人 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>参会人 <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>
+              参会人<Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.attendees}
@@ -286,7 +294,9 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议记录人 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>会议记录人 <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>
+              会议记录人<Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={styles.input}
               value={formData.recorder}
@@ -298,7 +308,9 @@ export default function MeetingMinuteCreate() {
 
           {/* 会议要点 */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>会议要点 <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>
+              会议要点<Text style={styles.required}>*</Text>
+            </Text>
             <TextInput
               style={[styles.input, styles.textAreaLarge]}
               value={formData.key_points}

@@ -148,10 +148,10 @@ export default function ContractManagement() {
     if (searchKeyword.trim()) {
       const filtered = contracts.filter(
         (c) =>
-          c.contract_name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-          c.contract_number.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-          c.customer_name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-          c.business_manager.toLowerCase().includes(searchKeyword.toLowerCase())
+          (c.contract_name && c.contract_name.toLowerCase().includes(searchKeyword.toLowerCase())) ||
+          (c.contract_number && c.contract_number.toLowerCase().includes(searchKeyword.toLowerCase())) ||
+          (c.customer_name && c.customer_name.toLowerCase().includes(searchKeyword.toLowerCase())) ||
+          (c.business_manager && c.business_manager.toLowerCase().includes(searchKeyword.toLowerCase()))
       );
       setFilteredContracts(filtered);
     } else {
