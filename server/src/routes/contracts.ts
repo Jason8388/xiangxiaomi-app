@@ -51,26 +51,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: '合同不存在' });
     }
 
-    // 格式化字段以匹配前端期望
-    const formattedContract = {
-      id: contract.id,
-      contract_number: contract.contract_no,
-      contract_name: contract.title,
-      customer_name: contract.customer_name,
-      business_manager: contract.business_manager || '',
-      sign_date: contract.sign_date || '',
-      acceptance_date: contract.acceptance_date || '',
-      warranty_end_date: contract.warranty_end_date || '',
-      contract_amount: contract.amount || 0,
-      remarks: contract.remarks || '',
-      tags: contract.tags || [],
-      addresses: contract.addresses || [],
-      contacts: contract.contacts || [],
-      device_count: contract.device_count || 0,
-      work_order_count: contract.work_order_count || 0,
-    };
-
-    res.json(formattedContract);
+    res.json(contract);
   } catch (error) {
     console.error('Get contract detail error:', error);
     res.status(500).json({ error: '服务器错误' });
@@ -100,11 +81,11 @@ router.post('/', async (req, res) => {
     // 使用内存存储创建合同
     const newContract = {
       id: memoryContractId++,
-      contract_no: contract_number,
-      title: contract_name,
+      contract_number: contract_number,
+      contract_name: contract_name,
       customer_name: customer_name,
       business_manager: business_manager || '',
-      amount: contract_amount ? parseFloat(contract_amount) : 0,
+      contract_amount: contract_amount ? parseFloat(contract_amount) : 0,
       sign_date: sign_date || '',
       acceptance_date: acceptance_date || '',
       warranty_end_date: warranty_end_date || '',
@@ -121,26 +102,7 @@ router.post('/', async (req, res) => {
 
     memoryContracts.unshift(newContract);
 
-    // 返回格式化后的合同数据
-    const formattedContract = {
-      id: newContract.id,
-      contract_number: newContract.contract_no,
-      contract_name: newContract.title,
-      customer_name: newContract.customer_name,
-      business_manager: newContract.business_manager,
-      sign_date: newContract.sign_date,
-      acceptance_date: newContract.acceptance_date,
-      warranty_end_date: newContract.warranty_end_date,
-      contract_amount: newContract.amount,
-      remarks: newContract.remarks,
-      tags: newContract.tags,
-      addresses: newContract.addresses,
-      contacts: newContract.contacts,
-      device_count: newContract.device_count,
-      work_order_count: newContract.work_order_count,
-    };
-
-    res.status(201).json(formattedContract);
+    res.status(201).json(newContract);
   } catch (error) {
     console.error('Create contract error:', error);
     res.status(500).json({ error: '服务器错误' });
@@ -173,14 +135,14 @@ router.put('/:id', async (req, res) => {
     const contract = memoryContracts[contractIndex];
 
     // 更新字段
-    if (contract_number !== undefined) contract.contract_no = contract_number;
-    if (contract_name !== undefined) contract.title = contract_name;
+    if (contract_number !== undefined) contract.contract_number = contract_number;
+    if (contract_name !== undefined) contract.contract_name = contract_name;
     if (customer_name !== undefined) contract.customer_name = customer_name;
     if (business_manager !== undefined) contract.business_manager = business_manager;
     if (sign_date !== undefined) contract.sign_date = sign_date;
     if (acceptance_date !== undefined) contract.acceptance_date = acceptance_date;
     if (warranty_end_date !== undefined) contract.warranty_end_date = warranty_end_date;
-    if (contract_amount !== undefined) contract.amount = contract_amount;
+    if (contract_amount !== undefined) contract.contract_amount = contract_amount;
     if (remarks !== undefined) contract.remarks = remarks;
     if (tags !== undefined) contract.tags = tags;
     contract.updated_at = new Date().toISOString();

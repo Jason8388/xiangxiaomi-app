@@ -200,6 +200,12 @@ export default function ContractManagement() {
   };
 
   const handleEdit = (contract: Contract) => {
+    console.log('[合同编辑] 原始合同数据:', contract);
+    console.log('[合同编辑] contract_number:', contract.contract_number);
+    console.log('[合同编辑] contract_name:', contract.contract_name);
+    console.log('[合同编辑] contract_amount:', contract.contract_amount);
+    console.log('[合同编辑] acceptance_date:', contract.acceptance_date);
+
     setEditingContract(contract);
     setFormData({
       contract_number: contract.contract_number || '',
