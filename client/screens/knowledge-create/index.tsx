@@ -103,16 +103,17 @@ export default function KnowledgeCreate() {
   const loadKnowledgeCard = async () => {
     try {
       const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/knowledge/cards/${id}`
+        `${getApiBaseUrl()}/api/v1/knowledge/${id}`
       );
       const data = await response.json();
+      console.log('[知识库编辑] 加载数据:', data);
       if (response.ok) {
         setFormData({
-          title: data.title,
-          content: data.content,
+          title: data.title || '',
+          content: data.content || '',
           tags: data.tags || [],
           attachments: data.attachments || [],
-          creator: data.creator || '',
+          creator: data.creator || data.author || data.author_name || '',
         });
         // 加载附件信息
         if (data.attachments && Array.isArray(data.attachments)) {
@@ -309,16 +310,11 @@ export default function KnowledgeCreate() {
       if (response.ok) {
         Alert.alert(
           '成功',
-          isEdit ? '知识卡修改成功' : '知识卡创建成功',
-          [
-            {
-              text: '确定',
-              onPress: () => {
-                router.back();
-              },
-            },
-          ]
+          isEdit ? '知识卡修改成功' : '知识卡创建成功'
         );
+        setTimeout(() => {
+          router.back();
+        }, 500);
       } else {
         const error = await response.json();
         Alert.alert('错误', error.message || '操作失败');
