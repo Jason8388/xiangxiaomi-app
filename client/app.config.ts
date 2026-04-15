@@ -15,6 +15,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/" + (projectId || "anonymous")
+    },
     "ios": {
       "supportsTablet": true
     },

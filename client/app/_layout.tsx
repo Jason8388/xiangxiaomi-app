@@ -13,6 +13,8 @@ LogBox.ignoreLogs([
   "TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule' could not be found",
   // 忽略 Web 环境下的 expo-secure-store 错误
   "ExpoSecureStore.default.getValueWithKeyAsync is not a function",
+  // 忽略 Expo Router 版本检查错误（Web 平台网络请求失败，不影响应用功能）
+  "Version check error: TypeError: Failed to fetch",
   // 添加其它想暂时忽略的错误或警告信息
 ]);
 
