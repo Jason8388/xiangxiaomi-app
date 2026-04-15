@@ -121,51 +121,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 创建物料
-router.post('/', async (req, res) => {
-  try {
-    // 兼容前端字段名
-    const { name, material_name, code, material_number, category, material_category, unit, material_unit, specification, material_spec, min_stock, stock_quantity } = req.body;
-    
-    const materialName = name || material_name;
-    const materialCode = code || material_number;
-    const materialCategory = category || material_category;
-    const materialUnit = unit || material_unit;
-    const materialSpec = specification || material_spec;
-
-    if (!materialName || !materialCode) {
-      return res.status(400).json({ error: '物料名称和编码不能为空' });
-    }
-
-    try {
-      const result = await queryWithRetry(
-        'INSERT INTO materials (name, code, category, unit, specification, min_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [materialName, materialCode, materialCategory, materialUnit, materialSpec, min_stock || 0]
-      );
-      res.json(result.rows[0]);
-    } catch (dbError: any) {
-      console.error('Database error, using memory storage:', dbError.message);
-      const newMaterial = {
-        id: memoryMaterialId++,
-        name: materialName,
-        code: materialCode,
-        category: materialCategory,
-        unit: materialUnit,
-        specification: materialSpec,
-        min_stock: min_stock || 0,
-        stock_quantity: stock_quantity || 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      memoryMaterials.push(newMaterial);
-      res.json(newMaterial);
-    }
-  } catch (error) {
-    console.error('Create material error:', error);
-    res.status(500).json({ error: '服务器错误' });
-  }
-});
-
 // 下载导入模板
 router.get('/template', (req, res) => {
   // CSV 格式的物料导入模板
@@ -247,42 +202,60 @@ router.get('/low-stock/list', async (req, res) => {
 // 创建物料
 router.post('/', async (req, res) => {
   try {
-    const {
-      material_number, material_name, material_spec, material_unit,
-      category, stock_quantity, warning_stock, supplier, unit_price,
-      material_photo, qr_code_id, remarks, tags
-    } = req.body;
+    // 兼容前端字段名
+    const { name, material_name, code, material_number, category, material_category, unit, material_unit, specification, material_spec, min_stock, stock_quantity, material_photo, qr_code_id, remarks, tags } = req.body;
 
-    if (!material_number || !material_name) {
-      return res.status(400).json({ error: '物料编号和名称不能为空' });
+    const materialName = name || material_name;
+    const materialCode = code || material_number;
+    const materialCategory = category || material_category;
+    const materialUnit = unit || material_unit;
+    const materialSpec = specification || material_spec;
+
+    if (!materialName || !materialCode) {
+      return res.status(400).json({ error: '物料名称和编码不能为空' });
     }
 
     // 如果没有提供二维码ID，自动生成
-    const finalQrCodeId = qr_code_id || `QR-${material_number}-${Date.now()}`;
+    const finalQrCodeId = qr_code_id || `QR-${materialCode}-${Date.now()}`;
 
-    const result = await pool.query(
-      `INSERT INTO materials (
-        material_number, material_name, material_spec, material_unit,
-        category, stock_quantity, warning_stock, supplier, unit_price,
-        material_photo, qr_code_id, remarks, tags,
-        created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING *`,
-      [
-        material_number, material_name, material_spec, material_unit,
-        category, stock_quantity || 0, warning_stock || 0, supplier, unit_price,
-        material_photo, finalQrCodeId, remarks, tags || []
-      ]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (error: any) {
-    console.error('Create material error:', error);
-    if (error.code === '23505') {
-      res.status(400).json({ error: '物料编码已存在' });
-    } else {
-      res.status(500).json({ error: '服务器错误' });
+    try {
+      const result = await pool.query(
+        `INSERT INTO materials (
+          name, code, category, unit, specification, min_stock,
+          material_photo, qr_code_id, remarks, tags,
+          created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING *`,
+        [
+          materialName, materialCode, materialCategory, materialUnit, materialSpec, min_stock || 0,
+          material_photo, finalQrCodeId, remarks, tags || []
+        ]
+      );
+      res.json(result.rows[0]);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const newMaterial = {
+        id: memoryMaterialId++,
+        name: materialName,
+        code: materialCode,
+        category: materialCategory,
+        unit: materialUnit,
+        specification: materialSpec,
+        min_stock: min_stock || 0,
+        stock_quantity: stock_quantity || 0,
+        material_photo,
+        qr_code_id: finalQrCodeId,
+        remarks,
+        tags,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryMaterials.unshift(newMaterial);
+      res.json(newMaterial);
     }
+  } catch (error) {
+    console.error('Create material error:', error);
+    res.status(500).json({ error: '服务器错误' });
   }
 });
 
@@ -291,47 +264,75 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      material_number, material_name, material_spec, material_unit,
-      category, stock_quantity, warning_stock, supplier, unit_price,
+      name, material_name, code, material_number, category, material_category,
+      unit, material_unit, specification, material_spec,
+      min_stock, stock_quantity, supplier, unit_price,
       material_photo, qr_code_id, remarks, tags
     } = req.body;
 
-    const result = await pool.query(
-      `UPDATE materials SET
-        material_number = COALESCE($1, material_number),
-        material_name = COALESCE($2, material_name),
-        material_spec = COALESCE($3, material_spec),
-        material_unit = COALESCE($4, material_unit),
-        category = COALESCE($5, category),
-        stock_quantity = COALESCE($6, stock_quantity),
-        warning_stock = COALESCE($7, warning_stock),
-        supplier = COALESCE($8, supplier),
-        unit_price = COALESCE($9, unit_price),
-        material_photo = COALESCE($10, material_photo),
-        qr_code_id = COALESCE($11, qr_code_id),
-        remarks = COALESCE($12, remarks),
-        tags = COALESCE($13, tags),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14 RETURNING *`,
-      [
-        material_number, material_name, material_spec, material_unit,
-        category, stock_quantity, warning_stock, supplier, unit_price,
-        material_photo, qr_code_id, remarks, tags, id
-      ]
-    );
+    const materialName = name || material_name;
+    const materialCode = code || material_number;
+    const materialCategory = category || material_category;
+    const materialUnit = unit || material_unit;
+    const materialSpec = specification || material_spec;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '物料不存在' });
+    try {
+      const result = await pool.query(
+        `UPDATE materials SET
+          name = COALESCE($1, name),
+          code = COALESCE($2, code),
+          category = COALESCE($3, category),
+          unit = COALESCE($4, unit),
+          specification = COALESCE($5, specification),
+          min_stock = COALESCE($6, min_stock),
+          supplier = COALESCE($7, supplier),
+          unit_price = COALESCE($8, unit_price),
+          material_photo = COALESCE($9, material_photo),
+          qr_code_id = COALESCE($10, qr_code_id),
+          remarks = COALESCE($11, remarks),
+          tags = COALESCE($12, tags),
+          updated_at = CURRENT_TIMESTAMP
+          WHERE id = $13 RETURNING *`,
+        [
+          materialName, materialCode, materialCategory, materialUnit, materialSpec,
+          min_stock, supplier, unit_price, material_photo, qr_code_id, remarks, tags, id
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: '物料不存在' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const index = memoryMaterials.findIndex(m => m.id === parseInt(id));
+      if (index !== -1) {
+        memoryMaterials[index] = {
+          ...memoryMaterials[index],
+          ...(materialName && { name: materialName }),
+          ...(materialCode && { code: materialCode }),
+          ...(materialCategory && { category: materialCategory }),
+          ...(materialUnit && { unit: materialUnit }),
+          ...(materialSpec && { specification: materialSpec }),
+          ...(min_stock !== undefined && { min_stock }),
+          ...(stock_quantity !== undefined && { stock_quantity }),
+          ...(supplier !== undefined && { supplier }),
+          ...(unit_price !== undefined && { unit_price }),
+          ...(material_photo !== undefined && { material_photo }),
+          ...(qr_code_id !== undefined && { qr_code_id }),
+          ...(remarks !== undefined && { remarks }),
+          ...(tags !== undefined && { tags }),
+          updated_at: new Date().toISOString(),
+        };
+        res.json(memoryMaterials[index]);
+      } else {
+        res.status(404).json({ error: '物料不存在' });
+      }
     }
-
-    res.json(result.rows[0]);
   } catch (error: any) {
     console.error('Update material error:', error);
-    if (error.code === '23505') {
-      res.status(400).json({ error: '物料编码已存在' });
-    } else {
-      res.status(500).json({ error: '服务器错误' });
-    }
+    res.status(500).json({ error: '服务器错误' });
   }
 });
 
@@ -339,9 +340,20 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM material_inventory WHERE material_id = $1', [id]);
-    await pool.query('DELETE FROM materials WHERE id = $1', [id]);
-    res.json({ message: '删除成功' });
+    try {
+      await pool.query('DELETE FROM material_inventory WHERE material_id = $1', [id]);
+      await pool.query('DELETE FROM materials WHERE id = $1', [id]);
+      res.json({ message: '删除成功' });
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const index = memoryMaterials.findIndex(m => m.id === parseInt(id));
+      if (index !== -1) {
+        memoryMaterials.splice(index, 1);
+        res.json({ message: '删除成功' });
+      } else {
+        res.status(404).json({ error: '物料不存在' });
+      }
+    }
   } catch (error) {
     console.error('Delete material error:', error);
     res.status(500).json({ error: '服务器错误' });
