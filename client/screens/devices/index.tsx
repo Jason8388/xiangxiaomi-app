@@ -275,7 +275,8 @@ export default function DeviceManagement() {
         );
         const loadData = await loadResponse.json();
         if (loadResponse.ok) {
-          const sorted = loadData.sort((a: Device, b: Device) =>
+          const devices = loadData.data || [];
+          const sorted = devices.sort((a: Device, b: Device) =>
             new Date(a.factory_date).getTime() - new Date(b.factory_date).getTime()
           );
           setDevices(sorted);
@@ -383,7 +384,8 @@ export default function DeviceManagement() {
         );
         const loadData = await loadResponse.json();
         if (loadResponse.ok) {
-          const sorted = loadData.sort((a: Device, b: Device) =>
+          const devices = loadData.data || [];
+          const sorted = devices.sort((a: Device, b: Device) =>
             new Date(a.factory_date).getTime() - new Date(b.factory_date).getTime()
           );
           setDevices(sorted);
