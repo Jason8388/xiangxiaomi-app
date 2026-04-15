@@ -100,66 +100,77 @@ export default function MaterialRequirements() {
   };
 
   const handleSave = async () => {
+    console.log('[物料需求保存] 开始保存，editingRequirement:', editingRequirement);
+    console.log('[物料需求保存] formData:', formData);
+
     if (!formData.title) {
       Alert.alert('提示', '物料需求单标题不能为空');
       return;
     }
 
     try {
-      const response = editingRequirement
-        ? await fetch(
-            `${getApiBaseUrl()}/api/v1/material-requirements/${editingRequirement.id}`,
-            {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(formData),
-            }
-          )
-        : await fetch(
-            `${getApiBaseUrl()}/api/v1/material-requirements`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(formData),
-            }
-          );
+      const url = editingRequirement
+        ? `${getApiBaseUrl()}/api/v1/material-requirements/${editingRequirement.id}`
+        : `${getApiBaseUrl()}/api/v1/material-requirements`;
+
+      const method = editingRequirement ? 'PUT' : 'POST';
+
+      console.log('[物料需求保存] 发送请求:', method, url);
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      console.log('[物料需求保存] 响应状态:', response.status);
 
       const data = await response.json();
+      console.log('[物料需求保存] 响应数据:', data);
 
       if (response.ok) {
         Alert.alert('成功', editingRequirement ? '修改成功' : '创建成功');
         setModalVisible(false);
+        setEditingRequirement(null);
+        setFormData({ title: '', description: '' });
         loadRequirements();
-        // 自动返回上一页
-        setTimeout(() => {
-          router.back();
-        }, 500);
       } else {
         throw new Error(data.error || '操作失败');
       }
     } catch (error: any) {
+      console.error('[物料需求保存] 保存失败:', error);
       Alert.alert('错误', error.message);
     }
   };
 
   const handleDelete = (requirement: MaterialRequirement) => {
     console.log('[物料需求删除] 删除需求单:', requirement);
+    console.log('[物料需求删除] 设置删除确认弹窗');
     setDeletingRequirement(requirement);
     setDeleteConfirmVisible(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!deletingRequirement) return;
+    console.log('[物料需求删除] 确认删除，deletingRequirement:', deletingRequirement);
+
+    if (!deletingRequirement) {
+      console.error('[物料需求删除] deletingRequirement 为空');
+      return;
+    }
 
     try {
-      const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/material-requirements/${deletingRequirement.id}`,
-        {
-          method: 'DELETE',
-        }
-      );
+      const url = `${getApiBaseUrl()}/api/v1/material-requirements/${deletingRequirement.id}`;
+      console.log('[物料需求删除] 发送删除请求:', url);
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+      });
+
+      console.log('[物料需求删除] 响应状态:', response.status);
+
       const data = await response.json();
       console.log('[物料需求删除] 删除响应:', data);
+
       if (response.ok) {
         setDeleteConfirmVisible(false);
         setDeletingRequirement(null);
@@ -174,6 +185,7 @@ export default function MaterialRequirements() {
   };
 
   const handleCancelDelete = () => {
+    console.log('[物料需求删除] 取消删除');
     setDeleteConfirmVisible(false);
     setDeletingRequirement(null);
   };
