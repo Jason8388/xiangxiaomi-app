@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -54,12 +55,18 @@ export default function MeetingMinutes() {
     const loadData = async () => {
       await loadUserInfo();
       await Promise.all([
-        fetchMeetingMinutes(),
         fetchTags(),
       ]);
     };
     loadData();
   }, []);
+
+  // 使用useFocusEffect确保从其他页面返回时自动刷新列表
+  useFocusEffect(
+    useCallback(() => {
+      fetchMeetingMinutes();
+    }, [searchKeyword, selectedTag])
+  );
 
   const loadUserInfo = async () => {
     try {
@@ -169,19 +176,12 @@ export default function MeetingMinutes() {
   const handleDelete = async () => {
     if (!selectedMinute) return;
 
-    if (user?.role !== 'admin') {
-      Alert.alert('提示', '只有管理员可以删除会议纪要');
-      setDeleteModalVisible(false);
-      return;
-    }
-
     try {
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/meeting-minutes/${selectedMinute.id}`,
         {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: user?.id }),
         }
       );
 
@@ -189,12 +189,13 @@ export default function MeetingMinutes() {
         Alert.alert('成功', '删除成功');
         setDeleteModalVisible(false);
         setSelectedMinute(null);
-        loadMeetingMinutes(searchKeyword || undefined, selectedTag || undefined);
+        fetchMeetingMinutes();
       } else {
         const error = await response.json();
         Alert.alert('错误', error.message || '删除失败');
       }
     } catch (error) {
+      console.error('删除错误:', error);
       Alert.alert('错误', '删除失败');
     }
   };
