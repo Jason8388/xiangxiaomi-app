@@ -11,14 +11,18 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { getApiBaseUrl } from '@/utils/api';
+import { createFormDataFile } from '@/utils';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 
 interface Contact {
   name: string;
@@ -424,7 +428,7 @@ function WorkOrderDetailScreen() {
     }
   };
 
-  // 上传需求照片/视频
+  // 上传需求照片/视频到 OSS
   const handleUploadRequirementMedia = async (type: 'photo' | 'video') => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -432,38 +436,69 @@ function WorkOrderDetailScreen() {
         Alert.alert('提示', '需要相册权限才能上传');
         return;
       }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: type === 'photo' ? ['images'] : ['videos'],
         allowsEditing: false,
         quality: 0.8,
       });
+
       if (!result.canceled && result.assets[0]) {
-        const uri = result.assets[0].uri;
-        if (isCreateMode) {
-          setOrder((prev: any) => ({
-            ...prev,
-            requirement_photos: [...(prev.requirement_photos || []), uri],
-          }));
-        } else if (order) {
-          const newPhotos = [...(order.requirement_photos || []), uri];
-          setOrder({ ...order, requirement_photos: newPhotos });
+        const asset = result.assets[0];
+        const uri = asset.uri;
+
+        // 显示上传中提示
+        Alert.alert('上传中', '正在上传文件到 OSS...');
+
+        try {
+          // 读取文件
+          const fileInfo = await (FileSystem as any).getInfoAsync(uri, { size: true });
+          const fileContent = await (FileSystem as any).readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          // 上传到 OSS
+          const uploadUrl = `${getApiBaseUrl()}/api/v1/upload/oss`;
+          const formData = new FormData();
+          const formDataFile = await createFormDataFile(uri, asset.fileName || `file_${Date.now()}`, asset.mimeType);
+          formData.append('file', formDataFile);
+
+          const response = await fetch(uploadUrl, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('上传失败');
+          }
+
+          const resultData = await response.json();
+
+          if (resultData.success && resultData.data) {
+            const ossUrl = resultData.data.url;
+            Alert.alert('成功', '文件上传成功');
+
+            // 保存 OSS URL 而不是本地 URI
+            if (isCreateMode) {
+              setOrder((prev: any) => ({
+                ...prev,
+                requirement_photos: [...(prev.requirement_photos || []), ossUrl],
+              }));
+            } else if (order) {
+              const newPhotos = [...(order.requirement_photos || []), ossUrl];
+              setOrder({ ...order, requirement_photos: newPhotos });
+            }
+          } else {
+            throw new Error(resultData.message || '上传失败');
+          }
+        } catch (uploadError: any) {
+          console.error('OSS 上传失败:', uploadError);
+          Alert.alert('错误', `上传失败: ${uploadError.message}`);
         }
       }
     } catch (error) {
-      Alert.alert('错误', '上传失败');
-    }
-  };
-
-  // 删除需求照片
-  const handleDeleteRequirementPhoto = (index: number) => {
-    if (isCreateMode) {
-      setOrder((prev: any) => ({
-        ...prev,
-        requirement_photos: (prev.requirement_photos || []).filter((_: any, i: number) => i !== index),
-      }));
-    } else if (order) {
-      const newPhotos = (order.requirement_photos || []).filter((_, i) => i !== index);
-      setOrder({ ...order, requirement_photos: newPhotos });
+      console.error('选择文件失败:', error);
+      Alert.alert('错误', '选择文件失败');
     }
   };
 
@@ -829,6 +864,66 @@ function WorkOrderDetailScreen() {
     </View>
   );
 
+  // 渲染媒体文件（图片或视频）
+  const renderMediaFile = (uri: string, index: number) => {
+    const isVideo = uri.toLowerCase().includes('.mp4') ||
+                    uri.toLowerCase().includes('.mov') ||
+                    uri.toLowerCase().includes('.avi') ||
+                    uri.toLowerCase().includes('.mkv');
+
+    if (isVideo) {
+      return (
+        <View key={index} style={styles.mediaContainer}>
+          <Video
+            source={{ uri }}
+            style={styles.video}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+          />
+          <TouchableOpacity
+            style={styles.mediaDeleteButton}
+            onPress={() => handleDeleteMedia(index)}
+          >
+            <FontAwesome6 name="times-circle" size={20} color="#FF6B6B" />
+          </TouchableOpacity>
+        </View>
+      );
+    } else {
+      return (
+        <View key={index} style={styles.mediaContainer}>
+          <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+          <TouchableOpacity
+            style={styles.mediaDeleteButton}
+            onPress={() => handleDeleteMedia(index)}
+          >
+            <FontAwesome6 name="times-circle" size={20} color="#FF6B6B" />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+  };
+
+  // 删除媒体文件
+  const handleDeleteMedia = (index: number) => {
+    Alert.alert(
+      '确认删除',
+      '确定要删除这个文件吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => {
+            if (order?.requirement_photos) {
+              const newPhotos = order.requirement_photos.filter((_, i) => i !== index);
+              setOrder({ ...order, requirement_photos: newPhotos });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading || !order) {
     return (
       <Screen>
@@ -1094,14 +1189,7 @@ function WorkOrderDetailScreen() {
                     </View>
                     {order.requirement_photos && order.requirement_photos.length > 0 && (
                       <View style={styles.photoList}>
-                        {order.requirement_photos.map((photo, index) => (
-                          <View key={index} style={styles.photoItem}>
-                            <Text style={styles.photoText}>文件 {index + 1}</Text>
-                            <TouchableOpacity onPress={() => handleDeleteRequirementPhoto(index)}>
-                              <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
-                            </TouchableOpacity>
-                          </View>
-                        ))}
+                        {order.requirement_photos.map((photo, index) => renderMediaFile(photo, index))}
                       </View>
                     )}
                   </View>
@@ -1149,14 +1237,7 @@ function WorkOrderDetailScreen() {
                     </View>
                     {order.requirement_photos && order.requirement_photos.length > 0 && (
                       <View style={styles.photoList}>
-                        {order.requirement_photos.map((photo, index) => (
-                          <View key={index} style={styles.photoItem}>
-                            <Text style={styles.photoText}>文件 {index + 1}</Text>
-                            <TouchableOpacity onPress={() => handleDeleteRequirementPhoto(index)}>
-                              <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
-                            </TouchableOpacity>
-                          </View>
-                        ))}
+                        {order.requirement_photos.map((photo, index) => renderMediaFile(photo, index))}
                       </View>
                     )}
                   </View>
@@ -1683,7 +1764,31 @@ const styles = StyleSheet.create({
   uploadButtons: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   uploadBtnPrimary: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F0EEFF', borderRadius: 8, gap: 6 },
   uploadBtnText: { fontSize: 13, color: '#6C63FF' },
-  photoList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoList: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  mediaContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
+  },
+  mediaDeleteButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    padding: 4,
+  },
   photoItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, gap: 6 },
   photoText: { fontSize: 12, color: '#636E72' },
   uploadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
