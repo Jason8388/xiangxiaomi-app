@@ -169,11 +169,16 @@ export default function KnowledgeCreate() {
   };
 
   const handlePickAttachment = async () => {
-    console.log('[知识库] 点击添加附件');
+    console.log('[知识库] ========== 点击添加附件 ==========');
+    console.log('[知识库] 当前附件数量:', attachments.length);
+
     if (attachments.length >= 10) {
+      console.log('[知识库] 附件数量已达上限');
       Alert.alert('提示', '最多只能上传10个附件');
       return;
     }
+
+    console.log('[知识库] 显示选择菜单');
 
     // 显示选择菜单
     Alert.alert(
@@ -183,20 +188,23 @@ export default function KnowledgeCreate() {
         {
           text: '图片',
           onPress: () => {
-            console.log('[知识库] 选择图片');
+            console.log('[知识库] 用户选择图片');
             handlePickImage();
           },
         },
         {
           text: '文档',
           onPress: () => {
-            console.log('[知识库] 选择文档');
+            console.log('[知识库] 用户选择文档');
             handlePickDocument();
           },
         },
         {
           text: '取消',
           style: 'cancel',
+          onPress: () => {
+            console.log('[知识库] 用户取消选择');
+          },
         },
       ],
       { cancelable: true }
@@ -483,11 +491,21 @@ export default function KnowledgeCreate() {
             )}
 
             {/* 添加附件按钮 */}
-            {attachments.length < 10 && (
-              <TouchableOpacity style={styles.addAttachmentButton} onPress={handlePickAttachment}>
+            {attachments.length < 10 ? (
+              <TouchableOpacity
+                style={styles.addAttachmentButton}
+                onPress={handlePickAttachment}
+                onPressIn={() => console.log('[知识库] 按钮被按下（onPressIn）')}
+                activeOpacity={0.7}
+                pointerEvents="auto"
+              >
                 <FontAwesome6 name="plus" size={16} color="#1E88E5" />
                 <Text style={styles.addAttachmentText}>添加附件（图片/文档）</Text>
               </TouchableOpacity>
+            ) : (
+              <Text style={styles.attachmentHint}>
+                已达到最大附件数量（10个）
+              </Text>
             )}
             <Text style={styles.attachmentHint}>
               支持格式：JPG、PNG、GIF、Word(.doc/.docx)、Excel(.xls/.xlsx)、PPT(.ppt/.pptx)、PDF
