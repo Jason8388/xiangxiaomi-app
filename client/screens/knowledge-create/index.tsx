@@ -38,6 +38,7 @@ interface Attachment {
   name: string;
   type: string;
   size?: number;
+  key?: string;
 }
 
 interface FormData {
@@ -117,12 +118,12 @@ export default function KnowledgeCreate() {
         });
         // 加载附件信息
         if (data.attachments && Array.isArray(data.attachments)) {
-          const attachmentList: Attachment[] = data.attachments.map((url: string, index: number) => ({
-            uri: url,
-            name: `附件${index + 1}`,
-            type: 'file',
+          const attachmentList: Attachment[] = data.attachments.map((item: any, index: number) => ({
+            uri: item.url || item,
+            name: item.name || `附件${index + 1}`,
+            type: item.type || 'file',
+            key: item.key,
           }));
-          setAttachments(attachmentList);
         }
       }
     } catch (error) {
@@ -307,7 +308,7 @@ export default function KnowledgeCreate() {
           }
 
           console.log('[知识卡创建] 文件上传成功:', result);
-          return result.url; // 返回文件访问 URL
+          return result.key; // 返回文件访问 URL
         } catch (error) {
           console.error('[知识卡创建] 文件上传失败:', attachment.name, error);
           throw error;
@@ -315,8 +316,8 @@ export default function KnowledgeCreate() {
       });
 
       // 等待所有文件上传完成
-      const uploadedUrls = await Promise.all(uploadPromises);
-      console.log('[知识卡创建] 所有文件上传完成:', uploadedUrls);
+      const uploadedKeys = await Promise.all(uploadPromises);
+      console.log('[知识卡创建] 所有文件上传完成:', uploadedKeys);
 
       const url = isEdit
         ? `${getApiBaseUrl()}/api/v1/knowledge/${id}`
@@ -329,7 +330,7 @@ export default function KnowledgeCreate() {
       formDataObj.append('tags', JSON.stringify(formData.tags));
       formDataObj.append('creator', formData.creator);
       formDataObj.append('author_id', currentUser?.id?.toString() || '0');
-      formDataObj.append('attachments', JSON.stringify(uploadedUrls));
+      formDataObj.append('attachmentKeys', JSON.stringify(uploadedKeys));
 
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',

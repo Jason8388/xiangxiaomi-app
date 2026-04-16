@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { S3Storage } from 'coze-coding-dev-sdk';
+import { FileManager } from '../utils/fileManager';
 
 const router = express.Router();
 
@@ -12,22 +12,13 @@ const upload = multer({
   },
 });
 
-// 初始化 S3Storage
-const storage = new S3Storage({
-  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-  accessKey: "",
-  secretKey: "",
-  bucketName: process.env.COZE_BUCKET_NAME,
-  region: "cn-beijing",
-});
-
 /**
  * 上传单个文件
  * POST /api/v1/upload
  * Body: multipart/form-data
  * - file: 文件（必填）
  * - folder: 文件夹路径（可选，默认为 'uploads'）
- * 返回: { key: string, url: string }
+ * 返回: { key: string, url: string, fileName: string, size: number }
  */
 router.post('/', upload.single('file'), async (req, res) => {
   try {
@@ -45,25 +36,18 @@ router.post('/', upload.single('file'), async (req, res) => {
       folder,
     });
 
-    // 构建文件名，添加时间戳防止重名
-    const timestamp = Date.now();
-    const ext = file.originalname.split('.').pop();
-    const fileName = `${folder}/${timestamp}_${file.originalname}`;
-
-    // 上传文件到对象存储
-    const fileKey = await storage.uploadFile({
-      fileContent: file.buffer,
-      fileName: fileName,
-      contentType: file.mimetype,
-    });
+    // 上传文件到对象存储，返回 key
+    const fileKey = await FileManager.uploadFile(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      folder
+    );
 
     console.log('[文件上传] 上传成功，fileKey:', fileKey);
 
     // 生成签名 URL（有效期 1 天）
-    const fileUrl = await storage.generatePresignedUrl({
-      key: fileKey,
-      expireTime: 86400, // 1 天
-    });
+    const fileUrl = await FileManager.getFileUrl(fileKey);
 
     console.log('[文件上传] 生成签名 URL:', fileUrl);
 
@@ -85,7 +69,7 @@ router.post('/', upload.single('file'), async (req, res) => {
  * Body: multipart/form-data
  * - files: 文件数组（必填）
  * - folder: 文件夹路径（可选，默认为 'uploads'）
- * 返回: Array<{ key: string, url: string }>
+ * 返回: Array<{ key: string, url: string, fileName: string, size: number }>
  */
 router.post('/batch', upload.array('files', 10), async (req, res) => {
   try {
@@ -100,20 +84,16 @@ router.post('/batch', upload.array('files', 10), async (req, res) => {
     for (const file of files) {
       console.log('[批量上传] 上传文件:', file.originalname);
 
-      const timestamp = Date.now();
-      const ext = file.originalname.split('.').pop();
-      const fileName = `${folder}/${timestamp}_${file.originalname}`;
+      // 上传文件
+      const fileKey = await FileManager.uploadFile(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        folder
+      );
 
-      const fileKey = await storage.uploadFile({
-        fileContent: file.buffer,
-        fileName: fileName,
-        contentType: file.mimetype,
-      });
-
-      const fileUrl = await storage.generatePresignedUrl({
-        key: fileKey,
-        expireTime: 86400,
-      });
+      // 生成 URL
+      const fileUrl = await FileManager.getFileUrl(fileKey);
 
       results.push({
         key: fileKey,
@@ -141,10 +121,7 @@ router.get('/url/:key', async (req, res) => {
     const { key } = req.params;
     console.log('[文件访问] 生成 URL for key:', key);
 
-    const fileUrl = await storage.generatePresignedUrl({
-      key,
-      expireTime: 86400,
-    });
+    const fileUrl = await FileManager.getFileUrl(key);
 
     res.json({ url: fileUrl });
   } catch (error: any) {
@@ -156,14 +133,14 @@ router.get('/url/:key', async (req, res) => {
 /**
  * 删除文件
  * DELETE /api/v1/upload/:key
- * 返回: { success: boolean }
+ * 返回: { success: boolean, message: string }
  */
 router.delete('/:key', async (req, res) => {
   try {
     const { key } = req.params;
     console.log('[文件删除] 删除文件:', key);
 
-    const success = await storage.deleteFile({ fileKey: key });
+    const success = await FileManager.deleteFile(key);
 
     if (success) {
       console.log('[文件删除] 删除成功');
