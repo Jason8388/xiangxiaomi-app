@@ -16,12 +16,21 @@ interface OSSConfig {
 let ossClient: OSS | null = null;
 
 function getOSSConfig(): OSSConfig {
-  return {
+  const config = {
     region: process.env.OSS_REGION || '',
     accessKeyId: process.env.OSS_ACCESS_KEY_ID || '',
     accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET || '',
     bucket: process.env.OSS_BUCKET || '',
   };
+
+  console.log('[OSS Config] 配置信息:', {
+    region: config.region,
+    hasKeyId: !!config.accessKeyId,
+    hasKeySecret: !!config.accessKeySecret,
+    bucket: config.bucket,
+  });
+
+  return config;
 }
 
 /**
@@ -61,12 +70,20 @@ export async function uploadFileToOSS(
   contentType: string
 ): Promise<string> {
   try {
+    console.log('[OSS Upload] 准备上传:', {
+      fileName,
+      contentType,
+      size: fileBuffer.length,
+    });
+
     const client = getOSSClient();
 
     // 生成唯一的文件名（防止覆盖）
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 15);
     const objectName = `uploads/${timestamp}-${randomStr}-${fileName}`;
+
+    console.log('[OSS Upload] 对象名:', objectName);
 
     // 上传文件
     const result = await client.put(objectName, fileBuffer, {
@@ -75,10 +92,20 @@ export async function uploadFileToOSS(
       },
     });
 
+    console.log('[OSS Upload] 上传结果:', {
+      name: result.name,
+      url: result.url,
+    });
+
     // 返回文件的公网访问 URL
     return result.url;
   } catch (error) {
-    console.error('OSS 上传失败:', error);
+    console.error('[OSS Upload] 失败:', error);
+    console.error('[OSS Upload] 错误详情:', {
+      message: (error as any).message,
+      code: (error as any).code,
+      name: (error as any).name,
+    });
     throw new Error('文件上传到 OSS 失败');
   }
 }

@@ -1,5 +1,10 @@
 import express from "express";
+import dotenv from "dotenv";
 import cors from "cors";
+
+// 加载环境变量
+dotenv.config();
+
 import userRoutes from "./routes/users";
 import customerRoutes from "./routes/customers";
 import contractRoutes from "./routes/contracts";

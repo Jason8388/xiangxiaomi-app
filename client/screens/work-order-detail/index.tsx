@@ -447,6 +447,14 @@ function WorkOrderDetailScreen() {
         const asset = result.assets[0];
         const uri = asset.uri;
 
+        console.log('[上传] 选择文件:', {
+          uri,
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
+          hasFile: !!(asset as any).file,
+          platform: Platform.OS,
+        });
+
         // 显示上传中提示
         Alert.alert('上传中', '正在上传文件到 OSS...');
 
@@ -454,22 +462,46 @@ function WorkOrderDetailScreen() {
           // 上传到 OSS
           const uploadUrl = `${getApiBaseUrl()}/api/v1/upload/oss`;
           const formData = new FormData();
-          const formDataFile = await createFormDataFile(uri, asset.fileName || `file_${Date.now()}`, asset.mimeType);
+
+          // 在 Web 平台上，expo-image-picker 可能返回原生 File 对象
+          let formDataFile;
+          if (Platform.OS === 'web' && (asset as any).file) {
+            // Web 平台：直接使用原生 File 对象
+            formDataFile = (asset as any).file;
+            console.log('[上传] 使用原生 File 对象:', {
+              name: formDataFile.name,
+              size: formDataFile.size,
+              type: formDataFile.type,
+            });
+          } else {
+            // 移动端或没有 File 对象时使用 createFormDataFile
+            formDataFile = await createFormDataFile(uri, asset.fileName || `file_${Date.now()}`, asset.mimeType);
+          }
+
           formData.append('file', formDataFile);
+
+          console.log('[上传] 准备上传到:', uploadUrl);
 
           const response = await fetch(uploadUrl, {
             method: 'POST',
             body: formData,
           });
 
+          console.log('[上传] 响应状态:', response.status, response.statusText);
+
           if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[上传] 错误响应:', errorText);
             throw new Error('上传失败');
           }
 
           const resultData = await response.json();
 
+          console.log('[上传] 响应数据:', resultData);
+
           if (resultData.success && resultData.data) {
             const ossUrl = resultData.data.url;
+            console.log('[上传] 成功，OSS URL:', ossUrl);
             Alert.alert('成功', '文件上传成功');
 
             // 保存 OSS URL 而不是本地 URI

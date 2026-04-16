@@ -18,15 +18,26 @@ const upload = multer({
  */
 router.post('/oss', upload.single('file'), async (req, res) => {
   try {
+    console.log('[OSS Upload] 收到上传请求');
+
     // 检查是否有文件
     if (!req.file) {
+      console.error('[OSS Upload] 没有文件');
       return res.status(400).json({ error: '没有上传文件' });
     }
+
+    console.log('[OSS Upload] 文件信息:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+    });
 
     const { originalname, buffer, mimetype } = req.file;
 
     // 上传到 OSS
     const fileUrl = await uploadFileToOSS(buffer, originalname, mimetype);
+
+    console.log('[OSS Upload] 上传成功:', fileUrl);
 
     res.json({
       success: true,
@@ -38,7 +49,8 @@ router.post('/oss', upload.single('file'), async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error('Upload to OSS error:', error);
+    console.error('[OSS Upload] 错误:', error);
+    console.error('[OSS Upload] 错误堆栈:', error.stack);
     res.status(500).json({
       error: '上传失败',
       message: error.message,
