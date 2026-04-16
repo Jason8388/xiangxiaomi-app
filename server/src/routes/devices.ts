@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import pool from '../database/db';
+import { uploadFileToOSS } from '../utils/oss';
 
 const router = express.Router();
 
@@ -271,14 +272,16 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
         updated_at: new Date(),
       };
 
-      // 处理照片（转换为base64存储，演示用途）
+      // 处理照片（上传到OSS）
       if (files) {
-        Object.keys(files).forEach((key) => {
+        await Promise.all(Object.keys(files).map(async (key) => {
           if (files[key] && files[key][0]) {
             const photoBuffer = files[key][0].buffer;
-            newDevice.photos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
+            const photoName = `site_photo_${Date.now()}_${key}.jpg`;
+            const ossUrl = await uploadFileToOSS(photoBuffer, photoName, 'image/jpeg');
+            newDevice.photos.push(ossUrl);
           }
-        });
+        }));
       }
 
       memoryDevices.push(newDevice);
@@ -291,15 +294,17 @@ router.post('/', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_1'
         return res.status(400).json({ error: '缺少必填字段' });
       }
 
-      // 处理现场照片
+      // 处理现场照片（上传到OSS）
       const sitePhotos: string[] = [];
       if (files) {
-        Object.keys(files).forEach((key) => {
+        await Promise.all(Object.keys(files).map(async (key) => {
           if (files[key] && files[key][0]) {
             const photoBuffer = files[key][0].buffer;
-            sitePhotos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
+            const photoName = `site_photo_${Date.now()}_${key}.jpg`;
+            const ossUrl = await uploadFileToOSS(photoBuffer, photoName, 'image/jpeg');
+            sitePhotos.push(ossUrl);
           }
-        });
+        }));
       }
 
       // 生成设备二维码
@@ -386,15 +391,17 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
       if (service_number !== undefined) device.service_number = service_number;
       device.updated_at = new Date();
 
-      // 处理照片
+      // 处理照片（上传到OSS）
       if (files && Object.keys(files).length > 0) {
         device.photos = [] as string[];
-        Object.keys(files).forEach((key) => {
+        await Promise.all(Object.keys(files).map(async (key) => {
           if (files[key] && files[key][0]) {
             const photoBuffer = files[key][0].buffer;
-            device.photos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
+            const photoName = `site_photo_${Date.now()}_${key}.jpg`;
+            const ossUrl = await uploadFileToOSS(photoBuffer, photoName, 'image/jpeg');
+            device.photos.push(ossUrl);
           }
-        });
+        }));
       }
 
       res.json(device);
@@ -402,15 +409,17 @@ router.put('/:id', upload.fields([{ name: 'site_photo_0' }, { name: 'site_photo_
       // 使用数据库
       const { device_number, device_name, device_model, device_type, customer_name, factory_date, acceptance_date, warranty_end_date, contract_name, location, remarks, qr_code, service_number } = req.body;
 
-      // 处理现场照片
+      // 处理现场照片（上传到OSS）
       let sitePhotos: string[] = [];
       if (files && Object.keys(files).length > 0) {
-        Object.keys(files).forEach((key) => {
+        await Promise.all(Object.keys(files).map(async (key) => {
           if (files[key] && files[key][0]) {
             const photoBuffer = files[key][0].buffer;
-            sitePhotos.push(`data:image/jpeg;base64,${photoBuffer.toString('base64')}`);
+            const photoName = `site_photo_${Date.now()}_${key}.jpg`;
+            const ossUrl = await uploadFileToOSS(photoBuffer, photoName, 'image/jpeg');
+            sitePhotos.push(ossUrl);
           }
-        });
+        }));
       }
 
       // 构建更新SQL

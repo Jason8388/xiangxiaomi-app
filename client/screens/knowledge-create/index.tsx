@@ -169,6 +169,7 @@ export default function KnowledgeCreate() {
   };
 
   const handlePickAttachment = async () => {
+    console.log('[知识库] 点击添加附件');
     if (attachments.length >= 10) {
       Alert.alert('提示', '最多只能上传10个附件');
       return;
@@ -181,11 +182,17 @@ export default function KnowledgeCreate() {
       [
         {
           text: '图片',
-          onPress: () => handlePickImage(),
+          onPress: () => {
+            console.log('[知识库] 选择图片');
+            handlePickImage();
+          },
         },
         {
           text: '文档',
-          onPress: () => handlePickDocument(),
+          onPress: () => {
+            console.log('[知识库] 选择文档');
+            handlePickDocument();
+          },
         },
         {
           text: '取消',
@@ -198,30 +205,43 @@ export default function KnowledgeCreate() {
 
   // 选择图片
   const handlePickImage = async () => {
+    console.log('[知识库] 开始选择图片');
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // Web 平台不需要权限请求
+      let status = 'granted';
+      if (Platform.OS !== 'web') {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        status = permissionResult.status;
+      }
+
       if (status !== 'granted') {
         Alert.alert('提示', '需要相册权限才能上传图片');
         return;
       }
 
+      console.log('[知识库] 权限已获取，开始打开相册');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
       });
 
+      console.log('[知识库] 选择结果:', result);
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        console.log('[知识库] 选中的图片:', asset);
         const newAttachment: Attachment = {
-          uri: result.assets[0].uri,
-          name: result.assets[0].fileName || `图片${attachments.length + 1}`,
-          type: result.assets[0].type || 'image/jpeg',
-          size: result.assets[0].fileSize,
+          uri: asset.uri,
+          name: asset.fileName || `图片${attachments.length + 1}`,
+          type: asset.mimeType || asset.type || 'image/jpeg',
+          size: asset.fileSize,
         };
+        console.log('[知识库] 添加附件:', newAttachment);
         setAttachments([...attachments, newAttachment]);
       }
     } catch (error) {
-      console.error('Pick image error:', error);
+      console.error('[知识库] 选择图片错误:', error);
       Alert.alert('错误', '选择图片失败');
     }
   };
