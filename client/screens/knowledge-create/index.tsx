@@ -180,35 +180,49 @@ export default function KnowledgeCreate() {
 
     console.log('[知识库] 显示选择菜单');
 
-    // 显示选择菜单
-    Alert.alert(
-      '选择附件类型',
-      '请选择要上传的附件类型',
-      [
-        {
-          text: '图片',
-          onPress: () => {
-            console.log('[知识库] 用户选择图片');
-            handlePickImage();
+    // Web 平台使用原生浏览器对话框
+    if (Platform.OS === 'web') {
+      console.log('[知识库] Web 平台，使用原生对话框');
+      const choice = window.confirm('点击"确定"选择图片，点击"取消"选择文档');
+      if (choice) {
+        console.log('[知识库] 用户选择图片');
+        handlePickImage();
+      } else {
+        console.log('[知识库] 用户选择文档');
+        handlePickDocument();
+      }
+    } else {
+      // 移动端使用 React Native Alert
+      console.log('[知识库] 移动端，使用 RN Alert');
+      Alert.alert(
+        '选择附件类型',
+        '请选择要上传的附件类型',
+        [
+          {
+            text: '图片',
+            onPress: () => {
+              console.log('[知识库] 用户选择图片');
+              handlePickImage();
+            },
           },
-        },
-        {
-          text: '文档',
-          onPress: () => {
-            console.log('[知识库] 用户选择文档');
-            handlePickDocument();
+          {
+            text: '文档',
+            onPress: () => {
+              console.log('[知识库] 用户选择文档');
+              handlePickDocument();
+            },
           },
-        },
-        {
-          text: '取消',
-          style: 'cancel',
-          onPress: () => {
-            console.log('[知识库] 用户取消选择');
+          {
+            text: '取消',
+            style: 'cancel',
+            onPress: () => {
+              console.log('[知识库] 用户取消选择');
+            },
           },
-        },
-      ],
-      { cancelable: true }
-    );
+        ],
+        { cancelable: true }
+      );
+    }
   };
 
   // 选择图片
