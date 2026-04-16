@@ -14,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { getApiBaseUrl } from '@/utils/api';
+import { createFormDataFile } from '@/utils';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -238,13 +239,14 @@ export default function DeviceManagement() {
 
       // 上传照片
       if (sitePhotos.length > 0) {
-        sitePhotos.forEach((photoUri, index) => {
-          data.append(`site_photo_${index}`, {
-            uri: photoUri,
-            type: 'image/jpeg',
-            name: `site_photo_${index}.jpg`,
-          } as any);
-        });
+        await Promise.all(sitePhotos.map(async (photoUri, index) => {
+          const formDataFile = await createFormDataFile(
+            photoUri,
+            `site_photo_${index}.jpg`,
+            'image/jpeg'
+          );
+          data.append(`site_photo_${index}`, formDataFile);
+        }));
       }
 
       // 生成设备二维码（设备ID + 前缀S）

@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { getSecureItem } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
+import { createFormDataFile } from '@/utils';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -294,13 +295,14 @@ export default function KnowledgeCreate() {
       formDataObj.append('author_id', currentUser?.id?.toString() || '0');
 
       // 添加附件
-      attachments.forEach((attachment, index) => {
-        formDataObj.append(`files`, {
-          uri: attachment.uri,
-          type: attachment.type || 'image/jpeg',
-          name: attachment.name,
-        } as any);
-      });
+      for (const attachment of attachments) {
+        const formDataFile = await createFormDataFile(
+          attachment.uri,
+          attachment.name,
+          attachment.type || 'application/octet-stream'
+        );
+        formDataObj.append('files', formDataFile);
+      }
 
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',

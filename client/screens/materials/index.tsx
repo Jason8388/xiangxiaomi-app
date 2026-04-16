@@ -22,6 +22,7 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 import MaterialTagSelector from '@/components/MaterialTagSelector';
 
 import { getApiBaseUrl } from '@/utils/api';
+import { createFormDataFile } from '@/utils';
 
 interface Material {
   id: number;
@@ -252,11 +253,12 @@ export default function MaterialManagement() {
       if (tempPhotoUri && tempPhotoUri !== editingMaterial?.material_photo && !tempPhotoUri.startsWith('http')) {
         try {
           const formDataPhoto = new FormData();
-          formDataPhoto.append('file', {
-            uri: tempPhotoUri,
-            name: `material_photo_${Date.now()}.jpg`,
-            type: 'image/jpeg',
-          } as any);
+          const formDataFile = await createFormDataFile(
+            tempPhotoUri,
+            `material_photo_${Date.now()}.jpg`,
+            'image/jpeg'
+          );
+          formDataPhoto.append('file', formDataFile);
 
           const uploadRes = await fetch(
             `${getApiBaseUrl()}/api/v1/upload`,
@@ -368,11 +370,12 @@ export default function MaterialManagement() {
 
       const file = result.assets[0];
       const formData = new FormData();
-      formData.append('file', {
-        uri: file.uri,
-        name: file.name,
-        type: file.mimeType || 'application/octet-stream',
-      } as any);
+      const formDataFile = await createFormDataFile(
+        file.uri,
+        file.name,
+        file.mimeType || 'application/octet-stream'
+      );
+      formData.append('file', formDataFile);
 
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/materials/batch-import`,

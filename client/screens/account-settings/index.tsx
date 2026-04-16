@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { getSecureItem, setSecureItem, deleteSecureItem } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
+import { createFormDataFile } from '@/utils';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -155,12 +156,10 @@ export default function AccountSettingsScreen() {
       const filename = uri.split('/').pop() || 'avatar.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
-      
-      formData.append('avatar', {
-        uri,
-        name: filename,
-        type,
-      } as any);
+
+      // 使用 createFormDataFile 处理跨平台兼容性
+      const formDataFile = await createFormDataFile(uri, filename, type);
+      formData.append('avatar', formDataFile);
 
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/users/me/avatar`,
@@ -168,7 +167,7 @@ export default function AccountSettingsScreen() {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${sessionData.session_id}`,
-            'Content-Type': 'multipart/form-data',
+            // 不要设置 Content-Type，让浏览器/客户端自动处理
           },
           body: formData,
         }
