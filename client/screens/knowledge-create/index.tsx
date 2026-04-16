@@ -281,22 +281,80 @@ export default function KnowledgeCreate() {
 
     try {
       setLoading(true);
+
+      // 先上传所有附件到对象存储
+      const uploadPromises = attachments.map(async (attachment) => {
+        try {
+          const formDataObj = new FormData();
+          formDataObj.append('file', {
+            uri: attachment.uri,
+            type: attachment.type,
+            name: attachment.name,
+          } as any);
+          formDataObj.append('folder', 'knowledge');
+
+          const response = await fetch(
+            `${getApiBaseUrl()}/api/v1/upload`,
+            {
+              method: 'POST',
+              body: formDataObj,
+            }
+          );
+
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || '上传失败');
+          }
+
+          console.log('[知识卡创建] 文件上传成功:', result);
+          return result.url; // 返回文件访问 URL
+        } catch (error) {
+          console.error('[知识卡创建] 文件上传失败:', attachment.name, error);
+          throw error;
+        }
+      });
+
+      // 等待所有文件上传完成
+      const uploadedUrls = await Promise.all(uploadPromises);
+      console.log('[知识卡创建] 所有文件上传完成:', uploadedUrls);
+
       const url = isEdit
         ? `${getApiBaseUrl()}/api/v1/knowledge/${id}`
         : `${getApiBaseUrl()}/api/v1/knowledge`;
 
-      // 使用FormData上传附件
+      // 创建知识卡，使用上传后的 URL
       const formDataObj = new FormData();
       formDataObj.append('title', formData.title);
       formDataObj.append('content', formData.content);
       formDataObj.append('tags', JSON.stringify(formData.tags));
       formDataObj.append('creator', formData.creator);
       formDataObj.append('author_id', currentUser?.id?.toString() || '0');
+      formDataObj.append('attachments', JSON.stringify(uploadedUrls));
 
-      // 添加附件
-      attachments.forEach((attachment, index) => {
-        formDataObj.append(`files`, {
-          uri: attachment.uri,
+      const response = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        body: formDataObj,
+      });
+
+      if (response.ok) {
+        Alert.alert(
+          '成功',
+          isEdit ? '知识卡修改成功' : '知识卡创建成功'
+        );
+        setTimeout(() => {
+          router.back();
+        }, 500);
+      } else {
+        const errorData = await response.json();
+        Alert.alert('错误', errorData.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('Submit knowledge card error:', error);
+      Alert.alert('错误', '保存失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
           type: attachment.type || 'image/jpeg',
           name: attachment.name,
         } as any);
