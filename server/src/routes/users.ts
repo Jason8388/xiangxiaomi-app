@@ -3,6 +3,7 @@ import multer from 'multer';
 import { randomUUID } from 'crypto';
 import pool, { USE_DATABASE } from '../database/db';
 import { getUserByUsername, getActiveSessionCount, deactivateOldestSession, createSession, memoryUsers, memoryUsersArray, memoryUsersList } from '../database/memory-storage';
+import { uploadFileToOSS } from '../utils/oss';
 
 const router = express.Router();
 
@@ -277,36 +278,30 @@ router.post('/me/avatar', upload.single('avatar'), async (req, res) => {
       return res.status(400).json({ error: '仅支持 JPG、PNG、GIF、WebP 格式的图片' });
     }
 
-    // 生成文件名
-    const ext = req.file.mimetype.split('/')[1];
-    const filename = `avatar_${session.user_id}_${Date.now()}.${ext}`;
-    
-    // 将文件保存到临时目录或对象存储
-    // 这里简化为使用 base64 存储（实际应该上传到对象存储）
-    const base64 = req.file.buffer.toString('base64');
-    const avatarUrl = `data:${req.file.mimetype};base64,${base64}`;
+    // 上传到 OSS
+    const ossUrl = await uploadFileToOSS(req.file.buffer, req.file.originalname, req.file.mimetype);
 
     // 更新用户头像
     const userIndex = memoryUsersList.findIndex((u: any) => u.id === session.user_id);
     if (userIndex !== -1) {
-      memoryUsersList[userIndex].avatar = avatarUrl;
+      memoryUsersList[userIndex].avatar = ossUrl;
       memoryUsersList[userIndex].updated_at = new Date().toISOString();
 
       // 同时更新所有内存中的用户列表
       const updateAvatar = (list: any[]) => {
         const idx = list.findIndex(u => u.id === session.user_id);
         if (idx !== -1) {
-          list[idx].avatar = avatarUrl;
+          list[idx].avatar = ossUrl;
         }
       };
       updateAvatar(memoryUsersList);
       updateAvatar(memoryUsersArray);
     }
 
-    res.json({ 
-      success: true, 
-      avatar: avatarUrl,
-      message: '头像上传成功' 
+    res.json({
+      success: true,
+      avatar: ossUrl,
+      message: '头像上传成功'
     });
   } catch (error) {
     console.error('Upload avatar error:', error);

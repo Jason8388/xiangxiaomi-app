@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import pool, { USE_DATABASE } from '../database/db';
+import { uploadFileToOSS } from '../utils/oss';
 
 const router = express.Router();
 
@@ -203,10 +204,15 @@ router.post('/', upload.array('files', 10), async (req, res) => {
     // 处理文件信息
     let attachments: any[] = [];
     if (files && files.length > 0) {
-      attachments = files.map((file, index) => ({
-        name: file.originalname,
-        size: file.size,
-        type: file.mimetype,
+      // 上传所有文件到 OSS
+      attachments = await Promise.all(files.map(async (file) => {
+        const ossUrl = await uploadFileToOSS(file.buffer, file.originalname, file.mimetype);
+        return {
+          name: file.originalname,
+          size: file.size,
+          type: file.mimetype,
+          url: ossUrl,  // 添加 OSS URL
+        };
       }));
     }
 
@@ -265,10 +271,15 @@ router.put('/:id', upload.array('files', 10), async (req, res) => {
     try {
       let attachments: any[] = [];
       if (files && files.length > 0) {
-        attachments = files.map(file => ({
-          name: file.originalname,
-          size: file.size,
-          type: file.mimetype,
+        // 上传所有文件到 OSS
+        attachments = await Promise.all(files.map(async (file) => {
+          const ossUrl = await uploadFileToOSS(file.buffer, file.originalname, file.mimetype);
+          return {
+            name: file.originalname,
+            size: file.size,
+            type: file.mimetype,
+            url: ossUrl,  // 添加 OSS URL
+          };
         }));
       }
 

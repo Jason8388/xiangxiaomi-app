@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import pool from '../database/db';
 import { randomUUID } from 'crypto';
+import { uploadFileToOSS } from '../utils/oss';
 
 const router = express.Router();
 
@@ -244,11 +245,9 @@ router.post('/upload', upload.array('files', 5), async (req, res) => {
       // 生成文件名
       const mediaName = `${randomUUID()}.${originalname.split('.').pop()}`;
 
-      // TODO: 上传到对象存储，这里暂时使用模拟URL
-      const file_url = `https://example.com/media/${mediaName}`;
-      const thumbnail_url = media_type === 'video'
-        ? `https://example.com/media/thumbnails/${mediaName}.jpg`
-        : file_url;
+      // 上传到 OSS
+      const file_url = await uploadFileToOSS(buffer, mediaName, mimetype);
+      const thumbnail_url = file_url; // 暂时使用相同的URL作为缩略图，后续可以生成真实的缩略图
 
       // 解析宽高和时长（这里简化处理，实际应该使用库解析）
       const width = req.body.width ? parseInt(req.body.width) : null;

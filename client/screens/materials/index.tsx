@@ -261,7 +261,7 @@ export default function MaterialManagement() {
           formDataPhoto.append('file', formDataFile);
 
           const uploadRes = await fetch(
-            `${getApiBaseUrl()}/api/v1/upload`,
+            `${getApiBaseUrl()}/api/v1/upload/oss`,
             {
               method: 'POST',
               body: formDataPhoto,
