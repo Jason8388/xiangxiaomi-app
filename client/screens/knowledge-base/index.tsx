@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -36,7 +35,34 @@ export default function KnowledgeBase() {
   const [deletingCard, setDeletingCard] = useState<KnowledgeCard | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
-  const loadKnowledgeCards = useCallback(async (keyword?: string) => {
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const result = await (async () => {
+          const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge`);
+          const data = await response.json();
+          if (response.ok) {
+            return Array.isArray(data) ? data : (data.data || []);
+          }
+          return [];
+        })();
+        setCards(result);
+      } catch (error) {
+        console.error('Fetch knowledge cards error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleSearch = () => {
+    // 搜索时清除缓存
+    loadKnowledgeCards(searchKeyword);
+  };
+
+  const loadKnowledgeCards = async (keyword?: string) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -51,20 +77,14 @@ export default function KnowledgeBase() {
       if (response.ok) {
         const list = Array.isArray(data) ? data : (data.data || []);
         setCards(list);
+        return list;
       }
     } catch (error) {
       console.error('Fetch knowledge cards error:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // 页面聚焦时刷新列表
-  useFocusEffect(
-    useCallback(() => {
-      loadKnowledgeCards();
-    }, [loadKnowledgeCards])
-  );
+  };
 
   const handleCreate = () => {
     router.push('/knowledge-create');
@@ -76,10 +96,6 @@ export default function KnowledgeBase() {
 
   const handleEdit = (cardId: number) => {
     router.push('/knowledge-create', { id: cardId });
-  };
-
-  const handleSearch = () => {
-    loadKnowledgeCards(searchKeyword);
   };
 
   const handleDelete = (card: KnowledgeCard) => {

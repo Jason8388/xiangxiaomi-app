@@ -1,7 +1,6 @@
 import express from 'express';
 import multer from 'multer';
 import pool, { USE_DATABASE } from '../database/db';
-import { FileManager } from '../utils/fileManager';
 
 const router = express.Router();
 
@@ -151,19 +150,6 @@ router.get('/:id', async (req, res) => {
       knowledge.author = knowledge.author_name;
       knowledge.author_name = knowledge.author_name;
 
-      // 如果有附件 key，动态生成 URL
-      if (knowledge.attachment_keys && Array.isArray(knowledge.attachment_keys) && knowledge.attachment_keys.length > 0) {
-        try {
-          const attachments = await FileManager.enrichAttachmentsWithUrls(knowledge.attachment_keys);
-          knowledge.attachments = attachments;
-        } catch (error) {
-          console.error('[知识库详情] 生成附件 URL 失败:', error);
-          knowledge.attachments = [];
-        }
-      } else {
-        knowledge.attachments = [];
-      }
-
       res.json(knowledge);
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
@@ -205,12 +191,23 @@ router.get('/search/:keyword', async (req, res) => {
 });
 
 // 创建知识库（支持文件上传）
-router.post('/', async (req, res) => {
+router.post('/', upload.array('files', 10), async (req, res) => {
   try {
-    const { title, content, tags, author_id, creator, attachments, attachmentKeys } = req.body;
+    const { title, content, tags, author_id } = req.body;
+    const files = req.files as Express.Multer.File[];
 
     if (!title) {
       return res.status(400).json({ error: '标题不能为空' });
+    }
+
+    // 处理文件信息
+    let attachments: any[] = [];
+    if (files && files.length > 0) {
+      attachments = files.map((file, index) => ({
+        name: file.originalname,
+        size: file.size,
+        type: file.mimetype,
+      }));
     }
 
     // 安全解析 tags
@@ -223,27 +220,10 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // 获取创建者姓名，如果没有则使用默认值
-    const creatorName = creator || '当前用户';
-
-    // 处理附件：优先使用 attachmentKeys（文件 key 数组），否则从 attachments 提取 key
-    let finalAttachmentKeys: string[] = [];
-    
-    if (attachmentKeys && Array.isArray(attachmentKeys)) {
-      // 直接使用文件 key 数组
-      finalAttachmentKeys = attachmentKeys;
-    } else if (attachments && Array.isArray(attachments)) {
-      // 从 attachments 数组中提取 key（兼容旧格式）
-      const extractedKeys = FileManager.extractFileKeys(attachments);
-      finalAttachmentKeys = extractedKeys;
-    }
-
-    console.log('[知识库创建] 附件 key 数量:', finalAttachmentKeys.length);
-
     try {
       const result = await queryWithRetry(
-        'INSERT INTO knowledge (title, content, tags, author_id, attachment_keys, author_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, title',
-        [title, content || '', parsedTags, author_id, finalAttachmentKeys, creatorName]
+        'INSERT INTO knowledge (title, content, tags, author_id, attachments) VALUES ($1, $2, $3, $4, $5) RETURNING id, title',
+        [title, content || '', parsedTags, author_id, JSON.stringify(attachments)]
       );
       res.status(201).json({ id: result.rows[0].id, title: result.rows[0].title });
     } catch (dbError: any) {
@@ -255,9 +235,9 @@ router.post('/', async (req, res) => {
         content: content || '',
         tags: parsedTags,
         author_id,
-        author: creatorName,
-        author_name: creatorName,
-        attachment_keys: finalAttachmentKeys,
+        author: '当前用户',
+        author_name: '当前用户',
+        attachments,
         views: 0,
         likes: 0,
         created_at: new Date().toISOString(),
