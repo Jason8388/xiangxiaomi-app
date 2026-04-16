@@ -451,12 +451,6 @@ function WorkOrderDetailScreen() {
         Alert.alert('上传中', '正在上传文件到 OSS...');
 
         try {
-          // 读取文件
-          const fileInfo = await (FileSystem as any).getInfoAsync(uri, { size: true });
-          const fileContent = await (FileSystem as any).readAsStringAsync(uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
           // 上传到 OSS
           const uploadUrl = `${getApiBaseUrl()}/api/v1/upload/oss`;
           const formData = new FormData();

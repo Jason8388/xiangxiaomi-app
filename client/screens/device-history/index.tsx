@@ -17,6 +17,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { getApiBaseUrl } from '@/utils/api';
+import { createFormDataFile } from '@/utils';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -265,17 +266,15 @@ export default function DeviceHistory() {
       if (result.canceled) return;
 
       const file = result.assets[0];
-      const fileInfo: any = await (FileSystem as any).getInfoAsync(file.uri);
+      // 获取文件大小（Web 平台使用 file.size，移动端使用 getInfoAsync）
+      const fileSize = Platform.OS === 'web' ? file.size : ((await (FileSystem as any).getInfoAsync(file.uri)) as any).size;
 
       setUploading(true);
 
       // 上传到服务器
       const formData = new FormData();
-      formData.append('file', {
-        uri: file.uri,
-        name: file.name,
-        type: file.mimeType || 'application/octet-stream',
-      } as any);
+      const formDataFile = await createFormDataFile(file.uri, file.name, file.mimeType || 'application/octet-stream');
+      formData.append('file', formDataFile);
 
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/files/upload`,
@@ -292,7 +291,7 @@ export default function DeviceHistory() {
           name: file.name,
           uri: data.url || file.uri,
           type: file.mimeType || 'application/octet-stream',
-          size: fileInfo.size || 0,
+          size: fileSize || 0,
         };
         setAttachments([...attachments, newAttachment]);
         Alert.alert('成功', '文件上传成功');
