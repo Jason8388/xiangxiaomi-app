@@ -10,6 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "name": appName,
     "slug": slugAppName,
     "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
