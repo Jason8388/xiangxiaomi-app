@@ -589,35 +589,6 @@ export default function FilesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 标签筛选 */}
-        <View style={styles.tagFilterContainer}>
-          <FlatList
-            horizontal
-            data={[{ id: 0, name: '全部', color: '#636E72' }, ...tags]}
-            keyExtractor={(item) => item.id.toString()}
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => item.id === 0 ? handleTagFilter(0) : handleTagFilter(item.id)}
-                style={[
-                  styles.tagChip,
-                  (item.id === 0 ? !selectedTag : selectedTag === item.id) && styles.tagChipActive,
-                  item.id !== 0 && { borderColor: item.color },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.tagChipText,
-                    (item.id === 0 ? !selectedTag : selectedTag === item.id) && styles.tagChipTextActive,
-                  ]}
-                >
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-
         {/* 选择模式操作 */}
         {isSelectMode && (
           <View style={styles.selectModeContainer}>
@@ -839,29 +810,6 @@ const styles = StyleSheet.create({
   fileTypeText: {
     fontSize: 12,
     color: '#636E72',
-  },
-  tagFilterContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  tagChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  tagChipActive: {
-    backgroundColor: '#1E88E5',
-  },
-  tagChipText: {
-    fontSize: 13,
-    color: '#636E72',
-  },
-  tagChipTextActive: {
-    color: '#FFFFFF',
   },
   selectModeContainer: {
     flexDirection: 'row',
