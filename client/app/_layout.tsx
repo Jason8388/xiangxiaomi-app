@@ -59,20 +59,33 @@ function RootLayoutInner() {
     checkVersionUpdate();
   }, []);
 
-  // 认证检查逻辑
+  // 认证检查逻辑 - 应用启动时检查
   useEffect(() => {
     // 等待导航挂载
     if (!rootState?.key) return;
 
     const checkAuthStatus = async () => {
       const isAuth = await checkAuth();
-      console.log('[认证] 登录状态:', isAuth);
+      console.log('[认证] 应用启动检查登录状态:', isAuth);
       setIsAuthenticated(isAuth);
       setIsLoading(false);
     };
 
     checkAuthStatus();
   }, [rootState?.key]);
+
+  // 认证检查逻辑 - 路由变化时检查
+  useEffect(() => {
+    if (!rootState?.key) return;
+
+    const checkAuthStatus = async () => {
+      const isAuth = await checkAuth();
+      console.log('[认证] 路由变化检查登录状态:', isAuth);
+      setIsAuthenticated(isAuth);
+    };
+
+    checkAuthStatus();
+  }, [segments]);
 
   // 路由守卫
   useEffect(() => {
