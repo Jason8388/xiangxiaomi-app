@@ -3,23 +3,17 @@ import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
 import { useSegments, useRootNavigationState } from 'expo-router';
 import { Provider } from '@/components/Provider';
 import { useVersionUpdate } from '@/components/VersionUpdate';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '@/utils/storage';
 
 // 检查用户登录状态
 const checkAuth = async () => {
   try {
-    if (Platform.OS === 'web') {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
-      return !!token;
-    } else {
-      const token = await AsyncStorage.getItem('session_id');
-      return !!token;
-    }
+    const token = await storage.getItem('session_id');
+    return !!token;
   } catch (error) {
     console.error('[认证] 检查登录状态失败:', error);
     return false;
