@@ -92,6 +92,16 @@ export default function MaterialDetail() {
     }, [id, fetchMaterialDetail])
   );
 
+  // 使用 useMemo 优化计算 - 必须在条件返回之前
+  const isLowStock = useMemo(() => {
+    if (!material) return false;
+    return material.stock_quantity <= (material.warning_stock || 0);
+  }, [material?.stock_quantity, material?.warning_stock]);
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
   if (loading) {
     return (
       <Screen>
@@ -173,16 +183,6 @@ export default function MaterialDetail() {
       </Screen>
     );
   }
-
-  // 使用 useMemo 优化计算
-  const isLowStock = useMemo(() => {
-    if (!material) return false;
-    return material.stock_quantity <= (material.warning_stock || 0);
-  }, [material?.stock_quantity, material?.warning_stock]);
-
-  const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
 
   return (
     <Screen>
