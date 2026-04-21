@@ -69,6 +69,7 @@ export default function DeviceManagement() {
   const [contractSearchKeyword, setContractSearchKeyword] = useState('');
   const [deletingDevice, setDeletingDevice] = useState<Device | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [deviceTypeFilterSelectorVisible, setDeviceTypeFilterSelectorVisible] = useState(false);
   const [formData, setFormData] = useState({
     device_number: '',
     device_name: '',
@@ -407,6 +408,131 @@ export default function DeviceManagement() {
     setDeletingDevice(null);
   };
 
+  // 下载模板
+  const handleDownloadTemplate = async () => {
+    try {
+      Alert.alert('提示', '正在准备模板文件...');
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/devices/template`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `设备信息导入模板_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        Alert.alert('成功', '模板下载成功');
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || '模板下载失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
+  // 批量导入
+  const handleImport = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相册权限才能选择文件');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        Alert.alert('确认导入', '确定要导入该文件吗？', [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '确定',
+            onPress: async () => {
+              try {
+                const formData = new FormData();
+                const formDataFile = await createFormDataFile(
+                  selectedUri,
+                  'import_file.jpg',
+                  'image/jpeg'
+                );
+                formData.append('file', formDataFile);
+
+                const response = await fetch(`${getApiBaseUrl()}/api/v1/devices/import`, {
+                  method: 'POST',
+                  body: formData,
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                  Alert.alert('成功', `成功导入${data.count || 0}条数据`);
+                  setLoading(true);
+                  const loadResponse = await fetch(`${getApiBaseUrl()}/api/v1/devices`);
+                  const loadData = await loadResponse.json();
+                  if (loadResponse.ok) {
+                    const devices = loadData.data || [];
+                    const sorted = devices.sort((a: Device, b: Device) =>
+                      new Date(a.factory_date).getTime() - new Date(b.factory_date).getTime()
+                    );
+                    setDevices(sorted);
+                  }
+                  setLoading(false);
+                } else {
+                  throw new Error(data.error || '导入失败');
+                }
+              } catch (error: any) {
+                Alert.alert('错误', error.message);
+              }
+            },
+          },
+        ]);
+      }
+    } catch (error: any) {
+      Alert.alert('错误', '选择文件失败');
+    }
+  };
+
+  // 导出设备信息
+  const handleExport = async () => {
+    try {
+      if (filteredDevices.length === 0) {
+        Alert.alert('提示', '没有可导出的数据');
+        return;
+      }
+
+      Alert.alert('提示', '正在准备导出文件...');
+
+      // 导出当前筛选后的设备
+      const deviceIds = filteredDevices.map(d => d.id).join(',');
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/devices/export?ids=${deviceIds}`);
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `设备信息导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        Alert.alert('成功', '设备信息导出成功');
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || '导出失败');
+      }
+    } catch (error: any) {
+      Alert.alert('错误', error.message);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -440,43 +566,90 @@ export default function DeviceManagement() {
         />
       </View>
 
-      {/* 设备类型筛选 */}
+      {/* 设备类型筛选 - 下拉式选择器 */}
       <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity
-            style={[styles.filterChip, !deviceTypeFilter && styles.filterChipActive]}
-            onPress={() => setDeviceTypeFilter('')}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                !deviceTypeFilter && styles.filterChipTextActive,
-              ]}
-            >
-              全部
-            </Text>
-          </TouchableOpacity>
-          {DEVICE_TYPES.map((type) => (
+        <TouchableOpacity
+          style={styles.dropdownFilterButton}
+          onPress={() => setDeviceTypeFilterSelectorVisible(!deviceTypeFilterSelectorVisible)}
+        >
+          <FontAwesome6 name="filter" size={16} color="#636E72" />
+          <Text style={styles.dropdownFilterText}>
+            {deviceTypeFilter || '全部设备类型'}
+          </Text>
+          <FontAwesome6
+            name={deviceTypeFilterSelectorVisible ? 'chevron-up' : 'chevron-down'}
+            size={14}
+            color="#636E72"
+          />
+        </TouchableOpacity>
+
+        {deviceTypeFilterSelectorVisible && (
+          <View style={styles.dropdownFilterMenu}>
             <TouchableOpacity
-              key={type}
-              style={[styles.filterChip, deviceTypeFilter === type && styles.filterChipActive]}
-              onPress={() => setDeviceTypeFilter(deviceTypeFilter === type ? '' : type)}
+              style={[
+                styles.dropdownFilterItem,
+                !deviceTypeFilter && styles.dropdownFilterItemSelected,
+              ]}
+              onPress={() => {
+                setDeviceTypeFilter('');
+                setDeviceTypeFilterSelectorVisible(false);
+              }}
             >
               <Text
                 style={[
-                  styles.filterChipText,
-                  deviceTypeFilter === type && styles.filterChipTextActive,
+                  styles.dropdownFilterItemText,
+                  !deviceTypeFilter && styles.dropdownFilterItemTextSelected,
                 ]}
               >
-                {type}
+                全部
               </Text>
+              {!deviceTypeFilter && (
+                <FontAwesome6 name="check" size={16} color="#2ECC71" />
+              )}
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+            {DEVICE_TYPES.map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.dropdownFilterItem,
+                  deviceTypeFilter === type && styles.dropdownFilterItemSelected,
+                ]}
+                onPress={() => {
+                  setDeviceTypeFilter(deviceTypeFilter === type ? '' : type);
+                  setDeviceTypeFilterSelectorVisible(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.dropdownFilterItemText,
+                    deviceTypeFilter === type && styles.dropdownFilterItemTextSelected,
+                  ]}
+                >
+                  {type}
+                </Text>
+                {deviceTypeFilter === type && (
+                  <FontAwesome6 name="check" size={16} color="#2ECC71" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* 操作按钮 */}
       <View style={styles.actionBar}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleDownloadTemplate}>
+          <FontAwesome6 name="file-arrow-down" size={16} color="#1E88E5" />
+          <Text style={styles.secondaryButtonText}>下载模板</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleExport}>
+          <FontAwesome6 name="file-export" size={16} color="#27AE60" />
+          <Text style={styles.secondaryButtonText}>导出设备</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.importButton} onPress={handleImport}>
+          <FontAwesome6 name="file-import" size={16} color="#FFFFFF" />
+          <Text style={styles.importButtonText}>批量导入</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
           <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
           <Text style={styles.addButtonText}>新增设备</Text>
@@ -995,6 +1168,52 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
   },
+  dropdownFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    gap: 8,
+  },
+  dropdownFilterText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  dropdownFilterMenu: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    marginTop: 4,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dropdownFilterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  dropdownFilterItemSelected: {
+    backgroundColor: '#E8F5FE',
+  },
+  dropdownFilterItemText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  dropdownFilterItemTextSelected: {
+    color: '#1E88E5',
+    fontWeight: '500',
+  },
   filterChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1013,10 +1232,49 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   actionBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 8,
+  },
+  secondaryButton: {
+    flex: 1,
+    minWidth: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#636E72',
+  },
+  importButton: {
+    flex: 1,
+    minWidth: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#27AE60',
+  },
+  importButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
   addButton: {
+    flex: 1,
+    minWidth: 100,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

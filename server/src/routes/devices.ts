@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import ExcelJS from 'exceljs';
 import pool from '../database/db';
 import { uploadFileToOSS } from '../utils/oss';
 
@@ -88,6 +89,288 @@ let memoryDevices: any[] = [
     remarks: '视觉系统故障，待维修更换',
   },
 ];
+
+// 下载设备信息导入模板
+router.get('/template', async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('设备信息导入模板');
+
+    // 设置表头
+    worksheet.columns = [
+      { header: '设备出厂编号 *', key: 'device_number', width: 20 },
+      { header: '设备名称 *', key: 'device_name', width: 25 },
+      { header: '设备型号 *', key: 'device_model', width: 20 },
+      { header: '设备类型 *', key: 'device_type', width: 15 },
+      { header: '归属客户 *', key: 'customer_name', width: 20 },
+      { header: '设备服务编号', key: 'service_number', width: 20 },
+      { header: '进厂日期', key: 'factory_date', width: 15 },
+      { header: '验收日期', key: 'acceptance_date', width: 15 },
+      { header: '质保到期日期', key: 'warranty_end_date', width: 15 },
+      { header: '合同名称', key: 'contract_name', width: 30 },
+      { header: '合同编号', key: 'contract_number', width: 20 },
+      { header: '设备所在位置', key: 'location', width: 30 },
+      { header: '备注', key: 'remarks', width: 30 },
+    ];
+
+    // 添加示例数据
+    worksheet.addRow({
+      device_number: 'D0004',
+      device_name: '智能测量仪-M100',
+      device_model: 'M100-PRO',
+      device_type: '智能测量',
+      customer_name: '测试客户',
+      service_number: 'SV001',
+      factory_date: '2024-01-01',
+      acceptance_date: '2024-02-01',
+      warranty_end_date: '2025-01-01',
+      contract_name: '测试合同',
+      contract_number: 'HT-TEST-001',
+      location: '测试地点',
+      remarks: '测试备注',
+    });
+
+    // 设置表头样式
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E88E5' },
+    };
+
+    // 设置列宽
+    worksheet.columns.forEach((column) => {
+      if (column.header?.includes('*')) {
+        column.width = 25;
+      }
+    });
+
+    // 生成Excel文件
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=device_import_template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Download template error:', error);
+    res.status(500).json({ error: '下载模板失败' });
+  }
+});
+
+// 批量导入设备信息
+router.post('/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传文件' });
+    }
+
+    // 解析Excel文件
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    const worksheet = workbook.getWorksheet(1);
+    if (!worksheet) {
+      return res.status(400).json({ error: 'Excel文件为空' });
+    }
+
+    const devicesToImport: any[] = [];
+    const errors: string[] = [];
+
+    // 跳过表头，从第二行开始读取
+    let rowNumber = 2;
+    worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber === 1) return; // 跳过表头
+
+      const device_number = row.getCell(1).text?.trim();
+      const device_name = row.getCell(2).text?.trim();
+      const device_model = row.getCell(3).text?.trim();
+      const device_type = row.getCell(4).text?.trim();
+      const customer_name = row.getCell(5).text?.trim();
+      const service_number = row.getCell(6).text?.trim();
+      const factory_date = row.getCell(7).text?.trim();
+      const acceptance_date = row.getCell(8).text?.trim();
+      const warranty_end_date = row.getCell(9).text?.trim();
+      const contract_name = row.getCell(10).text?.trim();
+      const contract_number = row.getCell(11).text?.trim();
+      const location = row.getCell(12).text?.trim();
+      const remarks = row.getCell(13).text?.trim();
+
+      // 验证必填字段
+      if (!device_number || !device_name || !device_model || !device_type || !customer_name) {
+        errors.push(`第${rowNumber}行：设备出厂编号、设备名称、设备型号、设备类型、归属客户为必填项`);
+        return;
+      }
+
+      devicesToImport.push({
+        device_number,
+        device_name,
+        device_model,
+        device_type,
+        customer_name,
+        service_number,
+        factory_date,
+        acceptance_date,
+        warranty_end_date,
+        contract_name,
+        contract_number,
+        location,
+        remarks,
+      });
+    });
+
+    if (errors.length > 0) {
+      return res.status(400).json({ error: '数据验证失败', details: errors });
+    }
+
+    if (devicesToImport.length === 0) {
+      return res.status(400).json({ error: '没有有效数据可导入' });
+    }
+
+    // 导入到数据库或内存存储
+    let count = 0;
+    if (USE_MEMORY_STORAGE) {
+      // 使用内存存储
+      devicesToImport.forEach((device) => {
+        const newDevice = {
+          id: memoryDevices.length + 1,
+          device_number: device.device_number,
+          device_name: device.device_name,
+          device_model: device.device_model,
+          factory_serial_number: device.device_number,
+          device_type: device.device_type,
+          customer_name: device.customer_name,
+          factory_date: device.factory_date || '',
+          acceptance_date: device.acceptance_date || '',
+          warranty_end_date: device.warranty_end_date || '',
+          status: '正常',
+          contract_name: device.contract_name || '',
+          contract_number: device.contract_number || '',
+          location: device.location || '',
+          qr_code: `S${memoryDevices.length + 1}`,
+          photos: [],
+          remarks: device.remarks || '',
+          service_number: device.service_number || '',
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        memoryDevices.push(newDevice);
+        count++;
+      });
+    } else {
+      // 使用数据库
+      for (const device of devicesToImport) {
+        await pool.query(
+          `INSERT INTO devices (
+            device_number, device_name, device_model, device_type, customer_name,
+            factory_date, acceptance_date, warranty_end_date, contract_name, contract_number,
+            location, remarks, service_number, qr_code, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())`,
+          [
+            device.device_number,
+            device.device_name,
+            device.device_model,
+            device.device_type,
+            device.customer_name,
+            device.factory_date || null,
+            device.acceptance_date || null,
+            device.warranty_end_date || null,
+            device.contract_name || null,
+            device.contract_number || null,
+            device.location || null,
+            device.remarks || null,
+            device.service_number || null,
+            `S${Date.now()}`,
+          ]
+        );
+        count++;
+      }
+    }
+
+    res.json({ message: '导入成功', count });
+  } catch (error) {
+    console.error('Import devices error:', error);
+    res.status(500).json({ error: '导入失败' });
+  }
+});
+
+// 导出设备信息
+router.get('/export', async (req, res) => {
+  try {
+    const { ids } = req.query;
+    let devices = memoryDevices;
+
+    // 如果指定了设备ID，则筛选
+    if (ids) {
+      const idArray = (ids as string).split(',').map(id => parseInt(id.trim()));
+      devices = memoryDevices.filter(d => idArray.includes(d.id));
+    }
+
+    if (devices.length === 0) {
+      return res.status(400).json({ error: '没有可导出的数据' });
+    }
+
+    // 创建Excel工作簿
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('设备信息');
+
+    // 设置表头
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: '设备出厂编号', key: 'device_number', width: 20 },
+      { header: '设备名称', key: 'device_name', width: 25 },
+      { header: '设备型号', key: 'device_model', width: 20 },
+      { header: '设备类型', key: 'device_type', width: 15 },
+      { header: '归属客户', key: 'customer_name', width: 20 },
+      { header: '设备服务编号', key: 'service_number', width: 20 },
+      { header: '进厂日期', key: 'factory_date', width: 15 },
+      { header: '验收日期', key: 'acceptance_date', width: 15 },
+      { header: '质保到期日期', key: 'warranty_end_date', width: 15 },
+      { header: '合同名称', key: 'contract_name', width: 30 },
+      { header: '合同编号', key: 'contract_number', width: 20 },
+      { header: '设备所在位置', key: 'location', width: 30 },
+      { header: '备注', key: 'remarks', width: 30 },
+      { header: '状态', key: 'status', width: 10 },
+    ];
+
+    // 设置表头样式
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E88E5' },
+    };
+
+    // 添加数据
+    devices.forEach((device) => {
+      worksheet.addRow({
+        id: device.id,
+        device_number: device.device_number,
+        device_name: device.device_name,
+        device_model: device.device_model,
+        device_type: device.device_type,
+        customer_name: device.customer_name,
+        service_number: device.service_number || '',
+        factory_date: device.factory_date || '',
+        acceptance_date: device.acceptance_date || '',
+        warranty_end_date: device.warranty_end_date || '',
+        contract_name: device.contract_name || '',
+        contract_number: device.contract_number || '',
+        location: device.location || '',
+        remarks: device.remarks || '',
+        status: device.status || '正常',
+      });
+    });
+
+    // 生成Excel文件
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const filename = `设备信息导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(filename)}`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export devices error:', error);
+    res.status(500).json({ error: '导出失败' });
+  }
+});
 
 // 获取设备列表（带分页）
 router.get('/', async (req, res) => {
