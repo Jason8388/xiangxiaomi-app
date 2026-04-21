@@ -1292,4 +1292,7 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+// 导出内存存储供其他路由使用
+export { memoryDevices };
+
 export default router;

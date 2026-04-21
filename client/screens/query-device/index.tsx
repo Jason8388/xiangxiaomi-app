@@ -23,7 +23,7 @@ interface QueryDevice {
   customer_name?: string;
   project_name?: string;
   status: string;
-  created_at: string;
+  created_at: string | null;
 }
 
 export default function QueryDevice() {
@@ -45,9 +45,12 @@ export default function QueryDevice() {
       );
       const data = await response.json();
       if (response.ok) {
-        setResults(data);
+        setResults(data || []);
+      } else {
+        Alert.alert('错误', data.message || '查询失败');
       }
     } catch (error) {
+      console.error('Search error:', error);
       Alert.alert('错误', '查询失败');
     } finally {
       setLoading(false);
@@ -149,12 +152,12 @@ export default function QueryDevice() {
                   <View style={styles.detailItem}>
                     <FontAwesome6 name="fingerprint" size={12} color="#636E72" />
                     <Text style={styles.detailLabel}>设备ID：</Text>
-                    <Text style={styles.detailValue}>{device.device_id}</Text>
+                    <Text style={styles.detailValue}>{device.device_id || '未设置'}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <FontAwesome6 name="cube" size={12} color="#636E72" />
                     <Text style={styles.detailLabel}>型号：</Text>
-                    <Text style={styles.detailValue}>{device.device_model}</Text>
+                    <Text style={styles.detailValue}>{device.device_model || '未设置'}</Text>
                   </View>
                 </View>
 
@@ -178,7 +181,7 @@ export default function QueryDevice() {
 
                 <View style={styles.deviceFooter}>
                   <Text style={styles.createdDate}>
-                    创建于 {new Date(device.created_at).toLocaleDateString()}
+                    创建于 {device.created_at ? new Date(device.created_at).toLocaleDateString() : '未设置'}
                   </Text>
                   <FontAwesome6 name="chevron-right" size={16} color="#95A5A6" />
                 </View>

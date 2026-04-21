@@ -274,4 +274,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// 导出内存存储供其他路由使用
+export { memoryCustomers };
+
 export default router;

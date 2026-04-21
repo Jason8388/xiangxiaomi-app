@@ -1,5 +1,7 @@
 import express from 'express';
 import { memoryFiles } from './files';
+import { memoryCustomers } from './customers';
+import { memoryDevices } from './devices';
 
 const router = express.Router();
 
@@ -35,11 +37,51 @@ router.get('/contracts', async (req, res) => {
 // 设备查询
 router.get('/devices', async (req, res) => {
   try {
-    res.status(200).json({
-      code: 0,
-      data: [],
-      message: 'success'
-    });
+    const { keyword } = req.query;
+
+    if (!keyword || typeof keyword !== 'string') {
+      return res.status(200).json([]);
+    }
+
+    // 从内存存储中搜索设备
+    const keywordLower = keyword.toLowerCase();
+    const filteredDevices = memoryDevices
+      .filter((device) => {
+        // 搜索设备名称
+        const deviceName = (device.device_name || '').toLowerCase();
+        // 搜索设备编号
+        const deviceNumber = (device.device_number || '').toLowerCase();
+        // 搜索设备ID
+        const deviceId = (device.device_id || '').toLowerCase();
+        // 搜索设备型号
+        const deviceModel = (device.device_model || '').toLowerCase();
+        // 搜索客户名称
+        const customerName = (device.customer_name || '').toLowerCase();
+        // 搜索项目名称
+        const projectName = (device.project_name || '').toLowerCase();
+
+        return (
+          deviceName.includes(keywordLower) ||
+          deviceNumber.includes(keywordLower) ||
+          deviceId.includes(keywordLower) ||
+          deviceModel.includes(keywordLower) ||
+          customerName.includes(keywordLower) ||
+          projectName.includes(keywordLower)
+        );
+      })
+      .map((device) => ({
+        id: device.id,
+        device_name: device.device_name,
+        device_number: device.device_number,
+        device_id: device.device_id || device.factory_serial_number || '',
+        device_model: device.device_model,
+        customer_name: device.customer_name || null,
+        project_name: device.project_name || null,
+        status: device.status,
+        created_at: device.created_at,
+      }));
+
+    res.status(200).json(filteredDevices);
   } catch (error) {
     console.error('Query devices error:', error);
     res.status(500).json({ code: 1, message: 'Internal server error' });
@@ -153,6 +195,70 @@ router.get('/meetings', async (req, res) => {
     res.status(200).json(filteredMeetings);
   } catch (error) {
     console.error('Query meetings error:', error);
+    res.status(500).json({ code: 1, message: 'Internal server error' });
+  }
+});
+
+// 客户查询
+router.get('/customers', async (req, res) => {
+  try {
+    const { keyword } = req.query;
+
+    if (!keyword || typeof keyword !== 'string') {
+      return res.status(200).json([]);
+    }
+
+    // 从内存存储中搜索客户
+    const keywordLower = keyword.toLowerCase();
+    const filteredCustomers = memoryCustomers
+      .filter((customer) => {
+        // 搜索客户名称
+        const name = (customer.name || '').toLowerCase();
+        // 搜索联系人
+        const contactPerson = (customer.contact_person || '').toLowerCase();
+        // 搜索联系电话
+        const contactPhone = (customer.contact_phone || '').toLowerCase();
+        // 搜索邮箱
+        const email = (customer.email || '').toLowerCase();
+        // 搜索地址
+        const address = (customer.address || '').toLowerCase();
+        // 搜索行业
+        const industry = (customer.industry || '').toLowerCase();
+        // 搜索客户等级
+        const level = (customer.level || '').toLowerCase();
+        // 搜索客户来源
+        const source = (customer.source || '').toLowerCase();
+        // 搜索业务经理
+        const businessManager = (customer.business_manager || '').toLowerCase();
+
+        return (
+          name.includes(keywordLower) ||
+          contactPerson.includes(keywordLower) ||
+          contactPhone.includes(keywordLower) ||
+          email.includes(keywordLower) ||
+          address.includes(keywordLower) ||
+          industry.includes(keywordLower) ||
+          level.includes(keywordLower) ||
+          source.includes(keywordLower) ||
+          businessManager.includes(keywordLower)
+        );
+      })
+      .map((customer) => ({
+        id: customer.id,
+        name: customer.name,
+        contact_person: customer.contact_person,
+        contact_phone: customer.contact_phone,
+        email: customer.email,
+        address: customer.address,
+        contract_count: customer.contract_count || 0,
+        device_count: customer.device_count || 0,
+        after_sales_count: 0, // 默认为0，因为当前数据中没有这个字段
+        created_at: customer.created_at,
+      }));
+
+    res.status(200).json(filteredCustomers);
+  } catch (error) {
+    console.error('Query customers error:', error);
     res.status(500).json({ code: 1, message: 'Internal server error' });
   }
 });
