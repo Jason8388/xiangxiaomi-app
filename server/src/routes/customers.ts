@@ -266,7 +266,7 @@ router.get('/', async (req, res) => {
     const offset = (pageNum - 1) * limitNum;
 
     // 优先使用内存存储，快速响应
-    if (USE_MEMORY_STORAGE) {
+    if (!USE_DATABASE) {
       let filtered = memoryCustomers;
 
       // 关键词搜索

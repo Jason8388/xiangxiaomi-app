@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -47,7 +47,6 @@ interface ContactPerson {
 export default function CustomerManagement() {
   const router = useSafeRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -71,12 +70,23 @@ export default function CustomerManagement() {
   const [serviceDeptModalVisible, setServiceDeptModalVisible] = useState(false);
   const [subGroupModalVisible, setSubGroupModalVisible] = useState(false);
 
-  // 获取客户列表
-  const fetchCustomers = async () => {
+  // 获取客户列表（性能优化：使用 useCallback 避免重复创建）
+  const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
+      const startTime = Date.now(); // 性能监控：开始时间
+
+      /**
+       * 服务端文件：server/src/routes/customers.ts
+       * 接口：GET /api/v1/customers
+       * Query 参数：page: number, limit: number, keyword?: string
+       */
       const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
       const data = await response.json();
+
+      const endTime = Date.now(); // 性能监控：结束时间
+      console.log(`[性能监控] 客户列表加载耗时: ${endTime - startTime}ms`);
+
       if (response.ok) {
         const list = Array.isArray(data) ? data : (data.data || []);
         const sorted = list.sort((a: Customer, b: Customer) => {
@@ -85,35 +95,42 @@ export default function CustomerManagement() {
           return nameA.localeCompare(nameB);
         });
         setCustomers(sorted);
-        setFilteredCustomers(sorted);
       }
     } catch (error) {
       console.error('Fetch customers error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCustomers();
   }, []);
 
-  // 搜索过滤
-  useEffect(() => {
+  // 性能优化：使用 useMemo 优化搜索过滤，避免每次渲染都重新计算
+  const filteredCustomers = useMemo(() => {
     if (searchKeyword.trim()) {
-      const filtered = customers.filter(
+      const keyword = searchKeyword.toLowerCase();
+      return customers.filter(
         (c) =>
-          c.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-          (c.business_manager &&
-            c.business_manager.toLowerCase().includes(searchKeyword.toLowerCase()))
+          c.name.toLowerCase().includes(keyword) ||
+          (c.business_manager && c.business_manager.toLowerCase().includes(keyword))
       );
-      setFilteredCustomers(filtered);
-    } else {
-      setFilteredCustomers(customers);
     }
+    return customers;
   }, [searchKeyword, customers]);
 
-  const handleAdd = () => {
+  // 性能优化：使用 useMemo 优化统计数据计算
+  const statsData = useMemo(() => {
+    return {
+      totalCustomers: customers.length,
+      totalDevices: customers.reduce((sum, c) => sum + (c.device_count || 0), 0),
+      totalContracts: customers.reduce((sum, c) => sum + (c.contract_count || 0), 0),
+    };
+  }, [customers]);
+
+  // 性能优化：使用 useCallback 优化事件处理函数
+  const handleAdd = useCallback(() => {
     setEditingCustomer(null);
     setFormData({
       name: '',
@@ -127,9 +144,9 @@ export default function CustomerManagement() {
     setAddresses([{ id: Date.now().toString(), value: '' }]);
     setContacts([{ id: Date.now().toString(), name: '', phone: '', position: '' }]);
     setModalVisible(true);
-  };
+  }, []);
 
-  const handleEdit = (customer: Customer) => {
+  const handleEdit = useCallback((customer: Customer) => {
     setEditingCustomer(customer);
     setFormData({
       name: customer.name,
@@ -169,8 +186,8 @@ export default function CustomerManagement() {
     let contactItems: ContactPerson[] = [];
     if ((customer as any).contacts) {
       try {
-        const parsed = typeof (customer as any).contacts === 'string' 
-          ? JSON.parse((customer as any).contacts) 
+        const parsed = typeof (customer as any).contacts === 'string'
+          ? JSON.parse((customer as any).contacts)
           : (customer as any).contacts;
         if (Array.isArray(parsed) && parsed.length > 0) {
           contactItems = parsed.map((c: any, index: number) => ({
@@ -190,9 +207,9 @@ export default function CustomerManagement() {
     setContacts(contactItems);
 
     setModalVisible(true);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!formData.name) {
       Alert.alert('提示', '客户名称不能为空');
       return;
@@ -200,7 +217,7 @@ export default function CustomerManagement() {
 
     // 过滤空地址
     const validAddresses = addresses.filter((addr) => addr.value.trim());
-    
+
     // 过滤有效联系人（至少要填写姓名的才保存）
     const validContacts = contacts.filter((c) => c.name.trim());
 
@@ -248,15 +265,15 @@ export default function CustomerManagement() {
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
-  };
+  }, [formData, addresses, contacts, editingCustomer, fetchCustomers]);
 
-  const handleDelete = (customer: Customer) => {
+  const handleDelete = useCallback((customer: Customer) => {
     console.log('[客户删除] 删除客户:', customer);
     setDeletingCustomer(customer);
     setDeleteConfirmVisible(true);
-  };
+  }, []);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!deletingCustomer) return;
 
     try {
@@ -279,12 +296,12 @@ export default function CustomerManagement() {
       console.error('[客户删除] 删除失败:', error);
       Alert.alert('错误', error.message);
     }
-  };
+  }, [deletingCustomer, fetchCustomers]);
 
-  const handleCancelDelete = () => {
+  const handleCancelDelete = useCallback(() => {
     setDeleteConfirmVisible(false);
     setDeletingCustomer(null);
-  };
+  }, []);
 
   return (
     <Screen>
@@ -313,21 +330,17 @@ export default function CustomerManagement() {
       {/* 客户数量统计 */}
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{customers.length}</Text>
+          <Text style={styles.statNumber}>{statsData.totalCustomers}</Text>
           <Text style={styles.statLabel}>客户总数</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {customers.reduce((sum, c) => sum + (c.device_count || 0), 0)}
-          </Text>
+          <Text style={styles.statNumber}>{statsData.totalDevices}</Text>
           <Text style={styles.statLabel}>关联设备</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {customers.reduce((sum, c) => sum + (c.contract_count || 0), 0)}
-          </Text>
+          <Text style={styles.statNumber}>{statsData.totalContracts}</Text>
           <Text style={styles.statLabel}>关联合同</Text>
         </View>
       </View>
