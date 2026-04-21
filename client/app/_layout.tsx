@@ -87,30 +87,31 @@ function RootLayoutInner() {
     checkAuthStatus();
   }, [segments]);
 
-  // 路由守卫
+  // 路由守卫 - 在路由变化时直接检查登录状态（避免竞态条件）
   useEffect(() => {
     if (isLoading || !rootState?.key) return;
 
-    const inLoginRoute = segments[0] === 'login';
+    const checkRouteGuard = async () => {
+      const inLoginRoute = segments[0] === 'login';
+      const isAuth = await checkAuth();
 
-    console.log('[认证] 路由守卫检查:', {
-      isAuthenticated,
-      inLoginRoute,
-      segments,
-    });
+      console.log('[认证] 路由守卫检查 - 路由:', segments, '登录页:', inLoginRoute, '已登录:', isAuth);
 
-    // 未登录且不在登录页 → 跳转登录页
-    if (!isAuthenticated && !inLoginRoute) {
-      console.log('[认证] 未登录，跳转到登录页');
-      router.replace('/login');
-    }
+      // 未登录且不在登录页 → 跳转登录页
+      if (!isAuth && !inLoginRoute) {
+        console.log('[认证] 未登录，跳转到登录页');
+        router.replace('/login');
+      }
 
-    // 已登录但在登录页 → 跳转首页
-    if (isAuthenticated && inLoginRoute) {
-      console.log('[认证] 已登录，跳转到首页');
-      router.replace('/(tabs)');
-    }
-  }, [isAuthenticated, segments, isLoading, rootState?.key, router]);
+      // 已登录但在登录页 → 跳转首页
+      if (isAuth && inLoginRoute) {
+        console.log('[认证] 已登录，跳转到首页');
+        router.replace('/(tabs)');
+      }
+    };
+
+    checkRouteGuard();
+  }, [segments, isLoading, rootState?.key, router]);
 
   return (
     <>
