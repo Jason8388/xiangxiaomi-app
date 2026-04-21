@@ -182,6 +182,18 @@ export default function PermissionConfig() {
   return (
     <Screen>
       <View style={styles.container}>
+        {/* 导航栏 */}
+        <View style={styles.navBar}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.navButton}>
+            <FontAwesome6 name="arrow-left" size={20} color="#007AFF" />
+            <Text style={styles.navButtonText}>返回</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.navigate('/')} style={styles.navButton}>
+            <FontAwesome6 name="house" size={20} color="#007AFF" />
+            <Text style={styles.navButtonText}>主页</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* 标题 */}
         <View style={styles.header}>
           <Text style={styles.title}>账号权限配置</Text>
@@ -265,10 +277,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
+  navBar: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  navButtonText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   header: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 15,
     paddingBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
