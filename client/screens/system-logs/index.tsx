@@ -163,15 +163,37 @@ export default function SystemLogsScreen() {
 
   const fetchStats = async () => {
     try {
-      /**
-       * 服务端文件：server/src/routes/logs.ts
-       * 接口：GET /api/v1/logs/stats
-       */
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/logs/stats`);
+      let url = '';
+      if (activeTab === 'login') {
+        /**
+         * 服务端文件：server/src/routes/logs.ts
+         * 接口：GET /api/v1/logs/login/stats
+         */
+        url = `${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/logs/login/stats`;
+      } else {
+        // 操作日志暂时没有统计接口
+        setStats({
+          total_logins: 0,
+          total_operations: 0,
+          active_users: 0,
+          avg_login_duration: 0,
+        });
+        return;
+      }
+
+      const response = await fetch(url);
       const data = await response.json();
-      
-      if (data.code === 200) {
-        setStats(data.data || {
+
+      if (data.code === 200 && data.data) {
+        // 将后端返回的字段映射为前端期望的格式
+        setStats({
+          total_logins: data.data.total_logins || 0,
+          total_operations: 0, // 操作日志暂时没有统计
+          active_users: data.data.unique_users || 0,
+          avg_login_duration: data.data.avg_duration || 0,
+        });
+      } else {
+        setStats({
           total_logins: 0,
           total_operations: 0,
           active_users: 0,
@@ -180,6 +202,12 @@ export default function SystemLogsScreen() {
       }
     } catch (error) {
       console.error('获取统计数据错误:', error);
+      setStats({
+        total_logins: 0,
+        total_operations: 0,
+        active_users: 0,
+        avg_login_duration: 0,
+      });
     }
   };
 
@@ -268,6 +296,8 @@ export default function SystemLogsScreen() {
     } else {
       fetchOperationLogs(1);
     }
+    // 切换tab时重新获取统计数据
+    fetchStats();
   }, [activeTab]);
 
   const formatDuration = (seconds: number | null) => {
