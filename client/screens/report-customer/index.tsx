@@ -148,14 +148,30 @@ export default function ReportCustomer() {
     });
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (searchQuery.trim()) {
-      const filtered = details.filter((item) =>
-        item.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredDetails(filtered);
-      if (filtered.length === 0) {
-        Alert.alert('提示', `未找到包含"${searchQuery}"的客户`);
+      try {
+        setLoading(true);
+        // 调用后端搜索接口
+        const response = await fetch(
+          `${getApiBaseUrl()}/api/v1/reports/customers?search=${encodeURIComponent(searchQuery)}`
+        );
+        const data = await response.json();
+
+        if (response.ok) {
+          const filtered = Array.isArray(data) ? data : (data.details || []);
+          setFilteredDetails(filtered);
+          if (filtered.length === 0) {
+            Alert.alert('提示', `未找到包含"${searchQuery}"的客户`);
+          }
+        } else {
+          Alert.alert('错误', data.message || '搜索失败');
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+        Alert.alert('错误', '搜索失败');
+      } finally {
+        setLoading(false);
       }
     } else {
       setFilteredDetails(details);
