@@ -159,6 +159,7 @@ function RootLayoutInner() {
         <Stack.Screen name="meeting-minute-edit" options={{ title: "" }} />
         <Stack.Screen name="permission-config" options={{ title: "权限配置" }} />
         <Stack.Screen name="system-logs" options={{ title: "日志查询" }} />
+        <Stack.Screen name="system-cleanup" options={{ title: "系统清理" }} />
         <Stack.Screen name="query-assistant" options={{ title: "" }} />
         <Stack.Screen name="query-scan" options={{ title: "" }} />
         <Stack.Screen name="query-file" options={{ title: "" }} />

@@ -75,6 +75,30 @@ export default function ProfileScreen() {
       color: '#3498DB',
       onPress: () => setVersionModalVisible(true),
     },
+    // 管理员专属功能
+    ...(user?.role === 'admin' ? [
+      {
+        icon: 'gear',
+        title: '系统管理',
+        subtitle: '日志查询、系统清理',
+        color: '#FF6B6B',
+        onPress: () => Alert.alert(
+          '系统管理',
+          '请选择功能',
+          [
+            { text: '取消', style: 'cancel' },
+            {
+              text: '日志查询',
+              onPress: () => router.push('/system-logs'),
+            },
+            {
+              text: '系统清理',
+              onPress: () => router.push('/system-cleanup'),
+            },
+          ]
+        ),
+      },
+    ] : []),
   ];
 
   if (loading) {

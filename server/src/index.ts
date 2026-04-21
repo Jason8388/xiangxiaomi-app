@@ -37,6 +37,7 @@ import uploadRoutes from "./routes/upload";
 import exportRoutes from "./routes/export";
 import permissionRoutes from "./routes/permissions";
 import logRoutes from "./routes/logs";
+import systemCleanupRoutes from "./routes/system-cleanup";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -79,6 +80,7 @@ app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/export', exportRoutes);
 app.use('/api/v1/permissions', permissionRoutes);
 app.use('/api/v1/logs', logRoutes);
+app.use('/api/v1/system-cleanup', systemCleanupRoutes);
 
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');
