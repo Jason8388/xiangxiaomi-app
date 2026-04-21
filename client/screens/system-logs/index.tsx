@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useFocusEffect } from 'expo-router';
-import Screen from '@/components/Screen';
+import { Screen } from '@/components/Screen';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
