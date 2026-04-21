@@ -304,4 +304,105 @@ router.get('/devices', async (req, res) => {
   }
 });
 
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/work-orders
+ * 描述：获取工单统计信息（汇总数据+工单列表）
+ * Query 参数：search (可选) - 工单标题搜索关键词
+ */
+router.get('/work-orders', async (req, res) => {
+  try {
+    // 获取所有工单数据
+    let workOrders = memoryWorkOrders.map(workOrder => ({
+      id: workOrder.id,
+      order_no: workOrder.order_no,
+      title: workOrder.title,
+      type: workOrder.type,
+      status: workOrder.status,
+      customer_name: workOrder.customer_name,
+      device_name: workOrder.device_name,
+      created_at: workOrder.created_at,
+      updated_at: workOrder.updated_at,
+      priority: workOrder.priority,
+    }));
+
+    // 如果有查询参数，进行过滤
+    const { search } = req.query;
+    if (search && typeof search === 'string') {
+      workOrders = workOrders.filter(workOrder =>
+        workOrder.title.includes(search) ||
+        workOrder.order_no.includes(search) ||
+        workOrder.customer_name.includes(search)
+      );
+    }
+
+    // 计算总数
+    const summary = {
+      total_work_orders: workOrders.length,
+      by_status: {
+        pending: workOrders.filter(w => w.status === 'pending').length,
+        processing: workOrders.filter(w => w.status === 'processing').length,
+        completed: workOrders.filter(w => w.status === 'completed').length,
+      },
+      by_type: {},
+    };
+
+    // 统计按类型的工单数量
+    workOrders.forEach(workOrder => {
+      const type = workOrder.type || '未知';
+      if (!summary.by_type[type]) {
+        summary.by_type[type] = 0;
+      }
+      summary.by_type[type]++;
+    });
+
+    res.json({
+      summary,
+      details: workOrders,
+    });
+  } catch (error) {
+    console.error('Failed to fetch work orders:', error);
+    res.status(500).json({ error: '获取工单统计信息失败' });
+  }
+});
+
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/work-orders/export
+ * 描述：导出工单统计Excel
+ */
+router.get('/work-orders/export', async (req, res) => {
+  try {
+    // 获取所有工单数据
+    const workOrders = memoryWorkOrders.map(workOrder => ({
+      工单编号: workOrder.order_no,
+      工单标题: workOrder.title,
+      工单类型: workOrder.type,
+      状态: workOrder.status === 'pending' ? '待处理'
+            : workOrder.status === 'processing' ? '进行中'
+            : workOrder.status === 'completed' ? '已完成'
+            : workOrder.status,
+      客户名称: workOrder.customer_name || '',
+      设备名称: workOrder.device_name || '',
+      优先级: workOrder.priority || '',
+      创建时间: workOrder.created_at ? new Date(workOrder.created_at).toLocaleString() : '',
+      更新时间: workOrder.updated_at ? new Date(workOrder.updated_at).toLocaleString() : '',
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(workOrders);
+    XLSX.utils.book_append_sheet(workbook, worksheet, '工单统计');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileName = encodeURIComponent('工单统计.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${fileName}`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export work orders error:', error);
+    res.status(500).json({ error: '导出工单统计失败' });
+  }
+});
+
 export default router;
