@@ -131,7 +131,7 @@ export default function WorkOrderQuery() {
                   <View style={styles.orderTitleContainer}>
                     <FontAwesome6 name="screwdriver-wrench" size={18} color="#6C63FF" />
                     <Text style={styles.orderName} numberOfLines={1}>
-                      {order.name || '无名称'}
+                      {order.title || order.name || '无名称'}
                     </Text>
                   </View>
                   <View
