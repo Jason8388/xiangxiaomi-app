@@ -62,6 +62,20 @@ export default function ProfileScreen() {
       onPress: () => router.push('/account-settings'),
     },
     {
+      icon: 'users-gear',
+      title: '账号管理',
+      subtitle: '管理用户账号和权限',
+      color: '#FF6B6B',
+      onPress: () => {
+        // 检查是否为管理员
+        if (user?.role !== 'admin') {
+          Alert.alert('提示', '只有管理员才能访问账号管理');
+          return;
+        }
+        router.push('/users');
+      },
+    },
+    {
       icon: 'circle-question',
       title: '帮助与反馈',
       subtitle: '产品操作指导手册',
