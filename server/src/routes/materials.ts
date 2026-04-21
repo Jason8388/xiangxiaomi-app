@@ -210,32 +210,32 @@ router.get('/batch-export', async (req, res) => {
 });
 
 // 获取物料详情
+// 获取物料详情 - 优化版本，优先内存存储
 router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  // 优先从内存数据中查找（最快）
+  const memoryMaterial = memoryMaterials.find(m => m.id === parseInt(id));
+  if (memoryMaterial) {
+    return res.json({ code: 0, data: memoryMaterial, message: 'success' });
+  }
+
+  // 内存存储中不存在，尝试查询数据库
   try {
-    const { id } = req.params;
-    try {
-      const result = await pool.query('SELECT * FROM materials WHERE id = $1', [id]);
-      if (result.rows.length === 0) {
-        // 尝试从内存数据中查找
-        const memoryMaterial = memoryMaterials.find(m => m.id === parseInt(id));
-        if (memoryMaterial) {
-          return res.json({ code: 0, data: memoryMaterial, message: 'success' });
-        }
-        return res.status(404).json({ code: 1, error: '物料不存在' });
-      }
+    const result = await Promise.race([
+      pool.query('SELECT * FROM materials WHERE id = $1', [id]),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Query timeout')), 500)
+      )
+    ]);
+
+    if (result.rows.length > 0) {
       res.json({ code: 0, data: result.rows[0], message: 'success' });
-    } catch (dbError: any) {
-      console.error('Database error, using memory storage:', dbError.message);
-      // 从内存数据中查找
-      const memoryMaterial = memoryMaterials.find(m => m.id === parseInt(id));
-      if (memoryMaterial) {
-        return res.json({ code: 0, data: memoryMaterial, message: 'success' });
-      }
-      return res.status(404).json({ code: 1, error: '物料不存在' });
+    } else {
+      res.status(404).json({ code: 1, error: '物料不存在' });
     }
-  } catch (error) {
-    console.error('Get material error:', error);
-    res.status(500).json({ code: 1, error: '服务器错误' });
+  } catch (dbError: any) {
+    res.status(404).json({ code: 1, error: '物料不存在' });
   }
 });
 

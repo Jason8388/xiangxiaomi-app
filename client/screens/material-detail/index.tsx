@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { getApiBaseUrl } from '@/utils/api';
 import { Screen } from '@/components/Screen';
@@ -27,6 +27,7 @@ export default function MaterialDetail() {
   const { id } = useSafeSearchParams<{ id: number }>();
   const [material, setMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingTime, setLoadingTime] = useState<number>(0);
 
   useEffect(() => {
     if (id) {
@@ -34,13 +35,17 @@ export default function MaterialDetail() {
     }
   }, [id]);
 
-  const fetchMaterialDetail = async () => {
+  const fetchMaterialDetail = useCallback(async () => {
+    if (!id) return;
+
+    const startTime = Date.now();
     try {
       setLoading(true);
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/materials/${id}`
       );
       const data = await response.json();
+
       if (response.ok) {
         const m = data.data || data;
         // 字段兼容处理
@@ -66,15 +71,62 @@ export default function MaterialDetail() {
       console.error('Fetch material detail error:', error);
       Alert.alert('错误', '获取物料详情失败');
     } finally {
+      const endTime = Date.now();
+      setLoadingTime(endTime - startTime);
+      console.log(`[性能] 物料详情页加载时间: ${endTime - startTime}ms`);
       setLoading(false);
     }
-  };
+  }, [id]);
 
   if (loading) {
     return (
       <Screen>
-        <View style={styles.loading}>
-          <Text style={styles.loadingText}>加载中...</Text>
+        <View style={styles.container}>
+          <ScrollView>
+            {/* 骨架屏 - 头部 */}
+            <View style={styles.header}>
+              <View style={styles.headerIconSkeleton} />
+              <View style={styles.headerInfoSkeleton}>
+                <View style={[styles.skeletonLine, { width: '60%' }]} />
+                <View style={[styles.skeletonLine, { width: '40%' }]} />
+              </View>
+            </View>
+
+            {/* 骨架屏 - 库存卡片 */}
+            <View style={styles.stockCard}>
+              <View style={styles.skeletonLine} />
+            </View>
+
+            {/* 骨架屏 - 信息卡片 */}
+            <View style={styles.section}>
+              <View style={[styles.skeletonLine, { width: '30%' }]} />
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <View style={[styles.skeletonLine, { width: '80%' }]} />
+                  <View style={[styles.skeletonLine, { width: '60%' }]} />
+                </View>
+                <View style={styles.infoItem}>
+                  <View style={[styles.skeletonLine, { width: '80%' }]} />
+                  <View style={[styles.skeletonLine, { width: '60%' }]} />
+                </View>
+              </View>
+            </View>
+
+            {/* 骨架屏 - 第二个信息卡片 */}
+            <View style={styles.section}>
+              <View style={[styles.skeletonLine, { width: '30%' }]} />
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <View style={[styles.skeletonLine, { width: '80%' }]} />
+                  <View style={[styles.skeletonLine, { width: '60%' }]} />
+                </View>
+                <View style={styles.infoItem}>
+                  <View style={[styles.skeletonLine, { width: '80%' }]} />
+                  <View style={[styles.skeletonLine, { width: '60%' }]} />
+                </View>
+              </View>
+            </View>
+          </ScrollView>
         </View>
       </Screen>
     );
@@ -90,7 +142,15 @@ export default function MaterialDetail() {
     );
   }
 
-  const isLowStock = material.stock_quantity <= (material.warning_stock || 0);
+  // 使用 useMemo 优化计算
+  const isLowStock = useMemo(() => {
+    if (!material) return false;
+    return material.stock_quantity <= (material.warning_stock || 0);
+  }, [material?.stock_quantity, material?.warning_stock]);
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
 
   return (
     <Screen>
@@ -193,7 +253,7 @@ export default function MaterialDetail() {
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={handleBack}
           >
             <Text style={styles.backButtonText}>返回列表</Text>
           </TouchableOpacity>
@@ -203,14 +263,15 @@ export default function MaterialDetail() {
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+// 使用 React.memo 优化 InfoItem 组件，避免不必要的重新渲染
+const InfoItem = memo(({ label, value }: { label: string; value: string }) => {
   return (
     <View style={styles.infoItem}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -225,6 +286,23 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#636E72',
+  },
+  headerIconSkeleton: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
+    marginRight: 16,
+  },
+  headerInfoSkeleton: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  skeletonLine: {
+    height: 12,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 6,
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',
