@@ -28,6 +28,10 @@ export default function LoginScreen() {
       return;
     }
 
+    console.log('[APP登录] 开始登录...');
+    console.log('[APP登录] 用户名:', username);
+    console.log('[APP登录] 设备ID:', Constants.deviceId);
+
     setLoading(true);
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/users/login`, {
@@ -43,14 +47,23 @@ export default function LoginScreen() {
 
       const data = await response.json();
 
+      console.log('[APP登录] 响应数据:', data);
+
       if (!response.ok) {
         throw new Error(data.error || '登录失败');
       }
 
       // 保存用户信息
-      await storage.setItem('user', JSON.stringify(data.user));
-      await storage.setItem('session_id', data.session.session_id);
-      await storage.setItem('token', 'mock_token');
+      if (data.user) {
+        await storage.setItem('user', JSON.stringify(data.user));
+        console.log('[APP登录] 用户信息已保存');
+      }
+
+      if (data.session && data.session.session_id) {
+        await storage.setItem('session_id', data.session.session_id);
+        await storage.setItem('token', data.session.session_id);
+        console.log('[APP登录] 会话ID已保存');
+      }
 
       Alert.alert('成功', '登录成功', [
         {
@@ -59,6 +72,7 @@ export default function LoginScreen() {
         }
       ]);
     } catch (error: any) {
+      console.error('[APP登录] 错误:', error);
       Alert.alert('错误', error.message);
     } finally {
       setLoading(false);
