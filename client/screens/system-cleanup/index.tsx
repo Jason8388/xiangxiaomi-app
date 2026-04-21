@@ -65,6 +65,13 @@ export default function SystemCleanupScreen() {
     }
   };
 
+  // 页面加载时自动获取存储信息
+  useFocusEffect(
+    useCallback(() => {
+      getStorageInfo();
+    }, [])
+  );
+
   // 扫描系统文件
   const scanSystem = useCallback(async () => {
     setIsScanning(true);
