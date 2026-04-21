@@ -1,8 +1,13 @@
 import express from "express";
 import pool, { USE_DATABASE } from "../database/db";
 import { memoryMeetingMinutes as preloadedMinutes } from "../database/memory-storage";
+import XLSX from "xlsx";
+import multer from "multer";
 
 const router = express.Router();
+
+// 配置multer用于文件上传
+const upload = multer({ storage: multer.memoryStorage() });
 
 // 内存数据存储（用于数据库不可用时）- 使用预置数据
 const memoryMeetingMinutes: any[] = [...preloadedMinutes];
@@ -207,6 +212,242 @@ router.get("/search", async (req, res) => {
   } catch (error) {
     console.error("Search meeting minutes error:", error);
     res.status(500).json({ message: "搜索会议纪要失败" });
+  }
+});
+
+// Import meeting minutes template
+router.get('/template', async (req, res) => {
+  try {
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet([
+      {
+        '会议主题': '',
+        '会议日期': 'YYYY-MM-DD',
+        '会议地点': '',
+        '参会人员': '',
+        '会议内容': '',
+        '决议事项': '',
+        '客户名称': '',
+        '备注': '',
+        '标签': '重要,紧急 (多个标签用逗号分隔)'
+      }
+    ]);
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, '会议纪要导入模板');
+
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 20 },  // 会议主题
+      { wch: 15 },  // 会议日期
+      { wch: 20 },  // 会议地点
+      { wch: 30 },  // 参会人员
+      { wch: 50 },  // 会议内容
+      { wch: 50 },  // 决议事项
+      { wch: 20 },  // 客户名称
+      { wch: 30 },  // 备注
+      { wch: 40 },  // 标签
+    ];
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const encodedFilename = encodeURIComponent('会议纪要导入模板.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export template error:', error);
+    res.status(500).json({ message: '导出模板失败' });
+  }
+});
+
+// Export meeting minutes to Excel
+router.get('/export', async (req, res) => {
+  try {
+    let meetingMinutes: any[] = [];
+
+    try {
+      const result = await queryWithRetry(
+        `SELECT mm.*, c.name as customer_name
+         FROM meeting_minutes mm
+         LEFT JOIN customers c ON mm.customer_id = c.id
+         ORDER BY mm.meeting_date DESC`
+      );
+      meetingMinutes = result.rows;
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      meetingMinutes = memoryMeetingMinutes;
+    }
+
+    const exportData = meetingMinutes.map(mm => ({
+      'ID': mm.id,
+      '会议主题': mm.meeting_name || '',
+      '会议日期': mm.meeting_date || '',
+      '会议地点': mm.meeting_location || '',
+      '参会人员': mm.attendees || '',
+      '会议内容': mm.meeting_content || '',
+      '决议事项': mm.resolutions || '',
+      '客户名称': mm.customer_name || '',
+      '备注': mm.remarks || '',
+      '标签': Array.isArray(mm.tags) ? mm.tags.map((t: any) => t.tag).join(', ') : '',
+      '创建时间': mm.created_at ? new Date(mm.created_at).toLocaleString('zh-CN') : '',
+      '更新时间': mm.updated_at ? new Date(mm.updated_at).toLocaleString('zh-CN') : ''
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, '会议纪要列表');
+
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 8 },   // ID
+      { wch: 30 },  // 会议主题
+      { wch: 15 },  // 会议日期
+      { wch: 20 },  // 会议地点
+      { wch: 40 },  // 参会人员
+      { wch: 50 },  // 会议内容
+      { wch: 50 },  // 决议事项
+      { wch: 20 },  // 客户名称
+      { wch: 30 },  // 备注
+      { wch: 40 },  // 标签
+      { wch: 20 },  // 创建时间
+      { wch: 20 },  // 更新时间
+    ];
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const encodedFilename = encodeURIComponent('会议纪要列表.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export meeting minutes error:', error);
+    res.status(500).json({ message: '导出失败' });
+  }
+});
+
+// Import meeting minutes from Excel
+router.post('/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: '请上传文件' });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    const imported = [];
+    const errors = [];
+
+    for (let i = 0; i < data.length; i++) {
+      try {
+        const row: any = data[i];
+
+        // Validate required fields
+        if (!row['会议主题'] || !row['会议日期']) {
+          errors.push({ row: i + 2, message: '会议主题和会议日期为必填项' });
+          continue;
+        }
+
+        // Parse tags
+        const tags = [];
+        if (row['标签']) {
+          const tagList = String(row['标签']).split(',').map((t: string) => t.trim()).filter((t: string) => t);
+          for (const tag of tagList) {
+            if (tag) {
+              tags.push(tag);
+            }
+          }
+        }
+
+        const meetingMinute = {
+          meeting_name: row['会议主题'],
+          meeting_date: row['会议日期'],
+          meeting_location: row['会议地点'] || '',
+          attendees: row['参会人员'] || '',
+          meeting_content: row['会议内容'] || '',
+          resolutions: row['决议事项'] || '',
+          customer_id: null,
+          remarks: row['备注'] || '',
+          created_at: new Date(),
+          updated_at: new Date()
+        };
+
+        // Try to find customer by name
+        if (row['客户名称']) {
+          try {
+            const customerResult = await queryWithRetry(
+              'SELECT id FROM customers WHERE name = $1',
+              [row['客户名称']]
+            );
+            if (customerResult.rows.length > 0) {
+              meetingMinute.customer_id = customerResult.rows[0].id;
+            }
+          } catch (err) {
+            console.log('Customer query failed, skipping customer_id');
+          }
+        }
+
+        let id: number;
+        try {
+          const insertResult = await queryWithRetry(
+            `INSERT INTO meeting_minutes (
+              meeting_name, meeting_date, meeting_location, attendees,
+              meeting_content, resolutions, customer_id, remarks,
+              created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING id`,
+            [
+              meetingMinute.meeting_name,
+              meetingMinute.meeting_date,
+              meetingMinute.meeting_location,
+              meetingMinute.attendees,
+              meetingMinute.meeting_content,
+              meetingMinute.resolutions,
+              meetingMinute.customer_id,
+              meetingMinute.remarks,
+              meetingMinute.created_at,
+              meetingMinute.updated_at
+            ]
+          );
+          id = insertResult.rows[0].id;
+        } catch (dbError: any) {
+          console.log('Database insert failed, using memory storage');
+          id = Math.max(0, ...memoryMeetingMinutes.map(m => m.id)) + 1;
+          meetingMinute.id = id;
+          memoryMeetingMinutes.push(meetingMinute);
+        }
+
+        // Insert tags
+        for (const tag of tags) {
+          try {
+            await queryWithRetry(
+              'INSERT INTO meeting_minute_tags (meeting_minute_id, tag) VALUES ($1, $2)',
+              [id, tag]
+            );
+          } catch (err) {
+            console.log('Tag insert failed, skipping');
+          }
+        }
+
+        imported.push({ id, meeting_name: meetingMinute.meeting_name });
+      } catch (err: any) {
+        errors.push({ row: i + 2, message: err.message });
+      }
+    }
+
+    res.json({
+      message: '导入完成',
+      total: data.length,
+      success: imported.length,
+      failed: errors.length,
+      imported,
+      errors
+    });
+  } catch (error: any) {
+    console.error('Import meeting minutes error:', error);
+    res.status(500).json({ message: '导入失败', error: error.message });
   }
 });
 
