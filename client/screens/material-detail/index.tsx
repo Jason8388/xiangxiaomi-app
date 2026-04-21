@@ -29,19 +29,25 @@ export default function MaterialDetail() {
   const [material, setMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingTime, setLoadingTime] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchMaterialDetail = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      setError('物料ID无效');
+      setLoading(false);
+      return;
+    }
 
     const startTime = Date.now();
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/materials/${id}`
       );
       const result = await response.json();
 
-      if (response.ok) {
+      if (response.ok && result.code === 0) {
         const m = result.data || result;
         // 字段兼容处理
         setMaterial({
@@ -61,10 +67,15 @@ export default function MaterialDetail() {
           remarks: m.remarks || m.note || '',
           tags: m.tags || [],
         });
+      } else {
+        const errorMsg = result.message || '获取物料详情失败';
+        setError(errorMsg);
+        console.error('API error:', errorMsg);
       }
     } catch (error) {
+      const errorMsg = '网络连接失败，请检查网络设置';
+      setError(errorMsg);
       console.error('Fetch material detail error:', error);
-      Alert.alert('错误', '获取物料详情失败');
     } finally {
       const endTime = Date.now();
       setLoadingTime(endTime - startTime);
@@ -135,11 +146,29 @@ export default function MaterialDetail() {
     );
   }
 
-  if (!material) {
+  if (!material && !error) {
     return (
       <Screen>
         <View style={styles.loading}>
           <Text style={styles.loadingText}>物料不存在</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (error) {
+    return (
+      <Screen>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>加载失败</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchMaterialDetail}
+          >
+            <Text style={styles.retryButtonText}>重试</Text>
+          </TouchableOpacity>
         </View>
       </Screen>
     );
@@ -289,6 +318,40 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#636E72',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#F5F7FA',
+  },
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#636E72',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   headerIconSkeleton: {
     width: 60,
