@@ -56,13 +56,16 @@ export default function QueryMeeting() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/minutes/search?keyword=${encodeURIComponent(searchKeyword)}`
+        `${getApiBaseUrl()}/api/v1/query/meetings?keyword=${encodeURIComponent(searchKeyword)}`
       );
       const data = await response.json();
       if (response.ok) {
-        setResults(data);
+        setResults(data || []);
+      } else {
+        Alert.alert('错误', data.message || '查询失败');
       }
     } catch (error) {
+      console.error('Search error:', error);
       Alert.alert('错误', '查询失败');
     } finally {
       setLoading(false);
@@ -138,12 +141,14 @@ export default function QueryMeeting() {
                   <View style={styles.metaItem}>
                     <FontAwesome6 name="calendar" size={12} color="#636E72" />
                     <Text style={styles.metaText}>
-                      {new Date(meeting.meeting_date).toLocaleString()}
+                      {meeting.meeting_date
+                        ? new Date(meeting.meeting_date).toLocaleString()
+                        : '未设置'}
                     </Text>
                   </View>
                   <View style={styles.metaItem}>
                     <FontAwesome6 name="location-dot" size={12} color="#636E72" />
-                    <Text style={styles.metaText}>{meeting.meeting_location}</Text>
+                    <Text style={styles.metaText}>{meeting.meeting_location || '未设置'}</Text>
                   </View>
                 </View>
 
@@ -166,19 +171,23 @@ export default function QueryMeeting() {
                 )}
 
                 {/* 会议议题 */}
-                <View style={styles.topicsContainer}>
-                  <Text style={styles.topicsLabel}>会议议题：</Text>
-                  <Text style={styles.topicsText} numberOfLines={2}>
-                    {meeting.topics}
-                  </Text>
-                </View>
+                {meeting.topics && (
+                  <View style={styles.topicsContainer}>
+                    <Text style={styles.topicsLabel}>会议议题：</Text>
+                    <Text style={styles.topicsText} numberOfLines={2}>
+                      {meeting.topics}
+                    </Text>
+                  </View>
+                )}
 
-                {meeting.tags && meeting.tags.length > 0 && (
+                {meeting.tags && Array.isArray(meeting.tags) && meeting.tags.length > 0 && (
                   <View style={styles.tagsContainer}>
                     {meeting.tags.slice(0, 5).map((tagItem, index) => (
                       <View key={index} style={styles.tagBadge}>
                         <FontAwesome6 name="tag" size={10} color="#9B59B6" />
-                        <Text style={styles.tagText}>{tagItem.tag}</Text>
+                        <Text style={styles.tagText}>
+                          {typeof tagItem === 'string' ? tagItem : tagItem?.tag || ''}
+                        </Text>
                       </View>
                     ))}
                     {meeting.tags.length > 5 && (
@@ -204,7 +213,9 @@ export default function QueryMeeting() {
                     </Text>
                   </View>
                   <Text style={styles.uploadDate}>
-                    {new Date(meeting.created_at).toLocaleDateString()}
+                    {meeting.created_at
+                      ? new Date(meeting.created_at).toLocaleDateString()
+                      : '未设置'}
                   </Text>
                 </View>
               </TouchableOpacity>
