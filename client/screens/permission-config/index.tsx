@@ -1,10 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { Button } from '@/components/Button';
 import { getApiBaseUrl } from '@/utils/api';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { FontAwesome6 } from '@expo/vector-icons';
+
+// Button组件内联定义
+interface ButtonProps {
+  title: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  style?: any;
+  textStyle?: any;
+}
+
+function Button({
+  title,
+  onPress,
+  loading = false,
+  disabled = false,
+  style,
+  textStyle,
+}: ButtonProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.primaryButton, (disabled || loading) && styles.disabledButton, style]}
+      onPress={onPress}
+      disabled={disabled || loading}
+      activeOpacity={0.7}
+    >
+      {loading ? (
+        <ActivityIndicator color="#FFFFFF" size="small" />
+      ) : (
+        <Text style={[styles.primaryButtonText, textStyle]}>{title}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 // 支持的模块配置
 const MODULES = [
@@ -12,7 +45,7 @@ const MODULES = [
   { key: 'contract', name: '合同管理', icon: 'file-contract' },
   { key: 'device', name: '设备管理', icon: 'wrench' },
   { key: 'work_order', name: '工单管理', icon: 'clipboard-list' },
-  { key: 'meeting_minute', name: '会议纪要', icon: 'clipboard-text' },
+  { key: 'meeting_minute', name: '会议纪要', icon: 'clipboard' },
   { key: 'file', name: '文件管理', icon: 'folder' },
   { key: 'knowledge', name: '知识库', icon: 'book' },
 ] as const;
@@ -50,7 +83,19 @@ export default function PermissionConfig() {
       setLoading(true);
       console.log('[权限配置] 加载用户权限:', userId);
 
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/permissions/users/${userId}`);
+      // 检测环境
+      const isLocalDev = typeof window !== 'undefined' &&
+                         (window.location.hostname === 'localhost' ||
+                          window.location.hostname === '127.0.0.1');
+
+      let apiBaseUrl = 'http://localhost:9091';
+      if (!isLocalDev) {
+        apiBaseUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || window.location.origin;
+      }
+
+      console.log('[权限配置] API Base URL:', apiBaseUrl);
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/permissions/users/${userId}`);
       const data = await response.json();
 
       console.log('[权限配置] 权限数据:', data);
@@ -85,7 +130,17 @@ export default function PermissionConfig() {
       setSaving(true);
       console.log('[权限配置] 保存权限:', permissions);
 
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/permissions/users/${userId}`, {
+      // 检测环境
+      const isLocalDev = typeof window !== 'undefined' &&
+                         (window.location.hostname === 'localhost' ||
+                          window.location.hostname === '127.0.0.1');
+
+      let apiBaseUrl = 'http://localhost:9091';
+      if (!isLocalDev) {
+        apiBaseUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || window.location.origin;
+      }
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/permissions/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissions }),
@@ -194,12 +249,14 @@ interface PermissionSwitchProps {
 
 function PermissionSwitch({ label, value, onValueChange }: PermissionSwitchProps) {
   return (
-    <TouchableOpacity style={styles.permissionSwitch} onPress={onValueChange} activeOpacity={0.7}>
+    <View style={styles.permissionSwitch}>
       <Text style={styles.permissionLabel}>{label}</Text>
-      <View style={[styles.switchContainer, value ? styles.switchContainerOn : styles.switchContainerOff]}>
-        <View style={[styles.switchDot, value ? styles.switchDotOn : styles.switchDotOff]} />
-      </View>
-    </TouchableOpacity>
+      <TouchableOpacity onPress={onValueChange} activeOpacity={0.7}>
+        <View style={[styles.switchContainer, value ? styles.switchContainerOn : styles.switchContainerOff]}>
+          <View style={[styles.switchDot, value ? styles.switchDotOn : styles.switchDotOff]} />
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 }
 

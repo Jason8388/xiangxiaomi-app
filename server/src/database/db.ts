@@ -1,12 +1,50 @@
 import { Pool } from 'pg';
 
-// 数据库连接配置 - 优化超时和快速失败
-const pool = new Pool({
+// 解析 DATABASE_URL
+function parseDatabaseUrl(url: string): {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+} {
+  try {
+    const parsed = new URL(url);
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port) || 5432,
+      database: parsed.pathname.slice(1),
+      user: parsed.username,
+      password: parsed.password,
+    };
+  } catch (error) {
+    console.error('Failed to parse DATABASE_URL:', error);
+    return {
+      host: '172.36.0.169',
+      port: 59833,
+      database: 'postgres',
+      user: 'postgres',
+      password: 'postgres',
+    };
+  }
+}
+
+let dbConfig = {
   host: process.env.DB_HOST || '172.36.0.169',
   port: parseInt(process.env.DB_PORT || '59833'),
   database: process.env.DB_NAME || 'postgres',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
+};
+
+// 优先使用 DATABASE_URL
+if (process.env.DATABASE_URL) {
+  dbConfig = parseDatabaseUrl(process.env.DATABASE_URL);
+}
+
+// 数据库连接配置 - 优化超时和快速失败
+const pool = new Pool({
+  ...dbConfig,
   max: 10,
   min: 1,
   idleTimeoutMillis: 30000,

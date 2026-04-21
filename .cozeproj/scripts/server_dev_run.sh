@@ -43,4 +43,11 @@ kill_old_server
 
 echo "启动 server 服务..."
 cd "$SERVER_DIR"
-NODE_ENV=development PORT="$SERVER_PORT" npx tsx watch ./src/index.ts 2>&1 | pipe_to_log "SERVER" "$LOG_SERVER_FILE"
+NODE_ENV=development \
+PORT="$SERVER_PORT" \
+DB_HOST="${DB_HOST:-172.36.0.169}" \
+DB_PORT="${DB_PORT:-59833}" \
+DB_NAME="${DB_NAME:-postgres}" \
+DB_USER="${DB_USER:-postgres}" \
+DB_PASSWORD="${DB_PASSWORD:-postgres}" \
+npx tsx watch ./src/index.ts 2>&1 | pipe_to_log "SERVER" "$LOG_SERVER_FILE"

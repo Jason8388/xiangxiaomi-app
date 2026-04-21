@@ -34,10 +34,14 @@ export function getApiBaseUrl(): string {
       return 'http://localhost:9091';
     }
     
-    // 沙箱/生产环境：使用相对路径（前端服务器已配置代理）
-    // 注意：此时浏览器的 window.location 可能返回外部域名
-    // 但 API 请求应该使用相对路径，让代理服务器处理
-    console.log('[API] Production/Sandbox - using relative path');
+    // 沙箱/生产环境：使用环境变量中的完整URL
+    const envUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+    if (envUrl) {
+      console.log('[API] Production/Sandbox - using env URL:', envUrl);
+      return envUrl;
+    }
+    
+    console.log('[API] No env URL available, using relative path');
     return '';
   }
   
