@@ -222,13 +222,16 @@ router.get('/template', async (req, res) => {
     const worksheet = XLSX.utils.json_to_sheet([
       {
         '会议主题': '',
+        '会议类型': '',
         '会议日期': 'YYYY-MM-DD',
         '会议地点': '',
         '参会人员': '',
-        '会议内容': '',
-        '决议事项': '',
+        '主持人': '',
+        '记录人': '',
+        '会议议题': '',
+        '关键点': '',
+        '会议总结': '',
         '客户名称': '',
-        '备注': '',
         '标签': '重要,紧急 (多个标签用逗号分隔)'
       }
     ]);
@@ -238,13 +241,16 @@ router.get('/template', async (req, res) => {
     // Set column widths
     worksheet['!cols'] = [
       { wch: 20 },  // 会议主题
+      { wch: 15 },  // 会议类型
       { wch: 15 },  // 会议日期
       { wch: 20 },  // 会议地点
       { wch: 30 },  // 参会人员
-      { wch: 50 },  // 会议内容
-      { wch: 50 },  // 决议事项
+      { wch: 15 },  // 主持人
+      { wch: 15 },  // 记录人
+      { wch: 50 },  // 会议议题
+      { wch: 50 },  // 关键点
+      { wch: 50 },  // 会议总结
       { wch: 20 },  // 客户名称
-      { wch: 30 },  // 备注
       { wch: 40 },  // 标签
     ];
 
@@ -267,7 +273,13 @@ router.get('/export', async (req, res) => {
 
     try {
       const result = await queryWithRetry(
-        `SELECT mm.*, c.name as customer_name
+        `SELECT mm.*,
+                c.name as customer_name,
+                (
+                  SELECT json_agg(json_build_object('id', mmt.id, 'tag', mmt.tag))
+                  FROM meeting_minute_tags mmt
+                  WHERE mmt.meeting_minute_id = mm.id
+                ) as tags
          FROM meeting_minutes mm
          LEFT JOIN customers c ON mm.customer_id = c.id
          ORDER BY mm.meeting_date DESC`
@@ -281,13 +293,16 @@ router.get('/export', async (req, res) => {
     const exportData = meetingMinutes.map(mm => ({
       'ID': mm.id,
       '会议主题': mm.meeting_name || '',
+      '会议类型': mm.meeting_type || '',
       '会议日期': mm.meeting_date || '',
       '会议地点': mm.meeting_location || '',
       '参会人员': mm.attendees || '',
-      '会议内容': mm.meeting_content || '',
-      '决议事项': mm.resolutions || '',
+      '主持人': mm.host || '',
+      '记录人': mm.recorder || '',
+      '会议议题': mm.topics || '',
+      '关键点': mm.key_points || '',
+      '会议总结': mm.summary || '',
       '客户名称': mm.customer_name || '',
-      '备注': mm.remarks || '',
       '标签': Array.isArray(mm.tags) ? mm.tags.map((t: any) => t.tag).join(', ') : '',
       '创建时间': mm.created_at ? new Date(mm.created_at).toLocaleString('zh-CN') : '',
       '更新时间': mm.updated_at ? new Date(mm.updated_at).toLocaleString('zh-CN') : ''
@@ -302,13 +317,16 @@ router.get('/export', async (req, res) => {
     worksheet['!cols'] = [
       { wch: 8 },   // ID
       { wch: 30 },  // 会议主题
+      { wch: 15 },  // 会议类型
       { wch: 15 },  // 会议日期
       { wch: 20 },  // 会议地点
       { wch: 40 },  // 参会人员
-      { wch: 50 },  // 会议内容
-      { wch: 50 },  // 决议事项
+      { wch: 15 },  // 主持人
+      { wch: 15 },  // 记录人
+      { wch: 50 },  // 会议议题
+      { wch: 50 },  // 关键点
+      { wch: 50 },  // 会议总结
       { wch: 20 },  // 客户名称
-      { wch: 30 },  // 备注
       { wch: 40 },  // 标签
       { wch: 20 },  // 创建时间
       { wch: 20 },  // 更新时间
@@ -361,15 +379,15 @@ router.post('/import', upload.single('file'), async (req, res) => {
           }
         }
 
-        const meetingMinute = {
+        const meetingMinute: any = {
           meeting_name: row['会议主题'],
           meeting_date: row['会议日期'],
           meeting_location: row['会议地点'] || '',
           attendees: row['参会人员'] || '',
-          meeting_content: row['会议内容'] || '',
-          resolutions: row['决议事项'] || '',
+          topics: row['会议议题'] || '',
+          key_points: row['关键点'] || '',
+          summary: row['会议总结'] || '',
           customer_id: null,
-          remarks: row['备注'] || '',
           created_at: new Date(),
           updated_at: new Date()
         };
@@ -394,7 +412,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
           const insertResult = await queryWithRetry(
             `INSERT INTO meeting_minutes (
               meeting_name, meeting_date, meeting_location, attendees,
-              meeting_content, resolutions, customer_id, remarks,
+              topics, key_points, summary, customer_id,
               created_at, updated_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id`,
@@ -403,10 +421,10 @@ router.post('/import', upload.single('file'), async (req, res) => {
               meetingMinute.meeting_date,
               meetingMinute.meeting_location,
               meetingMinute.attendees,
-              meetingMinute.meeting_content,
-              meetingMinute.resolutions,
+              meetingMinute.topics,
+              meetingMinute.key_points,
+              meetingMinute.summary,
               meetingMinute.customer_id,
-              meetingMinute.remarks,
               meetingMinute.created_at,
               meetingMinute.updated_at
             ]

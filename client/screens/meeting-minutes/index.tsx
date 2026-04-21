@@ -9,9 +9,12 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -243,18 +246,47 @@ export default function MeetingMinutes() {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/meeting-minutes/export`);
       if (response.ok) {
         const blob = await response.blob();
-        if (typeof window !== 'undefined') {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          const fileName = encodeURIComponent('会议纪要数据导出.xlsx');
-          link.href = url;
-          link.download = fileName;
-          link.click();
-          window.URL.revokeObjectURL(url);
-          Alert.alert('成功', '导出成功');
-        } else {
-          Alert.alert('提示', '移动端暂不支持直接下载');
-        }
+
+        // 转换 blob 为 base64
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Data = reader.result as string;
+
+          if (Platform.OS === 'web') {
+            // Web 端下载
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const fileName = '会议纪要数据导出.xlsx';
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            window.URL.revokeObjectURL(url);
+            Alert.alert('成功', '导出成功');
+          } else {
+            // 移动端：保存到临时目录并分享
+            try {
+              const fileName = '会议纪要数据导出.xlsx';
+              const fileUri = FileSystem.documentDirectory + fileName;
+
+              await (FileSystem as any).writeAsStringAsync(fileUri, base64Data.split(',')[1], {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+
+              if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri, {
+                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                  dialogTitle: '导出会议纪要',
+                });
+              } else {
+                Alert.alert('成功', `文件已保存到：${fileUri}`);
+              }
+            } catch (fileError) {
+              console.error('移动端文件保存错误:', fileError);
+              Alert.alert('错误', '文件保存失败');
+            }
+          }
+        };
+        reader.readAsDataURL(blob);
       } else {
         Alert.alert('错误', '导出失败');
       }
@@ -269,18 +301,47 @@ export default function MeetingMinutes() {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/meeting-minutes/template`);
       if (response.ok) {
         const blob = await response.blob();
-        if (typeof window !== 'undefined') {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          const fileName = encodeURIComponent('会议纪要导入模板.xlsx');
-          link.href = url;
-          link.download = fileName;
-          link.click();
-          window.URL.revokeObjectURL(url);
-          Alert.alert('成功', '模板下载成功');
-        } else {
-          Alert.alert('提示', '移动端暂不支持直接下载');
-        }
+
+        // 转换 blob 为 base64
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Data = reader.result as string;
+
+          if (Platform.OS === 'web') {
+            // Web 端下载
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const fileName = '会议纪要导入模板.xlsx';
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            window.URL.revokeObjectURL(url);
+            Alert.alert('成功', '模板下载成功');
+          } else {
+            // 移动端：保存到临时目录并分享
+            try {
+              const fileName = '会议纪要导入模板.xlsx';
+              const fileUri = FileSystem.documentDirectory + fileName;
+
+              await (FileSystem as any).writeAsStringAsync(fileUri, base64Data.split(',')[1], {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+
+              if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri, {
+                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                  dialogTitle: '下载会议纪要模板',
+                });
+              } else {
+                Alert.alert('成功', `文件已保存到：${fileUri}`);
+              }
+            } catch (fileError) {
+              console.error('移动端文件保存错误:', fileError);
+              Alert.alert('错误', '文件保存失败');
+            }
+          }
+        };
+        reader.readAsDataURL(blob);
       } else {
         Alert.alert('错误', '模板下载失败');
       }
