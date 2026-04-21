@@ -328,7 +328,14 @@ export default function SystemLogsScreen() {
         {/* Header */}
         <View className="bg-white px-4 py-3 border-b border-gray-200">
           <View className="flex-row items-center justify-between">
-            <Text className="text-xl font-bold text-gray-900">日志查询</Text>
+            <TouchableOpacity
+              onPress={() => router.navigate('/(tabs)')}
+              className="flex-row items-center"
+            >
+              <FontAwesome5 name="home" size={18} color="#3B82F6" />
+              <Text className="text-sm text-blue-500 ml-1">工作台</Text>
+            </TouchableOpacity>
+            <Text className="text-lg font-bold text-gray-900">日志查询</Text>
             <TouchableOpacity
               onPress={() => router.back()}
               className="p-2"
