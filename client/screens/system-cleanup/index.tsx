@@ -246,11 +246,14 @@ export default function SystemCleanupScreen() {
       <SafeAreaView className="flex-1 bg-gray-50">
         {/* 标题栏 */}
         <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-          <TouchableOpacity onPress={() => router.back()} className="p-2">
-            <FontAwesome5 name="arrow-left" size={20} color="#1f2937" />
+          <TouchableOpacity onPress={() => router.navigate('/(tabs)')} className="flex-row items-center">
+            <FontAwesome5 name="home" size={18} color="#3B82F6" />
+            <Text className="text-sm text-blue-500 ml-1">工作台</Text>
           </TouchableOpacity>
           <Text className="text-lg font-bold text-gray-900">系统清理</Text>
-          <View className="w-10" />
+          <TouchableOpacity onPress={() => router.back()} className="p-2">
+            <FontAwesome5 name="times" size={20} color="#6B7280" />
+          </TouchableOpacity>
         </View>
 
         <ScrollView className="flex-1 p-4">
