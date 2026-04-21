@@ -185,6 +185,7 @@ export default function FilesScreen() {
   const [editingFile, setEditingFile] = useState<FileItem | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [newTagName, setNewTagName] = useState('');
+  const [fileTypeModalVisible, setFileTypeModalVisible] = useState(false);
   const router = useSafeRouter();
 
   // 初始加载
@@ -564,27 +565,23 @@ export default function FilesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 文件类型筛选 */}
+        {/* 文件类型筛选 - 下拉框 */}
         <View style={styles.fileTypeFilter}>
-          {fileTypeOptions.map((item) => (
-            <TouchableOpacity
-              key={item.type}
-              onPress={() => handleFileTypeFilter(item.type)}
-              style={[
-                styles.fileTypeChip,
-                selectedFileType === item.type && { backgroundColor: item.color },
-              ]}
-            >
-              <FontAwesome6
-                name={item.icon as any}
-                size={16}
-                color={selectedFileType === item.type ? '#FFF' : item.color}
-              />
-              <Text style={[styles.fileTypeText, selectedFileType === item.type && { color: '#FFF' }]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            onPress={() => setFileTypeModalVisible(true)}
+            style={styles.fileTypeDropdown}
+          >
+            <FontAwesome6
+              name={selectedFileType ? (fileTypeOptions.find(f => f.type === selectedFileType)?.icon || 'file') as any : 'filter'}
+              size={16}
+              color={selectedFileType ? '#1E88E5' : '#636E72'}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.fileTypeDropdownText}>
+              {selectedFileType ? fileTypeOptions.find(f => f.type === selectedFileType)?.label : '文件类型'}
+            </Text>
+            <FontAwesome6 name="chevron-down" size={14} color="#636E72" />
+          </TouchableOpacity>
         </View>
 
         {/* 标签筛选 */}
@@ -739,6 +736,51 @@ export default function FilesScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* 文件类型选择Modal */}
+      <Modal visible={fileTypeModalVisible} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setFileTypeModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.fileTypeModalContent}>
+                <View style={styles.fileTypeModalHeader}>
+                  <Text style={styles.fileTypeModalTitle}>选择文件类型</Text>
+                  <TouchableOpacity onPress={() => setFileTypeModalVisible(false)}>
+                    <FontAwesome6 name="xmark" size={20} color="#636E72" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.fileTypeModalBody}>
+                  <TouchableOpacity
+                    style={styles.fileTypeOption}
+                    onPress={() => {
+                      setSelectedFileType(null);
+                      setFileTypeModalVisible(false);
+                    }}
+                  >
+                    <FontAwesome6 name="filter" size={18} color="#636E72" />
+                    <Text style={styles.fileTypeOptionText}>全部</Text>
+                    {selectedFileType === null && <FontAwesome6 name="check" size={16} color="#1E88E5" />}
+                  </TouchableOpacity>
+                  {fileTypeOptions.map((item) => (
+                    <TouchableOpacity
+                      key={item.type}
+                      style={styles.fileTypeOption}
+                      onPress={() => {
+                        setSelectedFileType(item.type);
+                        setFileTypeModalVisible(false);
+                      }}
+                    >
+                      <FontAwesome6 name={item.icon as any} size={18} color={item.color} />
+                      <Text style={styles.fileTypeOptionText}>{item.label}</Text>
+                      {selectedFileType === item.type && <FontAwesome6 name="check" size={16} color="#1E88E5" />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </Screen>
   );
@@ -1017,5 +1059,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '500',
+  },
+  fileTypeModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '60%',
+  },
+  fileTypeModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  fileTypeModalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  fileTypeModalBody: {
+    paddingVertical: 8,
+  },
+  fileTypeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  fileTypeOptionText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#374151',
   },
 });
