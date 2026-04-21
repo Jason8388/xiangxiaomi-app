@@ -2,6 +2,7 @@ import express from 'express';
 import { memoryFiles } from './files';
 import { memoryCustomers } from './customers';
 import { memoryDevices } from './devices';
+import { memoryContracts } from './contracts';
 
 const router = express.Router();
 
@@ -23,11 +24,52 @@ router.get('/search', async (req, res) => {
 // 合同查询
 router.get('/contracts', async (req, res) => {
   try {
-    res.status(200).json({
-      code: 0,
-      data: [],
-      message: 'success'
-    });
+    const { keyword } = req.query;
+
+    if (!keyword || typeof keyword !== 'string') {
+      return res.status(200).json([]);
+    }
+
+    // 从内存存储中搜索合同
+    const keywordLower = keyword.toLowerCase();
+    const filteredContracts = memoryContracts
+      .filter((contract) => {
+        // 搜索合同名称
+        const contractName = (contract.contract_name || '').toLowerCase();
+        // 搜索合同编号
+        const contractNumber = (contract.contract_number || '').toLowerCase();
+        // 搜索客户名称
+        const customerName = (contract.customer_name || '').toLowerCase();
+        // 搜索标签
+        const tags = (contract.tags || []).map((t: string) => t.toLowerCase()).join(' ');
+        // 搜索商务经理
+        const businessManager = (contract.business_manager || '').toLowerCase();
+        // 搜索状态
+        const status = (contract.status || '').toLowerCase();
+
+        return (
+          contractName.includes(keywordLower) ||
+          contractNumber.includes(keywordLower) ||
+          customerName.includes(keywordLower) ||
+          tags.includes(keywordLower) ||
+          businessManager.includes(keywordLower) ||
+          status.includes(keywordLower)
+        );
+      })
+      .map((contract) => ({
+        id: contract.id,
+        contract_name: contract.contract_name,
+        contract_number: contract.contract_number,
+        customer_name: contract.customer_name,
+        contract_amount: contract.contract_amount || 0,
+        start_date: contract.sign_date,
+        end_date: contract.acceptance_date,
+        status: contract.status,
+        tags: contract.tags || [],
+        created_at: contract.created_at,
+      }));
+
+    res.status(200).json(filteredContracts);
   } catch (error) {
     console.error('Query contracts error:', error);
     res.status(500).json({ code: 1, message: 'Internal server error' });

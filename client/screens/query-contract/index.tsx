@@ -46,7 +46,9 @@ export default function QueryContract() {
       );
       const data = await response.json();
       if (response.ok) {
-        setResults(data);
+        setResults(data || []);
+      } else {
+        Alert.alert('错误', data.message || '查询失败');
       }
     } catch (error) {
       Alert.alert('错误', '查询失败');
@@ -154,13 +156,13 @@ export default function QueryContract() {
                     <View style={styles.detailItem}>
                       <FontAwesome6 name="building" size={12} color="#636E72" />
                       <Text style={styles.detailLabel}>客户：</Text>
-                      <Text style={styles.detailValue}>{contract.customer_name}</Text>
+                      <Text style={styles.detailValue}>{contract.customer_name || '未设置'}</Text>
                     </View>
                     <View style={styles.detailItem}>
                       <FontAwesome6 name="money-bill-wave" size={12} color="#636E72" />
                       <Text style={styles.detailLabel}>金额：</Text>
                       <Text style={styles.detailValue}>
-                        ¥{contract.contract_amount.toLocaleString()}
+                        ¥{contract.contract_amount ? contract.contract_amount.toLocaleString() : '0'}
                       </Text>
                     </View>
                   </View>
@@ -169,15 +171,15 @@ export default function QueryContract() {
                       <FontAwesome6 name="calendar" size={12} color="#636E72" />
                       <Text style={styles.detailLabel}>起止：</Text>
                       <Text style={styles.detailValue}>
-                        {new Date(contract.start_date).toLocaleDateString()} ~{' '}
-                        {new Date(contract.end_date).toLocaleDateString()}
+                        {contract.start_date ? new Date(contract.start_date).toLocaleDateString() : '未设置'} ~{' '}
+                        {contract.end_date ? new Date(contract.end_date).toLocaleDateString() : '未设置'}
                       </Text>
                     </View>
                   </View>
                 </View>
 
                 {/* 标签 */}
-                {contract.tags.length > 0 && (
+                {contract.tags && Array.isArray(contract.tags) && contract.tags.length > 0 && (
                   <View style={styles.tagsContainer}>
                     {contract.tags.slice(0, 3).map((tag, index) => (
                       <View key={index} style={styles.tagBadge}>
@@ -189,7 +191,7 @@ export default function QueryContract() {
 
                 <View style={styles.contractFooter}>
                   <Text style={styles.createdDate}>
-                    创建于 {new Date(contract.created_at).toLocaleDateString()}
+                    创建于 {contract.created_at ? new Date(contract.created_at).toLocaleDateString() : '未设置'}
                   </Text>
                   <FontAwesome6 name="chevron-right" size={16} color="#95A5A6" />
                 </View>

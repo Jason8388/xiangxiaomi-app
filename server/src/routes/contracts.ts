@@ -469,4 +469,7 @@ router.post('/import', async (req, res) => {
   }
 });
 
+// 导出内存存储供其他路由使用
+export { memoryContracts };
+
 export default router;
