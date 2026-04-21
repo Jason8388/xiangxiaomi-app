@@ -96,38 +96,51 @@ export default function UsersManagement() {
 
         {/* 用户列表 */}
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {users.map((user) => (
-            <View key={user.id} style={styles.userCard}>
-              {/* 用户信息 */}
-              <View style={styles.userInfo}>
-                <View style={styles.avatarContainer}>
-                  {user.avatar ? (
-                    <Image source={{ uri: user.avatar }} style={styles.avatar} />
-                  ) : (
-                    <FontAwesome6 name="user-circle" size={48} color="#007AFF" />
-                  )}
-                </View>
-                <View style={styles.userDetails}>
-                  <Text style={styles.userName}>{user.name}</Text>
-                  <Text style={styles.userUsername}>@{user.username}</Text>
-                  <View style={styles.roleBadge}>
-                    <Text style={styles.roleText}>{user.role}</Text>
+          {users.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <FontAwesome6 name="users-slash" size={48} color="#CCCCCC" />
+              <Text style={styles.emptyText}>暂无用户数据</Text>
+            </View>
+          ) : (
+            users.map((user) => {
+              console.log('[账号管理] 渲染用户卡片:', user.id, user.name);
+              return (
+                <View key={user.id} style={styles.userCard}>
+                  {/* 用户信息 */}
+                  <View style={styles.userInfo}>
+                    <View style={styles.avatarContainer}>
+                      {user.avatar ? (
+                        <Image source={{ uri: user.avatar }} style={styles.avatar} />
+                      ) : (
+                        <FontAwesome6 name="user-circle" size={48} color="#007AFF" />
+                      )}
+                    </View>
+                    <View style={styles.userDetails}>
+                      <Text style={styles.userName}>{user.name}</Text>
+                      <Text style={styles.userUsername}>@{user.username}</Text>
+                      <View style={styles.roleBadge}>
+                        <Text style={styles.roleText}>{user.role}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* 操作按钮 */}
+                  <View style={styles.actions}>
+                    <TouchableOpacity
+                      style={styles.permissionButton}
+                      onPress={() => {
+                        console.log('[账号管理] 点击权限按钮:', user.id, user.name);
+                        handlePermissionConfig(user);
+                      }}
+                    >
+                      <FontAwesome6 name="shield-halved" size={14} color="#007AFF" />
+                      <Text style={styles.permissionButtonText}>权限</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-
-              {/* 操作按钮 */}
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.permissionButton}
-                  onPress={() => handlePermissionConfig(user)}
-                >
-                  <FontAwesome6 name="shield-halved" size={14} color="#007AFF" />
-                  <Text style={styles.permissionButtonText}>权限</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+              );
+            })
+          )}
         </ScrollView>
       </View>
     </Screen>
@@ -214,17 +227,29 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 10,
+    marginTop: 10,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999999',
+    marginTop: 15,
   },
   permissionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     backgroundColor: '#E3F2FD',
     borderRadius: 20,
-    gap: 6,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
   },
   permissionButtonText: {
     fontSize: 14,
