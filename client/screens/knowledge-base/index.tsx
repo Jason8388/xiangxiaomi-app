@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -162,6 +164,8 @@ export default function KnowledgeBase() {
   // 批量下载知识卡
   const handleExport = async () => {
     try {
+      Alert.alert('提示', '正在生成知识库导出文件，请稍候...');
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge/export`);
 
       if (response.ok) {
@@ -178,7 +182,34 @@ export default function KnowledgeBase() {
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
         } else {
-          Alert.alert('提示', '移动端暂不支持直接下载，请在PC端操作');
+          // 移动端下载
+          const fileUri = FileSystem.cacheDirectory + `知识库导出_${Date.now()}.xlsx`;
+
+          // 将blob保存为文件
+          const reader = new FileReader();
+          reader.onload = async () => {
+            if (typeof reader.result === 'string') {
+              try {
+                await FileSystem.writeAsStringAsync(fileUri, reader.result.split(',')[1], {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+
+                // 检查是否可以分享
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(fileUri, {
+                    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    dialogTitle: '知识库导出文件',
+                  });
+                } else {
+                  Alert.alert('成功', `文件已保存到：${fileUri}`);
+                }
+              } catch (error) {
+                console.error('[知识库导出] 保存文件失败:', error);
+                Alert.alert('失败', '保存文件失败');
+              }
+            }
+          };
+          reader.readAsDataURL(blob);
         }
       } else {
         Alert.alert('导出失败', '请稍后重试');
@@ -192,6 +223,8 @@ export default function KnowledgeBase() {
   // 下载导入模板
   const handleDownloadTemplate = async () => {
     try {
+      Alert.alert('提示', '正在生成导入模板，请稍候...');
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge/template`);
 
       if (response.ok) {
@@ -207,7 +240,34 @@ export default function KnowledgeBase() {
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
         } else {
-          Alert.alert('提示', '移动端暂不支持直接下载，请在PC端操作');
+          // 移动端下载
+          const fileUri = FileSystem.cacheDirectory + `知识库导入模板_${Date.now()}.xlsx`;
+
+          // 将blob保存为文件
+          const reader = new FileReader();
+          reader.onload = async () => {
+            if (typeof reader.result === 'string') {
+              try {
+                await FileSystem.writeAsStringAsync(fileUri, reader.result.split(',')[1], {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+
+                // 检查是否可以分享
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(fileUri, {
+                    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    dialogTitle: '知识库导入模板',
+                  });
+                } else {
+                  Alert.alert('成功', `模板已保存到：${fileUri}`);
+                }
+              } catch (error) {
+                console.error('[知识库模板下载] 保存文件失败:', error);
+                Alert.alert('失败', '保存文件失败');
+              }
+            }
+          };
+          reader.readAsDataURL(blob);
         }
       } else {
         Alert.alert('下载失败', '请稍后重试');
