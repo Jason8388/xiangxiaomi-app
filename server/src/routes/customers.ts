@@ -89,18 +89,27 @@ router.get('/', async (req, res) => {
     const limitNum = Math.min(parseInt(limit as string) || 100, 200); // 最多200条
     const offset = (pageNum - 1) * limitNum;
 
-    let query = 'SELECT * FROM customers';
+    // 使用子查询动态统计设备和合同数量
+    let query = `
+      SELECT
+        c.*,
+        COALESCE(dc.count, 0) as device_count,
+        COALESCE(cc.count, 0) as contract_count
+      FROM customers c
+      LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM devices GROUP BY customer_id) dc ON c.id = dc.customer_id
+      LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM contracts GROUP BY customer_id) cc ON c.id = cc.customer_id
+    `;
     let countQuery = 'SELECT COUNT(*) as total FROM customers';
     const params: any[] = [];
 
     // 关键词搜索
     if (keyword) {
-      query += ' WHERE name ILIKE $1 OR contact ILIKE $1 OR phone ILIKE $1';
+      query += ' WHERE c.name ILIKE $1 OR c.contact ILIKE $1 OR c.phone ILIKE $1';
       countQuery += ' WHERE name ILIKE $1 OR contact ILIKE $1 OR phone ILIKE $1';
       params.push(`%${keyword}%`);
     }
 
-    query += ` ORDER BY device_count DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    query += ` ORDER BY COALESCE(dc.count, 0) DESC, c.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limitNum, offset);
 
     const [result, countResult] = await Promise.all([
@@ -135,7 +144,17 @@ router.get('/:id', async (req, res) => {
     // 如果数据库可用，先尝试查询数据库
     if (USE_DATABASE) {
       try {
-        const result = await pool.query('SELECT * FROM customers WHERE id = $1', [id]);
+        // 使用子查询动态统计设备和合同数量
+        const result = await pool.query(`
+          SELECT
+            c.*,
+            COALESCE(dc.count, 0) as device_count,
+            COALESCE(cc.count, 0) as contract_count
+          FROM customers c
+          LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM devices GROUP BY customer_id) dc ON c.id = dc.customer_id
+          LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM contracts GROUP BY customer_id) cc ON c.id = cc.customer_id
+          WHERE c.id = $1
+        `, [id]);
         if (result.rows.length > 0) {
           customer = result.rows[0];
         }

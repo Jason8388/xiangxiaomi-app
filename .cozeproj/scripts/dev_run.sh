@@ -16,14 +16,17 @@ WEB_URL="${COZE_PROJECT_DOMAIN_DEFAULT:-http://127.0.0.1:${SERVER_PORT}}"
 ASSUME_YES="1"
 EXPO_PUBLIC_BACKEND_BASE_URL="${EXPO_PUBLIC_BACKEND_BASE_URL:-$WEB_URL}"
 EXPO_PUBLIC_COZE_PROJECT_ID="${COZE_PROJECT_ID:-}"
+EXPO_PUBLIC_BACKEND_BASE_URL="${EXPO_PUBLIC_BACKEND_BASE_URL:-$WEB_URL}"
+EXPO_PUBLIC_COZE_PROJECT_ID="${COZE_PROJECT_ID:-}"
 
 EXPO_PACKAGER_PROXY_URL="${EXPO_PUBLIC_BACKEND_BASE_URL}"
 export EXPO_PUBLIC_BACKEND_BASE_URL EXPO_PACKAGER_PROXY_URL EXPO_PUBLIC_COZE_PROJECT_ID
+
+# ==================== 工具函数 ====================
 # 运行时变量（为避免 set -u 的未绑定错误，预置为空）
 SERVER_PID=""
 EXPO_PID=""
 
-# ==================== 工具函数 ====================
 check_command() {
   if ! command -v "$1" &> /dev/null; then
     echo "error:命令 $1 未找到，请先安装"
@@ -119,10 +122,10 @@ start_expo() {
 
   if [ "$offline" = "1" ]; then
     ( EXPO_OFFLINE=1 EXPO_NO_DEPENDENCY_VALIDATION=1 EXPO_PUBLIC_BACKEND_BASE_URL="$EXPO_PUBLIC_BACKEND_BASE_URL" EXPO_PACKAGER_PROXY_URL="$EXPO_PACKAGER_PROXY_URL" EXPO_PUBLIC_COZE_PROJECT_ID="$EXPO_PUBLIC_COZE_PROJECT_ID" \
-      npx expo start --clear --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
+      npx expo start --web --localhost --clear --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
   else
     ( EXPO_NO_DEPENDENCY_VALIDATION=1 EXPO_PUBLIC_BACKEND_BASE_URL="$EXPO_PUBLIC_BACKEND_BASE_URL" EXPO_PACKAGER_PROXY_URL="$EXPO_PACKAGER_PROXY_URL" EXPO_PUBLIC_COZE_PROJECT_ID="$EXPO_PUBLIC_COZE_PROJECT_ID" \
-      npx expo start --clear --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
+      npx expo start --web --localhost --clear --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
   fi
   EXPO_PID=$!
   disown $EXPO_PID 2>/dev/null || true
@@ -174,8 +177,16 @@ ensure_port SERVER_PORT "$SERVER_PORT"
 ensure_port EXPO_PORT "$EXPO_PORT"
 
 echo "==================== 启动 server 服务 ===================="
-echo "正在执行：pnpm run dev (server)"
-( pushd "$ROOT_DIR/server" > /dev/null && SERVER_PORT="$SERVER_PORT" nohup pnpm run dev; popd > /dev/null ) &
+echo "正在执行：npx tsx watch ./src/index.ts (server)"
+cd "$ROOT_DIR/server"
+NODE_ENV=development \
+PORT="$SERVER_PORT" \
+DB_HOST="${DB_HOST:-172.36.0.169}" \
+DB_PORT="${DB_PORT:-59833}" \
+DB_NAME="${DB_NAME:-postgres}" \
+DB_USER="${DB_USER:-postgres}" \
+DB_PASSWORD="${DB_PASSWORD:-postgres}" \
+npx tsx watch ./src/index.ts 2>&1 | pipe_to_log "SERVER" "$LOG_SERVER_FILE" &
 SERVER_PID=$!
 disown $SERVER_PID 2>/dev/null || true
 if [ -z "${SERVER_PID}" ]; then
@@ -204,17 +215,17 @@ fi
 echo "所有服务已启动。Server PID: ${SERVER_PID}, Expo PID: ${EXPO_PID}"
 
 echo "检查 Server 服务端口：$SERVER_HOST:$SERVER_PORT"
-if wait_port_connectable "$SERVER_HOST" "$SERVER_PORT" 10 2; then
+if wait_port_connectable "$SERVER_HOST" "$SERVER_PORT" 30 2; then
   echo "端口可连接：$SERVER_HOST:$SERVER_PORT"
 else
-  echo "端口不可连接：$SERVER_HOST:$SERVER_PORT 10 次）"
+  echo "端口不可连接：$SERVER_HOST:$SERVER_PORT（已尝试 30 次）"
 fi
 
-echo "检查 Expo 服务端口：$EXPO_HOST:$EXPO_PORT"
-if wait_port_connectable "$EXPO_HOST" "$EXPO_PORT" 10 2; then
-  echo "端口可连接：$EXPO_HOST:$EXPO_PORT"
+echo "检查 Expo 服务端口：127.0.0.1:$EXPO_PORT（最长等待60秒）"
+if wait_port_connectable "127.0.0.1" "$EXPO_PORT" 60 2; then
+  echo "端口可连接：127.0.0.1:$EXPO_PORT"
 else
-  echo "端口不可连接：$EXPO_HOST:$EXPO_PORT（已尝试 10 次）"
+  echo "端口不可连接：127.0.0.1:$EXPO_PORT（已尝试 60 次）"
 fi
 
 echo "服务端口检查完成"
@@ -227,3 +238,35 @@ if [ -f "$ROOT_DIR/post_run.py" ]; then
 fi
 
 echo "==================== 服务启动完成 ===================="
+
+# Keep the script running and monitor services
+echo "保持服务运行中..."
+echo "按 Ctrl+C 停止所有服务"
+
+# Monitor loop
+while true; do
+  # Check if server process is still running
+  if [ -n "$SERVER_PID" ] && ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "[WARN] Server process died, restarting..."
+    cd "$ROOT_DIR/server"
+    NODE_ENV=development \
+    PORT="$SERVER_PORT" \
+    DB_HOST="${DB_HOST:-172.36.0.169}" \
+    DB_PORT="${DB_PORT:-59833}" \
+    DB_NAME="${DB_NAME:-postgres}" \
+    DB_USER="${DB_USER:-postgres}" \
+    DB_PASSWORD="${DB_PASSWORD:-postgres}" \
+    npx tsx watch ./src/index.ts 2>&1 | pipe_to_log "SERVER" "$LOG_SERVER_FILE" &
+    SERVER_PID=$!
+    disown $SERVER_PID 2>/dev/null || true
+    echo "Server restarted with PID: $SERVER_PID"
+  fi
+
+  # Check if expo process is still running
+  if [ -n "$EXPO_PID" ] && ! kill -0 "$EXPO_PID" 2>/dev/null; then
+    echo "[WARN] Expo process died, restarting..."
+    start_expo 0
+  fi
+
+  sleep 5
+done

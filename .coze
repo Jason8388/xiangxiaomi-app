@@ -1,5 +1,5 @@
 [project]
-entrypoint = "server.js"
+entrypoint = "client/app/_layout.tsx"
 requires = ["nodejs-24"]
 
 [dev]

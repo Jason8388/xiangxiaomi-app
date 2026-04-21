@@ -13,14 +13,40 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "xiangxiaomi",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": projectId
+      }
+    },
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "updates": {
       "url": "https://u.expo.dev/" + (projectId || "anonymous")
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.xiangxiaomi.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDisplayName": "项小秘",
+        "NSCameraUsageDescription": "允许项小秘App访问您的相机，以便您直接拍摄照片上传。",
+        "NSPhotoLibraryUsageDescription": "允许项小秘App访问您的相册，以便您上传或保存图片。",
+        "NSPhotoLibraryAddUsageDescription": "允许项小秘App保存图片到您的相册。",
+        "NSLocationWhenInUseUsageDescription": "项小秘App需要访问您的位置以提供周边服务及导航功能。",
+        "NSMicrophoneUsageDescription": "允许项小秘App访问您的麦克风，以便您拍摄带有声音的视频或进行录音。",
+        "NSFaceIDUsageDescription": "允许项小秘App使用 Face ID 进行身份验证，提升登录安全性。",
+        "NSDocumentsFolderUsageDescription": "允许项小秘App访问文档文件夹以便管理文件。",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "googleSignIn": {
+          "reservedClientId": "REVERSED_CLIENT_ID"
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -31,7 +57,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     "web": {
       "bundler": "metro",
-      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
