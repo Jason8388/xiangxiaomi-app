@@ -22,39 +22,54 @@ export default function PCLogin() {
     setError('');
 
     try {
-      // 调用后端登录接口
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/sessions`, {
+      console.log('[PC登录] 开始登录...');
+      console.log('[PC登录] 用户名:', username);
+
+      // 调用后端登录接口（与APP端保持一致）
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          device_id: 'pc-web-' + Date.now(),
+          device_info: JSON.stringify({
+            platform: 'web',
+            userAgent: navigator.userAgent,
+          }),
+        }),
       });
 
       const data = await response.json();
+
+      console.log('[PC登录] 响应数据:', data);
 
       if (!response.ok) {
         throw new Error(data.error || '登录失败');
       }
 
-      // 保存登录信息
-      localStorage.setItem('token', data.token || 'mock-token');
-      localStorage.setItem('user', JSON.stringify({
-        id: data.user?.id || 1,
-        name: data.user?.name || username,
-        role: data.user?.role || '管理员',
-        avatar: data.user?.avatar,
-      }));
+      // 保存登录信息（与APP端保持一致）
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        console.log('[PC登录] 用户信息已保存');
+      }
+
+      if (data.session && data.session.session_id) {
+        localStorage.setItem('session_id', data.session.session_id);
+        localStorage.setItem('token', data.session.session_id);
+        console.log('[PC登录] 会话ID已保存');
+      }
+
+      // 使用浏览器原生 alert（Web平台）
+      window.alert('登录成功！欢迎回来！');
 
       // 跳转到首页
-      window.location.href = '/pc/dashboard';
+      setTimeout(() => {
+        window.location.href = '/pc/dashboard';
+      }, 500);
     } catch (err: any) {
-      // 模拟登录成功（当后端不可用时）
-      localStorage.setItem('token', 'mock-token');
-      localStorage.setItem('user', JSON.stringify({
-        id: 1,
-        name: username || '管理员',
-        role: '管理员',
-      }));
-      window.location.href = '/pc/dashboard';
+      console.error('[PC登录] 错误:', err);
+      setError(err.message || '登录失败，请稍后重试');
     } finally {
       setLoading(false);
     }
