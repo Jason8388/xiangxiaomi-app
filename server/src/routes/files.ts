@@ -37,6 +37,9 @@ const fallbackData = [
 let memoryFiles: any[] = [...fallbackData];
 let memoryFileId = 3;
 
+// 导出内存存储供其他路由使用
+export { memoryFiles, memoryFileId };
+
 const router = express.Router();
 
 // 配置 multer 存储
