@@ -1,5 +1,6 @@
 import express from 'express';
 import pool, { USE_DATABASE } from '../database/db';
+import { memoryUsers, memoryUsersArray } from '../database/memory-storage';
 
 const router = express.Router();
 
@@ -33,7 +34,31 @@ export interface UserPermission {
   updated_at: Date;
 }
 
-// 默认权限配置（所有权限都为false）
+// 管理员默认权限：全部可查看、可编辑、可新增、可删除
+const ADMIN_DEFAULT_PERMISSIONS: Record<ModuleName, PermissionSet> = {
+  customer: { view: true, edit: true, add: true, delete: true },
+  contract: { view: true, edit: true, add: true, delete: true },
+  device: { view: true, edit: true, add: true, delete: true },
+  work_order: { view: true, edit: true, add: true, delete: true },
+  meeting_minute: { view: true, edit: true, add: true, delete: true },
+  file: { view: true, edit: true, add: true, delete: true },
+  knowledge: { view: true, edit: true, add: true, delete: true },
+};
+
+// 普通用户默认权限：
+// - 客户管理和合同管理：可查看、可编辑
+// - 设备管理、工单管理、会议纪要、文件管理、知识库：可查看、可编辑、可新增
+const USER_DEFAULT_PERMISSIONS: Record<ModuleName, PermissionSet> = {
+  customer: { view: true, edit: true, add: false, delete: false },
+  contract: { view: true, edit: true, add: false, delete: false },
+  device: { view: true, edit: true, add: true, delete: false },
+  work_order: { view: true, edit: true, add: true, delete: false },
+  meeting_minute: { view: true, edit: true, add: true, delete: false },
+  file: { view: true, edit: true, add: true, delete: false },
+  knowledge: { view: true, edit: true, add: true, delete: false },
+};
+
+// 兼容旧代码的默认权限（所有权限都为false，现在已不使用）
 const DEFAULT_PERMISSIONS: Record<ModuleName, PermissionSet> = {
   customer: { view: false, edit: false, add: false, delete: false },
   contract: { view: false, edit: false, add: false, delete: false },
@@ -43,6 +68,55 @@ const DEFAULT_PERMISSIONS: Record<ModuleName, PermissionSet> = {
   file: { view: false, edit: false, add: false, delete: false },
   knowledge: { view: false, edit: false, add: false, delete: false },
 };
+
+/**
+ * 获取用户角色
+ * @param userId 用户ID
+ * @returns 用户角色（'admin' 或 'user'）
+ */
+async function getUserRole(userId: number): Promise<string> {
+  try {
+    // 先从内存存储中查找
+    const memoryUser = memoryUsersArray.find(u => u.id === userId);
+    if (memoryUser && memoryUser.role) {
+      return memoryUser.role;
+    }
+
+    // 如果内存存储中没有，从数据库查询
+    if (USE_DATABASE) {
+      const result = await pool.query(
+        'SELECT role FROM users WHERE id = $1',
+        [userId]
+      );
+      if (result.rows.length > 0 && result.rows[0].role) {
+        return result.rows[0].role;
+      }
+    }
+
+    // 默认为普通用户
+    return 'user';
+  } catch (error) {
+    console.error('[权限API] 获取用户角色错误:', error);
+    // 出错时默认为普通用户
+    return 'user';
+  }
+}
+
+/**
+ * 根据用户角色获取默认权限
+ * @param userId 用户ID
+ * @returns 默认权限配置
+ */
+async function getDefaultPermissionsByRole(userId: number): Promise<Record<ModuleName, PermissionSet>> {
+  const role = await getUserRole(userId);
+  console.log(`[权限API] 用户 ${userId} 的角色: ${role}`);
+
+  if (role === 'admin') {
+    return ADMIN_DEFAULT_PERMISSIONS;
+  }
+
+  return USER_DEFAULT_PERMISSIONS;
+}
 
 /**
  * 获取用户所有权限
@@ -56,12 +130,15 @@ router.get('/users/:userId', async (req, res) => {
       return res.status(400).json({ error: '无效的用户ID' });
     }
 
-    // 如果数据库不可用，直接返回默认权限
+    // 获取基于角色的默认权限
+    const basePermissions = await getDefaultPermissionsByRole(userId);
+
+    // 如果数据库不可用，直接返回基于角色的默认权限
     if (!USE_DATABASE) {
-      console.log('[权限API] 数据库不可用，返回默认权限');
+      console.log('[权限API] 数据库不可用，返回基于角色的默认权限');
       return res.json({
         user_id: userId,
-        permissions: DEFAULT_PERMISSIONS,
+        permissions: basePermissions,
       });
     }
 
@@ -70,19 +147,12 @@ router.get('/users/:userId', async (req, res) => {
       [userId]
     );
 
-    // 为没有配置的模块创建默认权限
-    const permissions: Record<ModuleName, PermissionSet> = {
-      customer: { view: false, edit: false, add: false, delete: false },
-      contract: { view: false, edit: false, add: false, delete: false },
-      device: { view: false, edit: false, add: false, delete: false },
-      work_order: { view: false, edit: false, add: false, delete: false },
-      meeting_minute: { view: false, edit: false, add: false, delete: false },
-      file: { view: false, edit: false, add: false, delete: false },
-      knowledge: { view: false, edit: false, add: false, delete: false },
-    };
+    // 合并数据库权限和默认权限
+    const permissions: Record<ModuleName, PermissionSet> = { ...basePermissions };
 
     result.rows.forEach((row: UserPermission) => {
       if (SUPPORTED_MODULES.includes(row.module_name)) {
+        // 使用数据库中的权限覆盖默认权限
         permissions[row.module_name] = row.permissions as PermissionSet;
       }
     });
@@ -93,10 +163,11 @@ router.get('/users/:userId', async (req, res) => {
     });
   } catch (error: any) {
     console.error('[权限API] 获取用户权限错误:', error);
-    // 出错时也返回默认权限
+    // 出错时返回基于角色的默认权限
+    const basePermissions = await getDefaultPermissionsByRole(parseInt(req.params.userId));
     res.json({
       user_id: parseInt(req.params.userId),
-      permissions: DEFAULT_PERMISSIONS,
+      permissions: basePermissions,
     });
   }
 });
@@ -118,17 +189,29 @@ router.get('/users/:userId/modules/:moduleName', async (req, res) => {
       return res.status(400).json({ error: '不支持的模块' });
     }
 
+    // 如果数据库不可用，直接返回基于角色的默认权限
+    if (!USE_DATABASE) {
+      console.log('[权限API] 数据库不可用，返回基于角色的默认权限');
+      const basePermissions = await getDefaultPermissionsByRole(userId);
+      return res.json({
+        user_id: userId,
+        module_name: moduleName,
+        permissions: basePermissions[moduleName as ModuleName],
+      });
+    }
+
     const result = await pool.query(
       'SELECT permissions FROM user_permissions WHERE user_id = $1 AND module_name = $2',
       [userId, moduleName]
     );
 
     if (result.rows.length === 0) {
-      // 返回默认权限
+      // 获取基于角色的默认权限
+      const basePermissions = await getDefaultPermissionsByRole(userId);
       return res.json({
         user_id: userId,
         module_name: moduleName,
-        permissions: { view: false, edit: false, add: false, delete: false },
+        permissions: basePermissions[moduleName as ModuleName],
       });
     }
 
@@ -139,7 +222,17 @@ router.get('/users/:userId/modules/:moduleName', async (req, res) => {
     });
   } catch (error: any) {
     console.error('[权限API] 获取模块权限错误:', error);
-    res.status(500).json({ error: '获取权限失败' });
+    // 出错时返回基于角色的默认权限
+    try {
+      const basePermissions = await getDefaultPermissionsByRole(parseInt(req.params.userId));
+      res.json({
+        user_id: parseInt(req.params.userId),
+        module_name: req.params.moduleName,
+        permissions: basePermissions[req.params.moduleName as ModuleName],
+      });
+    } catch (fallbackError) {
+      res.status(500).json({ error: '获取权限失败' });
+    }
   }
 });
 
