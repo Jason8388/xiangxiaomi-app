@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import * as XLSX from 'xlsx';
 import pool, { USE_DATABASE } from '../database/db';
 import { uploadFileToOSS } from '../utils/oss';
 
@@ -47,59 +48,304 @@ const memoryKnowledgeList: any[] = [
     id: 1,
     title: '设备日常维护指南',
     category: '维护手册',
-    content: '设备日常维护是保证设备正常运行的重要环节。\n\n1. 每天开机前检查设备外观和电源\n2. 定期清洁设备表面和散热孔\n3. 每周检查设备运行参数\n4. 每月进行全面的设备保养',
-    author: '系统管理员',
-    view_count: 156,
-    like_count: 28,
-    tags: ['设备维护', '日常保养', '操作规范'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    content: '本指南详细介绍了设备的日常维护流程、注意事项和常见故障排查方法。',
+    author: '张工',
+    author_name: '张工',
+    author_id: 1,
+    created_at: '2024-01-15 09:30:00',
+    updated_at: '2024-01-20 14:25:00',
+    views: 125,
+    tags: ['维护', '设备'],
+    files: []
   },
   {
     id: 2,
-    title: '常见故障代码及解决方案',
-    category: '故障处理',
-    content: '当设备出现故障时，请参照以下代码进行初步诊断：\n\nE001 - 温度过高：检查散热系统是否正常\nE002 - 压力异常：检查管路是否堵塞\nE003 - 电机过载：减少设备负荷\nE004 - 传感器故障：联系技术支持',
-    author: '技术支持部',
-    view_count: 234,
-    like_count: 45,
-    tags: ['故障代码', '故障处理', '维修指南'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    title: '安全生产操作规程',
-    category: '安全规范',
-    content: '安全生产是企业发展的基础，每位员工必须遵守以下规程：\n\n1. 进入车间必须穿戴安全防护用品\n2. 严禁酒后上岗和疲劳作业\n3. 设备运行中禁止进行维修保养\n4. 发现安全隐患立即报告\n5. 定期参加安全培训',
-    author: '安全管理部门',
-    view_count: 312,
-    like_count: 67,
-    tags: ['安全生产', '操作规程', '安全培训'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
+    title: '安全操作规范',
+    category: '安全管理',
+    content: '详细的安全操作流程和紧急情况处理方法。',
+    author: '李主管',
+    author_name: '李主管',
+    author_id: 2,
+    created_at: '2024-01-10 10:00:00',
+    updated_at: '2024-01-18 16:40:00',
+    views: 200,
+    tags: ['安全', '规范'],
+    files: []
+  }
 ];
-let memoryKnowledgeId = 4;
 
-// 带重试的查询函数
-async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {
-  if (!USE_DATABASE) {
+// 数据库查询重试函数
+async function queryWithRetry(sql: string, params: any[] = [], retries = 3) {
+  if (!USE_DATABASE || !pool) {
     throw new Error('Database not available');
   }
+  
   for (let i = 0; i < retries; i++) {
     try {
-      return await pool.query(query, params);
-    } catch (error: any) {
-      if (i < retries - 1 && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout') || error.message.includes('terminated'))) {
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+      const client = await pool.connect();
+      try {
+        const result = await client.query(sql, params);
+        return result;
+      } finally {
+        client.release();
+      }
+    } catch (err: any) {
+      if (err.code === '57P01' && i < retries - 1) {
+        // 数据库启动中，等待重试
+        await new Promise(resolve => setTimeout(resolve, 1000));
         continue;
       }
-      throw error;
+      throw err;
     }
   }
   throw new Error('Max retries reached');
 }
+
+// ==================== 静态路由（必须在动态路由之前） ====================
+
+// 下载知识库导入模板
+router.get('/template', async (req, res) => {
+  try {
+    // 创建模板数据
+    const templateData = [
+      {
+        '标题*': '示例：设备维护指南',
+        '分类*': '维护手册',
+        '内容*': '详细描述设备维护的步骤和注意事项',
+        '标签': '维护,设备,安全',
+        '作者': '张工',
+        '备注': '可选字段'
+      },
+      {
+        '标题*': '示例：安全操作规范',
+        '分类*': '安全管理',
+        '内容*': '详细说明安全操作的流程和注意事项',
+        '标签': '安全,规范',
+        '作者': '李主管',
+        '备注': '重要文档'
+      }
+    ];
+
+    // 创建工作簿
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '知识库导入模板');
+
+    // 设置列宽
+    worksheet['!cols'] = [
+      { wch: 30 }, // 标题
+      { wch: 15 }, // 分类
+      { wch: 50 }, // 内容
+      { wch: 20 }, // 标签
+      { wch: 15 }, // 作者
+      { wch: 20 }, // 备注
+    ];
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileName = encodeURIComponent('知识库导入模板.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${fileName}`);
+    res.setHeader('Content-Length', excelBuffer.length);
+
+    // 发送文件
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('Download template error:', error);
+    res.status(500).json({ code: 1, message: '下载模板失败' });
+  }
+});
+
+// 批量导入知识库
+router.post('/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ code: 1, message: '请上传Excel文件' });
+    }
+
+    const file = req.file;
+    const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    if (!data || data.length === 0) {
+      return res.status(400).json({ code: 1, message: 'Excel文件为空' });
+    }
+
+    // 验证和处理数据
+    const validItems: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i] as any;
+      const rowIndex = i + 2; // Excel行号（从1开始，标题在第1行）
+
+      // 验证必填字段
+      if (!row['标题*'] && !row['标题']) {
+        errors.push(`第${rowIndex}行：标题不能为空`);
+        continue;
+      }
+
+      if (!row['分类*'] && !row['分类']) {
+        errors.push(`第${rowIndex}行：分类不能为空`);
+        continue;
+      }
+
+      if (!row['内容*'] && !row['内容']) {
+        errors.push(`第${rowIndex}行：内容不能为空`);
+        continue;
+      }
+
+      validItems.push({
+        title: row['标题*'] || row['标题'] || '',
+        category: row['分类*'] || row['分类'] || '',
+        content: row['内容*'] || row['内容'] || '',
+        tags: (row['标签'] || '').split(',').map((t: string) => t.trim()).filter((t: string) => t),
+        author: row['作者'] || '未知',
+        author_id: 1, // 默认作者ID
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        views: 0,
+        files: []
+      });
+    }
+
+    if (validItems.length === 0) {
+      return res.status(400).json({ code: 1, message: '没有有效的数据行', errors });
+    }
+
+    // 保存到数据库
+    let importedCount = 0;
+    try {
+      for (const item of validItems) {
+        await queryWithRetry(
+          'INSERT INTO knowledge (title, category, content, author, author_id, created_at, updated_at, views, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          [item.title, item.category, item.content, item.author, item.author_id, item.created_at, item.updated_at, item.views, JSON.stringify(item.tags)]
+        );
+        importedCount++;
+      }
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      // 保存到内存存储
+      for (const item of validItems) {
+        item.id = memoryKnowledgeList.length + 1;
+        memoryKnowledgeList.push(item);
+        importedCount++;
+      }
+    }
+
+    res.json({
+      code: 0,
+      message: `成功导入${importedCount}条数据`,
+      data: {
+        imported: importedCount,
+        total: data.length,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+  } catch (error) {
+    console.error('Import knowledge error:', error);
+    res.status(500).json({ code: 1, message: '导入失败' });
+  }
+});
+
+// 批量导出知识库
+router.get('/export', async (req, res) => {
+  try {
+    let knowledgeList: any[] = [];
+
+    try {
+      // 从数据库获取数据
+      const result = await queryWithRetry(
+        'SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id ORDER BY k.id DESC LIMIT 1000'
+      );
+      knowledgeList = result.rows;
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      knowledgeList = memoryKnowledgeList;
+    }
+
+    if (!knowledgeList || knowledgeList.length === 0) {
+      return res.status(404).json({ code: 1, message: '没有可导出的数据' });
+    }
+
+    // 转换数据格式
+    const exportData = knowledgeList.map(item => ({
+      ID: item.id,
+      标题: item.title,
+      分类: item.category,
+      内容: item.content,
+      作者: item.author_name || item.author || '未知',
+      标签: Array.isArray(item.tags) ? item.tags.join(',') : item.tags || '',
+      创建时间: item.created_at,
+      更新时间: item.updated_at,
+      浏览次数: item.views || 0
+    }));
+
+    // 创建工作簿
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '知识库数据');
+
+    // 设置列宽
+    worksheet['!cols'] = [
+      { wch: 10 }, // ID
+      { wch: 30 }, // 标题
+      { wch: 15 }, // 分类
+      { wch: 50 }, // 内容
+      { wch: 15 }, // 作者
+      { wch: 20 }, // 标签
+      { wch: 20 }, // 创建时间
+      { wch: 20 }, // 更新时间
+      { wch: 10 }, // 浏览次数
+    ];
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileName = encodeURIComponent(`知识库数据导出_${new Date().toISOString().split('T')[0]}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${fileName}`);
+    res.setHeader('Content-Length', excelBuffer.length);
+
+    // 发送文件
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('Export knowledge error:', error);
+    res.status(500).json({ code: 1, message: '导出失败' });
+  }
+});
+
+// 搜索知识库
+router.get('/search/:keyword', async (req, res) => {
+  try {
+    const { keyword } = req.params;
+    try {
+      const result = await queryWithRetry(
+        "SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id WHERE k.title ILIKE $1 OR k.content ILIKE $1 ORDER BY k.id DESC",
+        [`%${keyword}%`]
+      );
+      res.json(result.rows);
+    } catch (dbError: any) {
+      console.error('Database error, using memory storage:', dbError.message);
+      const kw = keyword.toLowerCase();
+      const filtered = memoryKnowledgeList.filter(k => 
+        k.title?.toLowerCase().includes(kw) || 
+        k.content?.toLowerCase().includes(kw)
+      );
+      res.json(filtered);
+    }
+  } catch (error) {
+    console.error('Search knowledge error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// ==================== 动态路由（必须在静态路由之后） ====================
 
 // 获取知识库列表
 router.get('/', async (req, res) => {
@@ -166,31 +412,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// 搜索知识库
-router.get('/search/:keyword', async (req, res) => {
-  try {
-    const { keyword } = req.params;
-    try {
-      const result = await queryWithRetry(
-        "SELECT k.*, u.name as author_name FROM knowledge k LEFT JOIN users u ON k.author_id = u.id WHERE k.title ILIKE $1 OR k.content ILIKE $1 ORDER BY k.id DESC",
-        [`%${keyword}%`]
-      );
-      res.json(result.rows);
-    } catch (dbError: any) {
-      console.error('Database error, using memory storage:', dbError.message);
-      const kw = keyword.toLowerCase();
-      const filtered = memoryKnowledgeList.filter(k => 
-        k.title?.toLowerCase().includes(kw) || 
-        k.content?.toLowerCase().includes(kw)
-      );
-      res.json(filtered);
-    }
-  } catch (error) {
-    console.error('Search knowledge error:', error);
-    res.status(500).json({ error: '服务器错误' });
-  }
-});
-
 // 创建知识库（支持文件上传）
 router.post('/', upload.array('files', 10), async (req, res) => {
   try {
@@ -198,146 +419,74 @@ router.post('/', upload.array('files', 10), async (req, res) => {
     const files = req.files as Express.Multer.File[];
 
     if (!title) {
-      return res.status(400).json({ error: '标题不能为空' });
+      return res.status(400).json({ code: 1, message: '标题不能为空' });
     }
 
-    // 处理文件信息
-    let attachments: any[] = [];
+    // 上传文件到OSS并获取URL
+    let fileUrls: string[] = [];
     if (files && files.length > 0) {
-      // 上传所有文件到 OSS
-      attachments = await Promise.all(files.map(async (file) => {
-        const ossUrl = await uploadFileToOSS(file.buffer, file.originalname, file.mimetype);
-        return {
-          name: file.originalname,
-          size: file.size,
-          type: file.mimetype,
-          url: ossUrl,  // 添加 OSS URL
-        };
-      }));
-    }
-
-    // 安全解析 tags
-    let parsedTags: string[] = [];
-    if (tags) {
-      try {
-        parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
-      } catch (e) {
-        parsedTags = [tags];
+      for (const file of files) {
+        try {
+          const fileName = `${Date.now()}_${file.originalname}`;
+          const url = await uploadFileToOSS(file.buffer, fileName);
+          fileUrls.push(url);
+        } catch (uploadError) {
+          console.error('Upload file error:', uploadError);
+        }
       }
     }
 
-    // 获取创建者姓名，如果没有则使用默认值
-    const creatorName = creator || '当前用户';
-
+    // 保存到数据库
     try {
       const result = await queryWithRetry(
-        'INSERT INTO knowledge (title, content, tags, author_id, attachments, author_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, title',
-        [title, content || '', parsedTags, author_id, JSON.stringify(attachments), creatorName]
+        'INSERT INTO knowledge (title, category, content, author_id, created_at, updated_at, files, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+        [
+          title,
+          '知识库',
+          content || '',
+          author_id || 1,
+          new Date().toISOString(),
+          new Date().toISOString(),
+          JSON.stringify(fileUrls),
+          tags ? JSON.stringify(tags) : '[]'
+        ]
       );
-      res.status(201).json({ id: result.rows[0].id, title: result.rows[0].title });
+
+      // 获取作者名称
+      const knowledge = result.rows[0];
+      try {
+        const userResult = await queryWithRetry('SELECT name FROM users WHERE id = $1', [author_id || 1]);
+        knowledge.author_name = userResult.rows[0]?.name || '未知用户';
+        knowledge.author = knowledge.author_name;
+      } catch {
+        knowledge.author_name = '未知用户';
+        knowledge.author = knowledge.author_name;
+      }
+
+      res.status(201).json({ code: 0, data: knowledge, message: '创建成功' });
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
-      // 使用内存存储
+      // 保存到内存存储
       const newKnowledge = {
-        id: memoryKnowledgeId++,
+        id: memoryKnowledgeList.length + 1,
         title,
+        category: '知识库',
         content: content || '',
-        tags: parsedTags,
-        author_id,
-        author: creatorName,
-        author_name: creatorName,
-        attachments,
-        views: 0,
-        likes: 0,
+        author_id: author_id || 1,
+        author: creator || '未知',
+        author_name: creator || '未知',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        views: 0,
+        tags: tags || [],
+        files: fileUrls
       };
-      memoryKnowledgeList.unshift(newKnowledge);
-      res.status(201).json({ id: newKnowledge.id, title: newKnowledge.title });
+      memoryKnowledgeList.push(newKnowledge);
+      res.status(201).json({ code: 0, data: newKnowledge, message: '创建成功' });
     }
   } catch (error) {
     console.error('Create knowledge error:', error);
-    res.status(500).json({ error: '服务器错误' });
-  }
-});
-
-// 更新知识库
-router.put('/:id', upload.array('files', 10), async (req, res) => {
-  try {
-    const id = req.params.id as string;
-    const { title, content, tags } = req.body;
-    const files = req.files as Express.Multer.File[];
-
-    try {
-      let attachments: any[] = [];
-      if (files && files.length > 0) {
-        // 上传所有文件到 OSS
-        attachments = await Promise.all(files.map(async (file) => {
-          const ossUrl = await uploadFileToOSS(file.buffer, file.originalname, file.mimetype);
-          return {
-            name: file.originalname,
-            size: file.size,
-            type: file.mimetype,
-            url: ossUrl,  // 添加 OSS URL
-          };
-        }));
-      }
-
-      // 安全解析 tags
-      let parsedTags: string[] = [];
-      if (tags) {
-        try {
-          parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
-        } catch (e) {
-          parsedTags = [tags];
-        }
-      }
-
-      let query = 'UPDATE knowledge SET title = $1, content = $2, tags = $3';
-      const params: any[] = [title, content || '', parsedTags];
-      
-      if (attachments.length > 0) {
-        query += ', attachments = $4 WHERE id = $5';
-        params.push(JSON.stringify(attachments), id);
-      } else {
-        query += ' WHERE id = $4';
-        params.push(id);
-      }
-
-      const result = await queryWithRetry(query, params);
-
-      if (result.rowCount === 0) {
-        return res.status(404).json({ error: '知识不存在' });
-      }
-
-      res.json({ message: '更新成功' });
-    } catch (dbError: any) {
-      console.error('Database error, using memory storage:', dbError.message);
-      const index = memoryKnowledgeList.findIndex(k => k.id === parseInt(id));
-      if (index === -1) {
-        return res.status(404).json({ error: '知识不存在' });
-      }
-      // 安全解析 tags
-      let parsedTags: string[] = [];
-      if (tags) {
-        try {
-          parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
-        } catch (e) {
-          parsedTags = [];
-        }
-      }
-      memoryKnowledgeList[index] = {
-        ...memoryKnowledgeList[index],
-        title,
-        content: content || '',
-        tags: parsedTags,
-        updated_at: new Date().toISOString(),
-      };
-      res.json({ message: '更新成功' });
-    }
-  } catch (error) {
-    console.error('Update knowledge error:', error);
-    res.status(500).json({ error: '服务器错误' });
+    res.status(500).json({ code: 1, message: '服务器错误' });
   }
 });
 
@@ -347,28 +496,44 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
+      // 先获取知识信息
       const result = await queryWithRetry(
-        'DELETE FROM knowledge WHERE id = $1 RETURNING id',
+        'SELECT * FROM knowledge WHERE id = $1',
         [id]
       );
 
-      if (result.rowCount === 0) {
-        return res.status(404).json({ error: '知识不存在' });
+      if (result.rows.length === 0) {
+        // 尝试从内存中删除
+        const index = memoryKnowledgeList.findIndex(k => k.id === parseInt(id));
+        if (index > -1) {
+          memoryKnowledgeList.splice(index, 1);
+          return res.json({ code: 0, message: '删除成功' });
+        }
+        return res.status(404).json({ code: 1, message: '知识不存在' });
       }
 
-      res.json({ message: '删除成功' });
+      // 从OSS删除文件
+      const knowledge = result.rows[0];
+      if (knowledge.files && Array.isArray(knowledge.files)) {
+        // TODO: 实现OSS文件删除
+      }
+
+      // 从数据库删除
+      await queryWithRetry('DELETE FROM knowledge WHERE id = $1', [id]);
+      res.json({ code: 0, message: '删除成功' });
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
+      // 从内存存储删除
       const index = memoryKnowledgeList.findIndex(k => k.id === parseInt(id));
-      if (index === -1) {
-        return res.status(404).json({ error: '知识不存在' });
+      if (index > -1) {
+        memoryKnowledgeList.splice(index, 1);
+        return res.json({ code: 0, message: '删除成功' });
       }
-      memoryKnowledgeList.splice(index, 1);
-      res.json({ message: '删除成功' });
+      res.status(404).json({ code: 1, message: '知识不存在' });
     }
   } catch (error) {
     console.error('Delete knowledge error:', error);
-    res.status(500).json({ error: '服务器错误' });
+    res.status(500).json({ code: 1, message: '服务器错误' });
   }
 });
 

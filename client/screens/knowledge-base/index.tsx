@@ -8,8 +8,10 @@ import {
   TextInput,
   Alert,
   Modal,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -119,6 +121,103 @@ export default function KnowledgeBase() {
     setDeletingCard(null);
   };
 
+  // 批量导入知识卡
+  const handleImport = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const file = result.assets[0];
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        type: file.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        name: file.name,
+      } as any);
+
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge/import`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        Alert.alert('导入成功', `成功导入 ${data.imported || 0} 条知识卡`);
+        loadKnowledgeCards();
+      } else {
+        Alert.alert('导入失败', '请上传正确的Excel文件');
+      }
+    } catch (error) {
+      console.error('[知识库导入] 错误:', error);
+      Alert.alert('导入失败', '请上传.xlsx格式的文件');
+    }
+  };
+
+  // 批量下载知识卡
+  const handleExport = async () => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge/export`);
+
+      if (response.ok) {
+        const blob = await response.blob();
+
+        if (Platform.OS === 'web') {
+          const url = window.URL.createObjectURL(blob);
+          const link = window.document.createElement('a');
+          link.href = url;
+          const fileName = `知识库导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        } else {
+          Alert.alert('提示', '移动端暂不支持直接下载，请在PC端操作');
+        }
+      } else {
+        Alert.alert('导出失败', '请稍后重试');
+      }
+    } catch (error) {
+      console.error('[知识库导出] 错误:', error);
+      Alert.alert('导出失败', '请稍后重试');
+    }
+  };
+
+  // 下载导入模板
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge/template`);
+
+      if (response.ok) {
+        const blob = await response.blob();
+
+        if (Platform.OS === 'web') {
+          const url = window.URL.createObjectURL(blob);
+          const link = window.document.createElement('a');
+          link.href = url;
+          link.download = 'knowledge_import_template.xlsx';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        } else {
+          Alert.alert('提示', '移动端暂不支持直接下载，请在PC端操作');
+        }
+      } else {
+        Alert.alert('下载失败', '请稍后重试');
+      }
+    } catch (error) {
+      console.error('[知识库模板下载] 错误:', error);
+      Alert.alert('下载失败', '请稍后重试');
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -132,6 +231,20 @@ export default function KnowledgeBase() {
       <ScrollView style={styles.container}>
         {/* 操作栏 */}
         <View style={styles.actionBar}>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleImport}>
+              <FontAwesome6 name="file-import" size={20} color="#6C63FF" />
+              <Text style={styles.actionButtonText}>导入</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={handleExport}>
+              <FontAwesome6 name="file-export" size={20} color="#00B894" />
+              <Text style={styles.actionButtonText}>导出</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={handleDownloadTemplate}>
+              <FontAwesome6 name="download" size={20} color="#F39C12" />
+              <Text style={styles.actionButtonText}>模板</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity style={styles.createButton} onPress={handleCreate}>
             <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
             <Text style={styles.createButtonText}>新建知识卡</Text>
@@ -265,9 +378,34 @@ const styles = StyleSheet.create({
   },
   actionBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2D3436',
   },
   createButton: {
     flexDirection: 'row',
