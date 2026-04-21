@@ -103,11 +103,8 @@ function RootLayoutInner() {
         router.replace('/login');
       }
 
-      // 已登录但在登录页 → 跳转首页
-      if (isAuth && inLoginRoute) {
-        console.log('[认证] 已登录，跳转到首页');
-        router.replace('/(tabs)');
-      }
+      // 注意：不要在登录页面自动跳转，避免与用户手动点击"确定"按钮冲突
+      // 用户登录成功后，会手动点击"确定"按钮跳转到首页
     };
 
     checkRouteGuard();
