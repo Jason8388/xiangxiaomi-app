@@ -4,6 +4,7 @@ import { memoryCustomers } from './customers';
 import { memoryDevices } from './devices';
 import { memoryContracts } from './contracts';
 import { memoryMaterials } from './materials';
+import { memoryWorkOrders } from './workOrders';
 
 const router = express.Router();
 
@@ -391,6 +392,72 @@ router.get('/files', async (req, res) => {
     res.status(200).json(filteredFiles);
   } catch (error) {
     console.error('Query files error:', error);
+    res.status(500).json({ code: 1, message: 'Internal server error' });
+  }
+});
+
+// 工单查询
+router.get('/work-orders', async (req, res) => {
+  try {
+    const { keyword } = req.query;
+
+    if (!keyword || typeof keyword !== 'string') {
+      return res.status(200).json([]);
+    }
+
+    // 从内存存储中搜索工单
+    const keywordLower = keyword.toLowerCase();
+    const filteredWorkOrders = memoryWorkOrders
+      .filter((workOrder) => {
+        // 搜索工单标题
+        const title = (workOrder.title || '').toLowerCase();
+        // 搜索工单编号
+        const orderNo = (workOrder.order_no || '').toLowerCase();
+        // 搜索任务编号
+        const taskNo = (workOrder.task_no || '').toLowerCase();
+        // 搜索客户名称
+        const customerName = (workOrder.customer_name || '').toLowerCase();
+        // 搜索设备名称
+        const deviceName = (workOrder.device_name || '').toLowerCase();
+        // 搜索类型
+        const type = (workOrder.type || '').toLowerCase();
+        // 搜索状态
+        const status = (workOrder.status || '').toLowerCase();
+        // 搜索阶段
+        const stage = (workOrder.stage || '').toLowerCase();
+        // 搜索优先级
+        const priority = (workOrder.priority || '').toLowerCase();
+
+        return (
+          title.includes(keywordLower) ||
+          orderNo.includes(keywordLower) ||
+          taskNo.includes(keywordLower) ||
+          customerName.includes(keywordLower) ||
+          deviceName.includes(keywordLower) ||
+          type.includes(keywordLower) ||
+          status.includes(keywordLower) ||
+          stage.includes(keywordLower) ||
+          priority.includes(keywordLower)
+        );
+      })
+      .map((workOrder) => ({
+        id: workOrder.id,
+        order_no: workOrder.order_no,
+        title: workOrder.title,
+        description: workOrder.description,
+        customer_name: workOrder.customer_name,
+        device_name: workOrder.device_name,
+        type: workOrder.type,
+        priority: workOrder.priority,
+        status: workOrder.status,
+        stage: workOrder.stage,
+        assignee_name: workOrder.assignee_name,
+        created_at: workOrder.created_at,
+      }));
+
+    res.status(200).json(filteredWorkOrders);
+  } catch (error) {
+    console.error('Query work orders error:', error);
     res.status(500).json({ code: 1, message: 'Internal server error' });
   }
 });

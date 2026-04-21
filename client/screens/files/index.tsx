@@ -265,7 +265,13 @@ export default function FilesScreen() {
       const params = new URLSearchParams();
       if (searchText) params.append('search', searchText);
       if (tagId) params.append('tag_id', tagId.toString());
-      if (fileType) params.append('file_type', fileType);
+      if (fileType) {
+        // 将文件类型映射到实际的文件扩展名（多个扩展名用逗号分隔）
+        const option = fileTypeOptions.find(f => f.type === fileType);
+        if (option) {
+          params.append('file_type', option.extensions.join(','));
+        }
+      }
       if (params.toString()) url += `?${params.toString()}`;
 
       const response = await fetch(url);
@@ -277,20 +283,20 @@ export default function FilesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [searchText]);
+  }, [searchText, fileTypeOptions]);
 
   // 使用 useMemo 缓存筛选后的文件类型选项
   const fileTypeOptions = useMemo(() => [
-    { type: 'excel', label: 'Excel', icon: 'file-excel', color: '#00B894' },
-    { type: 'ppt', label: 'PPT', icon: 'file-powerpoint', color: '#FDCB6E' },
-    { type: 'word', label: 'Word', icon: 'file-word', color: '#1E88E5' },
-    { type: 'pdf', label: 'PDF', icon: 'file-pdf', color: '#FF6B6B' },
+    { type: 'excel', label: 'Excel', icon: 'file-excel', color: '#00B894', extensions: ['xlsx', 'xls'] },
+    { type: 'ppt', label: 'PPT', icon: 'file-powerpoint', color: '#FDCB6E', extensions: ['pptx', 'ppt'] },
+    { type: 'word', label: 'Word', icon: 'file-word', color: '#1E88E5', extensions: ['docx', 'doc'] },
+    { type: 'pdf', label: 'PDF', icon: 'file-pdf', color: '#FF6B6B', extensions: ['pdf'] },
   ], []);
 
   // 搜索处理
   const handleSearch = useCallback(() => {
-    fetchFiles(selectedTag || undefined);
-  }, [fetchFiles, selectedTag]);
+    fetchFiles(selectedTag || undefined, selectedFileType || undefined);
+  }, [fetchFiles, selectedTag, selectedFileType]);
 
   // 标签筛选
   const handleTagFilter = useCallback((tagId: number) => {
@@ -759,6 +765,7 @@ export default function FilesScreen() {
                     onPress={() => {
                       setSelectedFileType(null);
                       setFileTypeModalVisible(false);
+                      fetchFiles(selectedTag || undefined);
                     }}
                   >
                     <FontAwesome6 name="filter" size={18} color="#636E72" />
@@ -772,6 +779,7 @@ export default function FilesScreen() {
                       onPress={() => {
                         setSelectedFileType(item.type);
                         setFileTypeModalVisible(false);
+                        fetchFiles(selectedTag || undefined, item.type);
                       }}
                     >
                       <FontAwesome6 name={item.icon as any} size={18} color={item.color} />
@@ -826,10 +834,24 @@ const styles = StyleSheet.create({
   },
   fileTypeFilter: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'flex-start',
     paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 8,
+    paddingVertical: 12,
+  },
+  fileTypeDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  fileTypeDropdownText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
   },
   fileTypeChip: {
     flexDirection: 'row',

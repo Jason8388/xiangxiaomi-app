@@ -87,7 +87,7 @@ const upload = multer({
 // 获取文件列表
 router.get('/', async (req, res) => {
   try {
-    const { category, search } = req.query;
+    const { category, search, file_type, tag_id } = req.query;
 
     try {
       let query = 'SELECT * FROM files WHERE 1=1';
@@ -103,6 +103,20 @@ router.get('/', async (req, res) => {
       if (search) {
         query += ` AND (original_name ILIKE $${paramCount} OR description ILIKE $${paramCount})`;
         params.push(`%${search}%`);
+        paramCount++;
+      }
+
+      if (file_type) {
+        // 支持多个文件类型（用逗号分隔）
+        const fileTypes = (file_type as string).split(',');
+        query += ` AND file_type = ANY($${paramCount})`;
+        params.push(fileTypes);
+        paramCount++;
+      }
+
+      if (tag_id) {
+        query += ` AND tags::text ILIKE $${paramCount}`;
+        params.push(`%"${tag_id}"%`);
         paramCount++;
       }
 
@@ -127,11 +141,70 @@ router.get('/', async (req, res) => {
         });
         res.json(rows);
       } else {
-        res.json(fallbackData);
+        // 使用内存数据进行筛选
+        let filteredFiles = [...fallbackData];
+
+        if (category) {
+          filteredFiles = filteredFiles.filter((f: any) => f.category === category);
+        }
+
+        if (search) {
+          const searchLower = (search as string).toLowerCase();
+          filteredFiles = filteredFiles.filter((f: any) =>
+            f.original_name?.toLowerCase().includes(searchLower) ||
+            f.description?.toLowerCase().includes(searchLower)
+          );
+        }
+
+        if (file_type) {
+          const fileTypes = (file_type as string).split(',');
+          filteredFiles = filteredFiles.filter((f: any) =>
+            fileTypes.includes(f.file_type)
+          );
+        }
+
+        if (tag_id) {
+          filteredFiles = filteredFiles.filter((f: any) =>
+            f.tags?.some((t: any) => t.id === parseInt(tag_id as string)) ||
+            f.tags?.some((t: any) => t.tag === tag_id)
+          );
+        }
+
+        res.json(filteredFiles);
       }
     } catch (dbError) {
       console.log('Using fallback file data due to DB error');
-      res.json(fallbackData);
+
+      // 使用内存数据进行筛选
+      let filteredFiles = [...fallbackData];
+
+      if (category) {
+        filteredFiles = filteredFiles.filter((f: any) => f.category === category);
+      }
+
+      if (search) {
+        const searchLower = (search as string).toLowerCase();
+        filteredFiles = filteredFiles.filter((f: any) =>
+          f.original_name?.toLowerCase().includes(searchLower) ||
+          f.description?.toLowerCase().includes(searchLower)
+        );
+      }
+
+      if (file_type) {
+        const fileTypes = (file_type as string).split(',');
+        filteredFiles = filteredFiles.filter((f: any) =>
+          fileTypes.includes(f.file_type)
+        );
+      }
+
+      if (tag_id) {
+        filteredFiles = filteredFiles.filter((f: any) =>
+          f.tags?.some((t: any) => t.id === parseInt(tag_id as string)) ||
+          f.tags?.some((t: any) => t.tag === tag_id)
+        );
+      }
+
+      res.json(filteredFiles);
     }
   } catch (error) {
     console.error('Get files error:', error);
