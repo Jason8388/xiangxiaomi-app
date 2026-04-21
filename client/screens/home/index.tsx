@@ -91,6 +91,13 @@ const adminNavItems: NavigationItem[] = [
     route: '/employee-management',
   },
   {
+    id: 'logs',
+    title: '日志查询',
+    icon: 'file-lines',
+    color: '#7F8C8D',
+    route: '/system-logs',
+  },
+  {
     id: 'album',
     title: '相册管理',
     icon: 'images',
