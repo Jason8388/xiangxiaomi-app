@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { getApiBaseUrl } from '@/utils/api';
 import { Screen } from '@/components/Screen';
@@ -24,16 +25,10 @@ interface Material {
 
 export default function MaterialDetail() {
   const router = useSafeRouter();
-  const { id } = useSafeSearchParams<{ id: number }>();
+  const { id } = useSafeSearchParams<{ id: string }>();
   const [material, setMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingTime, setLoadingTime] = useState<number>(0);
-
-  useEffect(() => {
-    if (id) {
-      fetchMaterialDetail();
-    }
-  }, [id]);
 
   const fetchMaterialDetail = useCallback(async () => {
     if (!id) return;
@@ -44,10 +39,10 @@ export default function MaterialDetail() {
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/materials/${id}`
       );
-      const data = await response.json();
+      const result = await response.json();
 
       if (response.ok) {
-        const m = data.data || data;
+        const m = result.data || result;
         // 字段兼容处理
         setMaterial({
           id: m.id,
@@ -56,10 +51,10 @@ export default function MaterialDetail() {
           material_spec: m.spec || m.material_spec || '',
           material_unit: m.unit || m.material_unit || '',
           category: m.category || '',
-          stock_quantity: m.current_stock ?? m.stock_quantity ?? 0,
-          warning_stock: m.min_stock ?? m.warning_stock ?? 0,
+          stock_quantity: m.current_stock !== undefined ? m.current_stock : (m.stock_quantity ?? 0),
+          warning_stock: m.min_stock !== undefined ? m.min_stock : (m.warning_stock ?? 0),
           supplier: m.supplier || '',
-          unit_price: m.price ?? m.unit_price ?? 0,
+          unit_price: m.price !== undefined ? m.price : (m.unit_price ?? 0),
           material_photo: m.photo || m.material_photo || '',
           qr_code: m.qr_code || '',
           qr_code_id: m.qr_code_id || m.qrcode_id || '',
@@ -77,6 +72,14 @@ export default function MaterialDetail() {
       setLoading(false);
     }
   }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        fetchMaterialDetail();
+      }
+    }, [id, fetchMaterialDetail])
+  );
 
   if (loading) {
     return (
