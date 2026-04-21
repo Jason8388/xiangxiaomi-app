@@ -61,16 +61,6 @@ export default function ProfileScreen() {
       color: '#6C63FF',
       onPress: () => router.push('/account-settings'),
     },
-    // 只有管理员才能看到账号管理入口
-    ...(user?.role === 'admin' ? [
-      {
-        icon: 'users-gear',
-        title: '账号管理',
-        subtitle: '管理用户账号和权限',
-        color: '#FF6B6B',
-        onPress: () => router.push('/users'),
-      },
-    ] : []),
     {
       icon: 'circle-question',
       title: '帮助与反馈',
