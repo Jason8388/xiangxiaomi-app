@@ -91,8 +91,9 @@ export default function SystemLogsScreen() {
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   // 用户选择器相关
-  const [userList, setUserList] = useState<{id: number; username: string}[]>([]);
+  const [userList, setUserList] = useState<{id: number; username: string; name: string; phone: string}[]>([]);
   const [showUserSelector, setShowUserSelector] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
 
   // 模块选择器相关
   const [moduleList] = useState([
@@ -121,11 +122,12 @@ export default function SystemLogsScreen() {
       const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
       const data = await response.json();
 
-      if (data.code === 200 && data.data) {
-        const users = Array.isArray(data.data) ? data.data : (data.data.list || []);
-        setUserList(users.map((u: any) => ({
+      if (Array.isArray(data)) {
+        setUserList(data.map((u: any) => ({
           id: u.id,
-          username: u.username || u.name || '',
+          username: u.username || '',
+          name: u.name || '',
+          phone: u.phone || '',
         })));
       }
     } catch (error) {
@@ -358,6 +360,7 @@ export default function SystemLogsScreen() {
   // 用户选择处理
   const handleUserSelect = (username: string) => {
     setShowUserSelector(false);
+    setSearchKeyword('');
     if (activeTab === 'login') {
       setLoginFilter({ ...loginFilter, username });
     } else {
@@ -603,31 +606,105 @@ export default function SystemLogsScreen() {
               onPress={() => setShowUserSelector(false)}
               className="flex-1 bg-black/50 justify-end"
             >
-              <View className="bg-white rounded-t-2xl p-4 max-h-96">
-                <View className="flex-row items-center justify-between mb-3">
-                  <Text className="text-lg font-bold text-gray-900">选择用户</Text>
-                  <TouchableOpacity onPress={() => setShowUserSelector(false)}>
-                    <FontAwesome5 name="times" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
-                <ScrollView className="max-h-80">
-                  <TouchableOpacity
-                    onPress={() => handleUserSelect('')}
-                    className="py-3 border-b border-gray-100"
-                  >
-                    <Text className="text-gray-900">全部</Text>
-                  </TouchableOpacity>
-                  {userList.map((user) => (
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              >
+                <TouchableOpacity
+                  activeOpacity={1}
+                  onPress={() => {}}
+                  className="bg-white rounded-t-2xl p-4 max-h-[80%]"
+                >
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-lg font-bold text-gray-900">选择用户</Text>
+                    <TouchableOpacity onPress={() => {
+                      setShowUserSelector(false);
+                      setSearchKeyword('');
+                    }}>
+                      <FontAwesome5 name="times" size={20} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 搜索框 */}
+                  <View className="mb-3">
+                    <View className="flex-row items-center bg-gray-100 rounded-lg px-3 py-2">
+                      <FontAwesome5 name="search" size={16} color="#9CA3AF" />
+                      <TextInput
+                        className="flex-1 ml-2 text-sm text-gray-900"
+                        placeholder="搜索账户名、姓名、电话"
+                        placeholderTextColor="#9CA3AF"
+                        value={searchKeyword}
+                        onChangeText={setSearchKeyword}
+                      />
+                      {searchKeyword.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearchKeyword('')}>
+                          <FontAwesome5 name="times-circle" size={16} color="#9CA3AF" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* 用户列表 */}
+                  <ScrollView className="max-h-96">
                     <TouchableOpacity
-                      key={user.id}
-                      onPress={() => handleUserSelect(user.username)}
+                      onPress={() => {
+                        handleUserSelect('');
+                        setSearchKeyword('');
+                      }}
                       className="py-3 border-b border-gray-100"
                     >
-                      <Text className="text-gray-900">{user.username}</Text>
+                      <Text className="text-blue-600 font-medium">全部用户</Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+
+                    {userList
+                      .filter(user => {
+                        if (!searchKeyword) return true;
+                        const keyword = searchKeyword.toLowerCase();
+                        return (
+                          user.username.toLowerCase().includes(keyword) ||
+                          (user.name && user.name.toLowerCase().includes(keyword)) ||
+                          (user.phone && user.phone.includes(keyword))
+                        );
+                      })
+                      .map((user) => (
+                        <TouchableOpacity
+                          key={user.id}
+                          onPress={() => {
+                            handleUserSelect(user.username);
+                            setSearchKeyword('');
+                          }}
+                          className="py-3 border-b border-gray-100"
+                        >
+                          <View>
+                            <Text className="text-gray-900 font-medium">{user.username}</Text>
+                            {(user.name || user.phone) && (
+                              <Text className="text-gray-500 text-sm mt-1">
+                                {user.name ? user.name : ''}
+                                {user.name && user.phone ? ' · ' : ''}
+                                {user.phone ? user.phone : ''}
+                              </Text>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+
+                    {/* 搜索无结果提示 */}
+                    {userList.filter(user => {
+                      if (!searchKeyword) return true;
+                      const keyword = searchKeyword.toLowerCase();
+                      return (
+                        user.username.toLowerCase().includes(keyword) ||
+                        (user.name && user.name.toLowerCase().includes(keyword)) ||
+                        (user.phone && user.phone.includes(keyword))
+                      );
+                    }).length === 0 && (
+                      <View className="py-8 text-center">
+                        <FontAwesome5 name="search" size={40} color="#D1D5DB" />
+                        <Text className="text-gray-400 mt-2">未找到匹配的用户</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </TouchableOpacity>
+              </KeyboardAvoidingView>
             </TouchableOpacity>
           </Modal>
 
