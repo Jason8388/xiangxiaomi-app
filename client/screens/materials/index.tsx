@@ -625,9 +625,9 @@ export default function MaterialManagement() {
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <FontAwesome6 name="box" size={18} color="#1E88E5" />
-                  <View>
-                    <Text style={styles.cardNumber}>{material.material_number}</Text>
+                  <View style={styles.titleContainer}>
                     <Text style={styles.cardTitle}>{material.material_name}</Text>
+                    <Text style={styles.cardNumber}>{material.material_number}</Text>
                   </View>
                 </View>
                 <View style={styles.cardActions}>
@@ -671,6 +671,17 @@ export default function MaterialManagement() {
                 <Text style={styles.infoValue}>{material.material_unit}</Text>
               </View>
 
+              <View style={styles.cardInfo}>
+                <FontAwesome6 name="database" size={14} color="#2ECC71" />
+                <Text style={styles.infoLabel}>库存:</Text>
+                <Text style={[styles.stockValue, material.warning_stock && material.stock_quantity < material.warning_stock ? styles.stockWarning : null]}>
+                  {material.stock_quantity} {material.material_unit}
+                </Text>
+                {material.warning_stock && (
+                  <Text style={styles.warningLabel}>/预警: {material.warning_stock}</Text>
+                )}
+              </View>
+
               {material.category && (
                 <View style={styles.cardInfo}>
                   <Text style={styles.infoLabel}>分类:</Text>
@@ -703,21 +714,14 @@ export default function MaterialManagement() {
                 </View>
               )}
 
-              <View style={styles.cardFooter}>
-                <View style={styles.stockContainer}>
-                  <FontAwesome6 name="database" size={14} color="#2ECC71" />
-                  <Text style={styles.stockLabel}>库存: </Text>
-                  <Text style={styles.stockValue}>{material.stock_quantity} {material.material_unit}</Text>
+              {material.unit_price && (
+                <View style={styles.cardInfo}>
+                  <FontAwesome6 name="yen-sign" size={14} color="#636E72" />
+                  <Text style={styles.infoValue}>
+                    单价: ¥{material.unit_price.toFixed(2)}
+                  </Text>
                 </View>
-                {material.unit_price && (
-                  <View style={styles.priceContainer}>
-                    <FontAwesome6 name="yen-sign" size={14} color="#636E72" />
-                    <Text style={styles.priceValue}>
-                      ¥{material.unit_price.toFixed(2)}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              )}
             </TouchableOpacity>
           ))
         )}
@@ -1316,10 +1320,13 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
+  titleContainer: {
+    flexDirection: 'column',
+  },
   cardNumber: {
     fontSize: 12,
     color: '#636E72',
-    marginBottom: 2,
+    marginTop: 2,
   },
   cardTitle: {
     fontSize: 16,
@@ -1386,6 +1393,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2ECC71',
+  },
+  stockWarning: {
+    color: '#E74C3C',
+  },
+  warningLabel: {
+    fontSize: 12,
+    color: '#E74C3C',
+    marginLeft: 4,
   },
   priceContainer: {
     flexDirection: 'row',
