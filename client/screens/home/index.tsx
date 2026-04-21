@@ -98,6 +98,13 @@ const adminNavItems: NavigationItem[] = [
     route: '/system-logs',
   },
   {
+    id: 'cleanup',
+    title: '系统清理',
+    icon: 'broom',
+    color: '#95A5A6',
+    route: '/system-cleanup',
+  },
+  {
     id: 'album',
     title: '相册管理',
     icon: 'images',
