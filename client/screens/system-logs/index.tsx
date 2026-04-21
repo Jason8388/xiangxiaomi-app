@@ -8,6 +8,8 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  Modal,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useFocusEffect } from 'expo-router';
@@ -15,6 +17,7 @@ import { Screen } from '@/components/Screen';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface LoginLog {
   id: number;
@@ -83,7 +86,52 @@ export default function SystemLogsScreen() {
     avg_login_duration: 0,
   });
 
+  // 日期选择器相关
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
+  // 用户选择器相关
+  const [userList, setUserList] = useState<{id: number; username: string}[]>([]);
+  const [showUserSelector, setShowUserSelector] = useState(false);
+
+  // 模块选择器相关
+  const [moduleList] = useState([
+    {id: 'all', name: '全部'},
+    {id: 'user', name: '用户管理'},
+    {id: 'device', name: '设备管理'},
+    {id: 'contract', name: '合同管理'},
+    {id: 'workorder', name: '工单管理'},
+    {id: 'after_sales', name: '售后服务'},
+    {id: 'inventory', name: '库存管理'},
+    {id: 'report', name: '报表分析'},
+    {id: 'file', name: '文件管理'},
+    {id: 'log', name: '日志管理'},
+  ]);
+  const [showModuleSelector, setShowModuleSelector] = useState(false);
+
   const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
+
+  // 加载用户列表
+  const fetchUserList = async () => {
+    try {
+      /**
+       * 服务端文件：server/src/routes/users.ts
+       * 接口：GET /api/v1/users
+       */
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users`);
+      const data = await response.json();
+
+      if (data.code === 200 && data.data) {
+        const users = Array.isArray(data.data) ? data.data : (data.data.list || []);
+        setUserList(users.map((u: any) => ({
+          id: u.id,
+          username: u.username || u.name || '',
+        })));
+      }
+    } catch (error) {
+      console.error('获取用户列表错误:', error);
+    }
+  };
 
   const fetchLoginLogs = async (page = 1) => {
     try {
@@ -282,10 +330,53 @@ export default function SystemLogsScreen() {
     ]).finally(() => setRefreshing(false));
   };
 
+  // 日期选择处理
+  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+    setShowStartDatePicker(false);
+    if (selectedDate) {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      if (activeTab === 'login') {
+        setLoginFilter({ ...loginFilter, startDate: dateStr });
+      } else {
+        setOperationFilter({ ...operationFilter, startDate: dateStr });
+      }
+    }
+  };
+
+  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(false);
+    if (selectedDate) {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      if (activeTab === 'login') {
+        setLoginFilter({ ...loginFilter, endDate: dateStr });
+      } else {
+        setOperationFilter({ ...operationFilter, endDate: dateStr });
+      }
+    }
+  };
+
+  // 用户选择处理
+  const handleUserSelect = (username: string) => {
+    setShowUserSelector(false);
+    if (activeTab === 'login') {
+      setLoginFilter({ ...loginFilter, username });
+    } else {
+      setOperationFilter({ ...operationFilter, username });
+    }
+  };
+
+  // 模块选择处理
+  const handleModuleSelect = (moduleId: string) => {
+    setShowModuleSelector(false);
+    const selectedModule = moduleId === 'all' ? '' : moduleList.find(m => m.id === moduleId)?.name || '';
+    setOperationFilter({ ...operationFilter, module: selectedModule });
+  };
+
   useFocusEffect(
     React.useCallback(() => {
       fetchLoginLogs(1);
       fetchStats();
+      fetchUserList();
       return () => {};
     }, [])
   );
@@ -426,69 +517,65 @@ export default function SystemLogsScreen() {
               <FontAwesome5 name="filter" size={16} color="#6B7280" />
               <Text className="text-sm font-medium text-gray-700">筛选条件</Text>
             </View>
-            
+
             <View className="space-y-3">
-              <TextInput
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                placeholder="输入用户名"
-                value={
-                  activeTab === 'login' ? loginFilter.username : operationFilter.username
-                }
-                onChangeText={(text) => {
-                  if (activeTab === 'login') {
-                    setLoginFilter({ ...loginFilter, username: text });
-                  } else {
-                    setOperationFilter({ ...operationFilter, username: text });
-                  }
-                }}
-              />
-              
+              {/* 用户名选择器 */}
+              <TouchableOpacity
+                onPress={() => setShowUserSelector(true)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <Text className={
+                  (activeTab === 'login' ? loginFilter.username : operationFilter.username)
+                    ? 'text-gray-900'
+                    : 'text-gray-400'
+                }>
+                  {(activeTab === 'login' ? loginFilter.username : operationFilter.username) || '选择用户'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* 模块选择器（仅操作日志） */}
               {activeTab === 'operation' && (
-                <TextInput
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="输入模块"
-                  value={operationFilter.module}
-                  onChangeText={(text) =>
-                    setOperationFilter({ ...operationFilter, module: text })
-                  }
-                />
+                <TouchableOpacity
+                  onPress={() => setShowModuleSelector(true)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <Text className={
+                    operationFilter.module ? 'text-gray-900' : 'text-gray-400'
+                  }>
+                    {operationFilter.module || '选择模块'}
+                  </Text>
+                </TouchableOpacity>
               )}
-              
+
+              {/* 日期选择器 */}
               <View className="flex-row gap-2">
-                <TextInput
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="开始日期 (YYYY-MM-DD)"
-                  value={
-                    activeTab === 'login'
-                      ? loginFilter.startDate
-                      : operationFilter.startDate
-                  }
-                  onChangeText={(text) => {
-                    if (activeTab === 'login') {
-                      setLoginFilter({ ...loginFilter, startDate: text });
-                    } else {
-                      setOperationFilter({ ...operationFilter, startDate: text });
-                    }
-                  }}
-                />
-                <TextInput
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="结束日期 (YYYY-MM-DD)"
-                  value={
-                    activeTab === 'login'
-                      ? loginFilter.endDate
-                      : operationFilter.endDate
-                  }
-                  onChangeText={(text) => {
-                    if (activeTab === 'login') {
-                      setLoginFilter({ ...loginFilter, endDate: text });
-                    } else {
-                      setOperationFilter({ ...operationFilter, endDate: text });
-                    }
-                  }}
-                />
+                <TouchableOpacity
+                  onPress={() => setShowStartDatePicker(true)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <Text className={
+                    (activeTab === 'login' ? loginFilter.startDate : operationFilter.startDate)
+                      ? 'text-gray-900'
+                      : 'text-gray-400'
+                  }>
+                    {(activeTab === 'login' ? loginFilter.startDate : operationFilter.startDate) || '开始日期'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowEndDatePicker(true)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <Text className={
+                    (activeTab === 'login' ? loginFilter.endDate : operationFilter.endDate)
+                      ? 'text-gray-900'
+                      : 'text-gray-400'
+                  }>
+                    {(activeTab === 'login' ? loginFilter.endDate : operationFilter.endDate) || '结束日期'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              
+
+              {/* 查询按钮 */}
               <TouchableOpacity
                 onPress={() => {
                   if (activeTab === 'login') {
@@ -503,6 +590,107 @@ export default function SystemLogsScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* 用户选择器Modal */}
+          <Modal
+            visible={showUserSelector}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowUserSelector(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => setShowUserSelector(false)}
+              className="flex-1 bg-black/50 justify-end"
+            >
+              <View className="bg-white rounded-t-2xl p-4 max-h-96">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-lg font-bold text-gray-900">选择用户</Text>
+                  <TouchableOpacity onPress={() => setShowUserSelector(false)}>
+                    <FontAwesome5 name="times" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView className="max-h-80">
+                  <TouchableOpacity
+                    onPress={() => handleUserSelect('')}
+                    className="py-3 border-b border-gray-100"
+                  >
+                    <Text className="text-gray-900">全部</Text>
+                  </TouchableOpacity>
+                  {userList.map((user) => (
+                    <TouchableOpacity
+                      key={user.id}
+                      onPress={() => handleUserSelect(user.username)}
+                      className="py-3 border-b border-gray-100"
+                    >
+                      <Text className="text-gray-900">{user.username}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* 模块选择器Modal */}
+          <Modal
+            visible={showModuleSelector}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowModuleSelector(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => setShowModuleSelector(false)}
+              className="flex-1 bg-black/50 justify-end"
+            >
+              <View className="bg-white rounded-t-2xl p-4 max-h-96">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-lg font-bold text-gray-900">选择模块</Text>
+                  <TouchableOpacity onPress={() => setShowModuleSelector(false)}>
+                    <FontAwesome5 name="times" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView className="max-h-80">
+                  {moduleList.map((module) => (
+                    <TouchableOpacity
+                      key={module.id}
+                      onPress={() => handleModuleSelect(module.id)}
+                      className="py-3 border-b border-gray-100"
+                    >
+                      <Text className="text-gray-900">{module.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* 日期选择器 */}
+          {showStartDatePicker && (
+            <DateTimePicker
+              value={
+                (activeTab === 'login' ? loginFilter.startDate : operationFilter.startDate)
+                  ? new Date(activeTab === 'login' ? loginFilter.startDate : operationFilter.startDate)
+                  : new Date()
+              }
+              mode="date"
+              display="default"
+              onChange={handleStartDateChange}
+            />
+          )}
+
+          {showEndDatePicker && (
+            <DateTimePicker
+              value={
+                (activeTab === 'login' ? loginFilter.endDate : operationFilter.endDate)
+                  ? new Date(activeTab === 'login' ? loginFilter.endDate : operationFilter.endDate)
+                  : new Date()
+              }
+              mode="date"
+              display="default"
+              onChange={handleEndDateChange}
+            />
+          )}
 
           {/* 导出按钮 */}
           <View className="px-4 mb-3">
