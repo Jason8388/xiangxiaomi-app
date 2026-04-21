@@ -416,21 +416,22 @@ export default function EmployeeManagement() {
   const renderUserCard = (userItem: User) => {
     return (
       <View key={userItem.id} style={styles.userCard}>
+        {/* 第一行：基本信息 */}
         <View style={styles.userContent}>
-          <FontAwesome6 name="user" size={18} color="#3498DB" />
+          <FontAwesome6 name="user" size={20} color="#3498DB" />
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{userItem.name}</Text>
             <Text style={styles.userPosition}>{userItem.position || '未设置岗位'}</Text>
           </View>
+          {userItem.is_disabled && (
+            <View style={styles.disabledBadge}>
+              <FontAwesome6 name="ban" size={10} color="#FF6B6B" />
+              <Text style={styles.disabledText}>已禁用</Text>
+            </View>
+          )}
         </View>
 
-        {userItem.is_disabled && (
-          <View style={styles.disabledBadge}>
-            <FontAwesome6 name="ban" size={12} color="#FF6B6B" />
-            <Text style={styles.disabledText}>已禁用</Text>
-          </View>
-        )}
-
+        {/* 第二行：操作按钮 */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.permissionButton}
@@ -887,9 +888,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
@@ -900,12 +899,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   userContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     flex: 1,
   },
   userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  userInfoText: {
     flex: 1,
   },
   userName: {
@@ -935,7 +937,9 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 12,
   },
   permissionButton: {
     flexDirection: 'row',
