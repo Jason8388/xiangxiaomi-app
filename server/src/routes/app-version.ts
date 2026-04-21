@@ -1,7 +1,52 @@
 import express from 'express';
-import pool from '../database/db';
+import pool, { USE_DATABASE } from '../database/db';
 
 const router = express.Router();
+
+// 内存存储（当数据库不可用时使用）
+const memoryAppVersions: any[] = [
+  {
+    id: 1,
+    version_code: 1,
+    version_name: '1.0.0',
+    version_title: '初始版本',
+    description: '项小秘售后助手首个版本',
+    release_date: new Date().toISOString(),
+    compatibility_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    download_url: 'https://example.com/download/app-v1.0.0.apk',
+    is_mandatory: false,
+    is_disabled: false,
+  },
+  {
+    id: 2,
+    version_code: 2,
+    version_name: '2.0.0',
+    version_title: '新功能上线',
+    description: '新增文件上传断点续传功能，优化用户体验',
+    release_date: new Date().toISOString(),
+    compatibility_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    download_url: 'https://example.com/download/app-v2.0.0.apk',
+    is_mandatory: false,
+    is_disabled: false,
+  },
+];
+
+const memoryUpgradeFailures: any[] = [];
+
+// 获取版本列表（数据库或内存）
+async function getVersions(whereClause?: string, params?: any[]): Promise<any[]> {
+  if (USE_DATABASE) {
+    const query = `SELECT * FROM app_versions ${whereClause || ''} ORDER BY version_code DESC`;
+    const result = await pool.query(query, params || []);
+    return result.rows;
+  } else {
+    let versions = [...memoryAppVersions];
+    if (whereClause && whereClause.includes('is_disabled = FALSE')) {
+      versions = versions.filter(v => !v.is_disabled);
+    }
+    return versions.sort((a, b) => b.version_code - a.version_code);
+  }
+}
 
 // GET /api/v1/app-version/check - 检查版本更新
 router.get('/check', async (req, res) => {
@@ -16,18 +61,16 @@ router.get('/check', async (req, res) => {
     const deviceId = device_id as string || '';
 
     // 获取最新版本
-    const latestVersionResult = await pool.query(
-      'SELECT * FROM app_versions WHERE is_disabled = FALSE ORDER BY version_code DESC LIMIT 1'
-    );
+    const versions = await getVersions('WHERE is_disabled = FALSE');
 
-    if (latestVersionResult.rows.length === 0) {
+    if (versions.length === 0) {
       return res.json({
         has_update: false,
         message: '当前已是最新版本',
       });
     }
 
-    const latestVersion = latestVersionResult.rows[0];
+    const latestVersion = versions[0];
 
     // 检查是否需要更新
     if (latestVersion.version_code <= currentVersionCode) {
@@ -67,15 +110,13 @@ router.get('/check', async (req, res) => {
 // GET /api/v1/app-version/latest - 获取最新版本信息（管理端）
 router.get('/latest', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM app_versions WHERE is_disabled = FALSE ORDER BY version_code DESC LIMIT 1'
-    );
+    const versions = await getVersions('WHERE is_disabled = FALSE');
 
-    if (result.rows.length === 0) {
+    if (versions.length === 0) {
       return res.status(404).json({ error: '暂无版本信息' });
     }
 
-    res.json(result.rows[0]);
+    res.json(versions[0]);
   } catch (error: any) {
     console.error('Get latest version error:', error);
     res.status(500).json({ error: '获取版本信息失败' });
@@ -85,11 +126,8 @@ router.get('/latest', async (req, res) => {
 // GET /api/v1/app-version - 获取所有版本列表（管理端）
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM app_versions ORDER BY version_code DESC'
-    );
-
-    res.json(result.rows);
+    const versions = await getVersions();
+    res.json(versions);
   } catch (error: any) {
     console.error('Get versions error:', error);
     res.status(500).json({ error: '获取版本列表失败' });
@@ -116,14 +154,38 @@ router.post('/', async (req, res) => {
     const compatibility_end_date = new Date();
     compatibility_end_date.setDate(compatibility_end_date.getDate() + 30);
 
-    const result = await pool.query(
-      `INSERT INTO app_versions (version_code, version_name, version_title, description, compatibility_end_date, download_url, is_mandatory)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [version_code, version_name, version_title, description, compatibility_end_date, download_url, is_mandatory]
-    );
+    if (USE_DATABASE) {
+      const result = await pool.query(
+        `INSERT INTO app_versions (version_code, version_name, version_title, description, compatibility_end_date, download_url, is_mandatory)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING *`,
+        [version_code, version_name, version_title, description, compatibility_end_date, download_url, is_mandatory]
+      );
+      res.status(201).json(result.rows[0]);
+    } else {
+      // 检查版本号是否已存在
+      const existing = memoryAppVersions.find(v => v.version_code === version_code);
+      if (existing) {
+        return res.status(400).json({ error: '版本号已存在' });
+      }
 
-    res.status(201).json(result.rows[0]);
+      const newVersion = {
+        id: memoryAppVersions.length + 1,
+        version_code,
+        version_name,
+        version_title,
+        description,
+        compatibility_end_date: compatibility_end_date.toISOString(),
+        download_url,
+        is_mandatory,
+        is_disabled: false,
+        release_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryAppVersions.push(newVersion);
+      res.status(201).json(newVersion);
+    }
   } catch (error: any) {
     if (error.code === '23505') { // 唯一约束冲突
       return res.status(400).json({ error: '版本号已存在' });
