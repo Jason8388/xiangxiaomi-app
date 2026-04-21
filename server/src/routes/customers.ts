@@ -257,7 +257,7 @@ async function queryWithRetry(query: string, params: any[] = [], retries = 1, de
   throw new Error('Max retries reached');
 }
 
-// 获取客户列表（带分页）
+// 获取客户列表（带分页，优先内存存储）
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 100, keyword } = req.query;
@@ -265,46 +265,112 @@ router.get('/', async (req, res) => {
     const limitNum = Math.min(parseInt(limit as string) || 100, 200); // 最多200条
     const offset = (pageNum - 1) * limitNum;
 
-    // 使用子查询动态统计设备和合同数量
-    let query = `
-      SELECT
-        c.*,
-        COALESCE(dc.count, 0) as device_count,
-        COALESCE(cc.count, 0) as contract_count
-      FROM customers c
-      LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM devices GROUP BY customer_id) dc ON c.id = dc.customer_id
-      LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM contracts GROUP BY customer_id) cc ON c.id = cc.customer_id
-    `;
-    let countQuery = 'SELECT COUNT(*) as total FROM customers';
-    const params: any[] = [];
+    // 优先使用内存存储，快速响应
+    if (USE_MEMORY_STORAGE) {
+      let filtered = memoryCustomers;
 
-    // 关键词搜索
-    if (keyword) {
-      query += ' WHERE c.name ILIKE $1 OR c.contact ILIKE $1 OR c.phone ILIKE $1';
-      countQuery += ' WHERE name ILIKE $1 OR contact ILIKE $1 OR phone ILIKE $1';
-      params.push(`%${keyword}%`);
+      // 关键词搜索
+      if (keyword) {
+        const searchLower = keyword.toLowerCase();
+        filtered = memoryCustomers.filter(c =>
+          c.name.toLowerCase().includes(searchLower) ||
+          c.contact.toLowerCase().includes(searchLower) ||
+          c.phone.includes(keyword)
+        );
+      }
+
+      // 分页
+      const total = filtered.length;
+      const paginated = filtered.slice(offset, offset + limitNum);
+
+      return res.json({
+        data: paginated,
+        total: total,
+        page: pageNum,
+        limit: limitNum,
+      });
     }
 
-    query += ` ORDER BY COALESCE(dc.count, 0) DESC, c.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limitNum, offset);
+    // 如果数据库可用，查询数据库
+    if (USE_DATABASE) {
+      // 使用子查询动态统计设备和合同数量
+      let query = `
+        SELECT
+          c.*,
+          COALESCE(dc.count, 0) as device_count,
+          COALESCE(cc.count, 0) as contract_count
+        FROM customers c
+        LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM devices GROUP BY customer_id) dc ON c.id = dc.customer_id
+        LEFT JOIN (SELECT customer_id, COUNT(*) as count FROM contracts GROUP BY customer_id) cc ON c.id = cc.customer_id
+      `;
+      let countQuery = 'SELECT COUNT(*) as total FROM customers';
+      const params: any[] = [];
 
-    const [result, countResult] = await Promise.all([
-      queryWithRetry(query, params),
-      queryWithRetry(countQuery, keyword ? [`%${keyword}%`] : []),
-    ]);
+      // 关键词搜索
+      if (keyword) {
+        query += ' WHERE c.name ILIKE $1 OR c.contact ILIKE $1 OR c.phone ILIKE $1';
+        countQuery += ' WHERE name ILIKE $1 OR contact ILIKE $1 OR phone ILIKE $1';
+        params.push(`%${keyword}%`);
+      }
 
-    res.json({
-      data: result.rows,
-      total: parseInt(countResult.rows[0].total),
-      page: pageNum,
-      limit: limitNum,
-    });
+      query += ` ORDER BY COALESCE(dc.count, 0) DESC, c.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limitNum, offset);
+
+      const [result, countResult] = await Promise.all([
+        queryWithRetry(query, params),
+        queryWithRetry(countQuery, keyword ? [`%${keyword}%`] : []),
+      ]);
+
+      res.json({
+        data: result.rows,
+        total: parseInt(countResult.rows[0].total),
+        page: pageNum,
+        limit: limitNum,
+      });
+    } else {
+      // 数据库不可用，返回内存数据
+      let filtered = memoryCustomers;
+
+      // 关键词搜索
+      if (keyword) {
+        const searchLower = keyword.toLowerCase();
+        filtered = memoryCustomers.filter(c =>
+          c.name.toLowerCase().includes(searchLower) ||
+          c.contact.toLowerCase().includes(searchLower) ||
+          c.phone.includes(keyword)
+        );
+      }
+
+      // 分页
+      const total = filtered.length;
+      const paginated = filtered.slice(offset, offset + limitNum);
+
+      res.json({
+        data: paginated,
+        total: total,
+        page: pageNum,
+        limit: limitNum,
+      });
+    }
   } catch (error) {
     console.error('Get customers error, using memory storage:', error);
     // 数据库失败时返回内存数据
+    let filtered = memoryCustomers;
+    const { keyword } = req.query;
+
+    // 关键词搜索
+    if (keyword) {
+      const searchLower = keyword.toLowerCase();
+      filtered = memoryCustomers.filter(c =>
+        c.name.toLowerCase().includes(searchLower) ||
+        c.contact.toLowerCase().includes(searchLower) ||
+        c.phone.includes(keyword)
+      );
+    }
+
     res.json({
-      data: memoryCustomers,
-      total: memoryCustomers.length,
+      data: filtered,
+      total: filtered.length,
       page: 1,
       limit: 100,
     });
