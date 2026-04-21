@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { getSecureItem } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 interface User {
   id: number;
@@ -380,6 +381,11 @@ export default function EmployeeManagement() {
     ]);
   };
 
+  const handlePermissionConfig = (userItem: User) => {
+    console.log('[员工管理] 点击权限按钮:', userItem.id, userItem.name);
+    router.push('/permission-config', { userId: userItem.id });
+  };
+
   // 渲染部门树
   const renderDepartmentTree = (depts: DepartmentWithUsers[], level: number = 0) => {
     return depts.map((dept) => (
@@ -425,6 +431,14 @@ export default function EmployeeManagement() {
         )}
 
         <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={() => handlePermissionConfig(userItem)}
+          >
+            <FontAwesome6 name="shield-halved" size={14} color="#007AFF" />
+            <Text style={styles.actionButtonText}>权限</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionButton} onPress={() => handleEditUser(userItem)}>
             <FontAwesome6 name="pen" size={14} color="#F39C12" />
             <Text style={styles.actionButtonText}>修改</Text>
@@ -921,6 +935,18 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
+  },
+  permissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    backgroundColor: '#E3F2FD',
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
   },
   actionButton: {
     flexDirection: 'row',
