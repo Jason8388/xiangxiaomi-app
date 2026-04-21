@@ -70,6 +70,11 @@ export default function DeviceManagement() {
   const [deletingDevice, setDeletingDevice] = useState<Device | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deviceTypeFilterSelectorVisible, setDeviceTypeFilterSelectorVisible] = useState(false);
+  // 客户选择器相关state
+  const [customerList, setCustomerList] = useState<any[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
+  const [customerSearchKeyword, setCustomerSearchKeyword] = useState('');
+  const [customerSelectorVisible, setCustomerSelectorVisible] = useState(false);
   const [formData, setFormData] = useState({
     device_number: '',
     device_name: '',
@@ -129,6 +134,38 @@ export default function DeviceManagement() {
     };
     loadContracts();
   }, []);
+
+  // 加载客户列表
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/customers`);
+        const data = await response.json();
+        if (response.ok) {
+          const list = Array.isArray(data) ? data : (data.data || []);
+          setCustomerList(list);
+          setFilteredCustomers(list);
+        }
+      } catch (error) {
+        console.error('Load customers error:', error);
+      }
+    };
+    loadCustomers();
+  }, []);
+
+  // 客户名称搜索过滤
+  useEffect(() => {
+    if (customerSearchKeyword.trim()) {
+      const keyword = customerSearchKeyword.toLowerCase();
+      const filtered = customerList.filter((c) => {
+        const name = (c.name || '').toLowerCase();
+        return name.includes(keyword);
+      });
+      setFilteredCustomers(filtered);
+    } else {
+      setFilteredCustomers(customerList);
+    }
+  }, [customerSearchKeyword, customerList]);
 
   // 合同名称/编号搜索过滤
   useEffect(() => {
@@ -221,6 +258,8 @@ export default function DeviceManagement() {
     setSitePhotos([]);
     setQrCode('');
     setDeviceTypeSelectorVisible(false);
+    setCustomerSelectorVisible(false);
+    setContractSelectorVisible(false);
   };
 
   const handleSave = async () => {
@@ -833,14 +872,74 @@ export default function DeviceManagement() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>归属客户 *</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="请输入客户名称"
-                  value={formData.customer_name}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, customer_name: text })
-                  }
-                />
+                <TouchableOpacity
+                  style={styles.dropdown}
+                  onPress={() => setCustomerSelectorVisible(true)}
+                >
+                  <Text style={formData.customer_name ? styles.dropdownText : styles.dropdownPlaceholder}>
+                    {formData.customer_name || '请选择或搜索客户名称'}
+                  </Text>
+                  <FontAwesome6
+                    name={customerSelectorVisible ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color="#95A5A6"
+                  />
+                </TouchableOpacity>
+
+                {customerSelectorVisible && (
+                  <View style={styles.dropdownMenu}>
+                    <View style={styles.contractSearchContainer}>
+                      <FontAwesome6 name="magnifying-glass" size={14} color="#95A5A6" />
+                      <TextInput
+                        style={styles.contractSearchInput}
+                        placeholder="搜索客户名称"
+                        value={customerSearchKeyword}
+                        onChangeText={setCustomerSearchKeyword}
+                        placeholderTextColor="#95A5A6"
+                      />
+                    </View>
+                    <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                      {filteredCustomers.length === 0 ? (
+                        <View style={styles.noDataContainer}>
+                          <Text style={styles.noDataText}>未找到匹配的客户</Text>
+                        </View>
+                      ) : (
+                        filteredCustomers.slice(0, 10).map((customer) => (
+                          <TouchableOpacity
+                            key={customer.id}
+                            style={[
+                              styles.dropdownItem,
+                              formData.customer_name === customer.name && styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => {
+                              setFormData({
+                                ...formData,
+                                customer_name: customer.name || '',
+                              });
+                              setCustomerSelectorVisible(false);
+                              setCustomerSearchKeyword('');
+                            }}
+                          >
+                            <View style={styles.contractItemContent}>
+                              <Text style={[
+                                styles.contractItemTitle,
+                                formData.customer_name === customer.name && styles.contractItemTitleSelected,
+                              ]}>
+                                {customer.name || '未命名客户'}
+                              </Text>
+                              <Text style={styles.contractItemSub}>
+                                行业: {customer.industry || '无'} | 联系人: {customer.contact_person || customer.contact || '无'}
+                              </Text>
+                            </View>
+                            {formData.customer_name === customer.name && (
+                              <FontAwesome6 name="check" size={16} color="#2ECC71" />
+                            )}
+                          </TouchableOpacity>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
 
               <View style={styles.formRow}>
