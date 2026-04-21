@@ -60,13 +60,189 @@ const memoryCustomers: any[] = [
     updated_at: new Date().toISOString(),
   },
 ];
+
+// 内存存储：合同数据
+const memoryContracts: any[] = [
+  {
+    id: 1,
+    customer_id: 1,
+    contract_number: 'CT-2025-001',
+    contract_name: '示例科技有限公司设备采购合同',
+    contract_type: '设备采购',
+    contract_amount: 500000,
+    sign_date: '2025-01-15',
+    start_date: '2025-01-15',
+    end_date: '2026-01-14',
+    status: '执行中',
+    remarks: '首次合作合同',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    customer_id: 1,
+    contract_number: 'CT-2025-002',
+    contract_name: '示例科技有限公司技术服务合同',
+    contract_type: '技术服务',
+    contract_amount: 100000,
+    sign_date: '2025-02-01',
+    start_date: '2025-02-01',
+    end_date: '2026-01-31',
+    status: '执行中',
+    remarks: '年度维护服务',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    customer_id: 2,
+    contract_number: 'CT-2025-003',
+    contract_name: '华联实业集团设备租赁合同',
+    contract_type: '设备租赁',
+    contract_amount: 800000,
+    sign_date: '2025-01-20',
+    start_date: '2025-01-20',
+    end_date: '2027-01-19',
+    status: '执行中',
+    remarks: '两年期租赁合同',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    customer_id: 3,
+    contract_number: 'CT-2025-004',
+    contract_name: '东方制造有限公司设备供应合同',
+    contract_type: '设备供应',
+    contract_amount: 300000,
+    sign_date: '2025-02-10',
+    start_date: '2025-02-10',
+    end_date: '2025-05-10',
+    status: '执行中',
+    remarks: '生产线设备供应',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+// 内存存储：设备数据
+const memoryDevices: any[] = [
+  {
+    id: 1,
+    customer_id: 1,
+    device_name: '智能传感器-A001',
+    device_type: '传感器',
+    device_model: 'SN-A001',
+    serial_number: 'SN202500001',
+    install_date: '2025-01-20',
+    warranty_expiry: '2026-01-20',
+    status: '正常',
+    location: '北京市朝阳区',
+    remarks: '生产线监控',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    customer_id: 1,
+    device_name: '工业控制器-C001',
+    device_type: '控制器',
+    device_model: 'IC-C001',
+    serial_number: 'SN202500002',
+    install_date: '2025-01-25',
+    warranty_expiry: '2026-01-25',
+    status: '正常',
+    location: '北京市朝阳区',
+    remarks: '生产线控制',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    customer_id: 2,
+    device_name: '大型服务器-S001',
+    device_type: '服务器',
+    device_model: 'SV-S001',
+    serial_number: 'SN202500003',
+    install_date: '2025-01-22',
+    warranty_expiry: '2026-01-22',
+    status: '正常',
+    location: '上海市浦东新区',
+    remarks: '数据中心',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    customer_id: 3,
+    device_name: '自动化生产线-P001',
+    device_type: '生产线',
+    device_model: 'PL-P001',
+    serial_number: 'SN202500004',
+    install_date: '2025-02-15',
+    warranty_expiry: '2026-02-15',
+    status: '正常',
+    location: '深圳市南山区',
+    remarks: '车间自动化设备',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+// 内存存储：售后工单数据
+const memoryWorkOrders: any[] = [
+  {
+    id: 1,
+    customer_id: 1,
+    order_number: 'WO-2025-001',
+    service_type: '维修',
+    description: '智能传感器故障维修服务',
+    status: '已完成',
+    priority: '高',
+    assignee: '技术员A',
+    report_date: '2025-01-28',
+    completion_date: '2025-01-29',
+    remarks: '传感器更换，已恢复正常',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    customer_id: 2,
+    order_number: 'WO-2025-002',
+    service_type: '保养',
+    description: '服务器定期保养服务',
+    status: '进行中',
+    priority: '中',
+    assignee: '技术员B',
+    report_date: '2025-02-05',
+    completion_date: null,
+    remarks: '进行中，预计本周完成',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    customer_id: 3,
+    order_number: 'WO-2025-003',
+    service_type: '安装',
+    description: '自动化生产线安装服务',
+    status: '待处理',
+    priority: '高',
+    assignee: null,
+    report_date: '2025-02-12',
+    completion_date: null,
+    remarks: '等待调度技术员',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 let memoryCustomerId = 4;
 
 // 带超时的查询函数
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 500) {
-  if (!USE_DATABASE) {
-    throw new Error('Database not available');
-  }
+  // 直接尝试查询，不检查 USE_DATABASE
   for (let i = 0; i < retries; i++) {
     try {
       return await pool.query(query, params);
@@ -289,6 +465,96 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('Delete customer error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 获取客户的合同列表
+router.get('/:id/contracts', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 尝试直接查询数据库（不依赖 USE_DATABASE 标志）
+    try {
+      const result = await queryWithRetry(
+        'SELECT * FROM contracts WHERE customer_id = $1 ORDER BY created_at DESC',
+        [id],
+        3,  // 增加重试次数到 3 次
+        1000  // 增加延迟到 1 秒
+      );
+      console.log(`[Contracts] Found ${result.rows.length} contracts for customer ${id}`);
+      res.json(result.rows);
+      return;
+    } catch (dbError: any) {
+      console.error('Database query failed for contracts, using memory storage:', dbError.message);
+    }
+
+    // 如果数据库查询失败，返回内存存储的数据
+    const customerContracts = memoryContracts.filter(c => c.customer_id === parseInt(id));
+    console.log(`[Contracts Memory] Found ${customerContracts.length} contracts for customer ${id}`);
+    res.json(customerContracts);
+  } catch (error) {
+    console.error('Get customer contracts error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 获取客户的设备列表
+router.get('/:id/devices', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 尝试直接查询数据库（不依赖 USE_DATABASE 标志）
+    try {
+      const result = await queryWithRetry(
+        'SELECT * FROM devices WHERE customer_id = $1 ORDER BY created_at DESC',
+        [id],
+        3,  // 增加重试次数到 3 次
+        1000  // 增加延迟到 1 秒
+      );
+      console.log(`[Devices] Found ${result.rows.length} devices for customer ${id}`);
+      res.json(result.rows);
+      return;
+    } catch (dbError: any) {
+      console.error('Database query failed for devices, using memory storage:', dbError.message);
+    }
+
+    // 如果数据库查询失败，返回内存存储的数据
+    const customerDevices = memoryDevices.filter(d => d.customer_id === parseInt(id));
+    console.log(`[Devices Memory] Found ${customerDevices.length} devices for customer ${id}`);
+    res.json(customerDevices);
+  } catch (error) {
+    console.error('Get customer devices error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 获取客户的售后工单列表
+router.get('/:id/work-orders', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 尝试直接查询数据库（不依赖 USE_DATABASE 标志）
+    try {
+      const result = await queryWithRetry(
+        'SELECT * FROM work_orders WHERE customer_id = $1 ORDER BY created_at DESC',
+        [id],
+        3,  // 增加重试次数到 3 次
+        1000  // 增加延迟到 1 秒
+      );
+      console.log(`[WorkOrders] Found ${result.rows.length} work orders for customer ${id}`);
+      res.json(result.rows);
+      return;
+    } catch (dbError: any) {
+      console.error('Database query failed for work orders, using memory storage:', dbError.message);
+    }
+
+    // 如果数据库查询失败，返回内存存储的数据
+    const customerWorkOrders = memoryWorkOrders.filter(wo => wo.customer_id === parseInt(id));
+    console.log(`[WorkOrders Memory] Found ${customerWorkOrders.length} work orders for customer ${id}`);
+    res.json(customerWorkOrders);
+  } catch (error) {
+    console.error('Get customer work orders error:', error);
     res.status(500).json({ error: '服务器错误' });
   }
 });

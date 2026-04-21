@@ -48,8 +48,8 @@ const pool = new Pool({
   max: 10,
   min: 1,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,  // 快速失败：5秒超时
-  query_timeout: 10000,           // 查询超时：10秒
+  connectionTimeoutMillis: 10000,  // 快速失败：10秒超时（从5秒增加）
+  query_timeout: 30000,           // 查询超时：30秒（从10秒增加）
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
   ssl: {
