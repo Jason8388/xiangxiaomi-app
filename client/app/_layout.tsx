@@ -2,10 +2,29 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { useSegments, useRootNavigationState } from 'expo-router';
 import { Provider } from '@/components/Provider';
 import { useVersionUpdate } from '@/components/VersionUpdate';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// 检查用户登录状态
+const checkAuth = async () => {
+  try {
+    if (Platform.OS === 'web') {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      return !!token;
+    } else {
+      const token = await AsyncStorage.getItem('session_id');
+      return !!token;
+    }
+  } catch (error) {
+    console.error('[认证] 检查登录状态失败:', error);
+    return false;
+  }
+};
 
 import '../global.css';
 
@@ -21,6 +40,12 @@ LogBox.ignoreLogs([
 ]);
 
 function RootLayoutInner() {
+  const router = useSafeRouter();
+  const segments = useSegments();
+  const rootState = useRootNavigationState();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
   const { checkVersionUpdate, renderDialog } = useVersionUpdate({
     // Web 环境下禁用版本更新检查
     enabled: Platform.OS !== 'web',
@@ -39,6 +64,46 @@ function RootLayoutInner() {
   useEffect(() => {
     checkVersionUpdate();
   }, []);
+
+  // 认证检查逻辑
+  useEffect(() => {
+    // 等待导航挂载
+    if (!rootState?.key) return;
+
+    const checkAuthStatus = async () => {
+      const isAuth = await checkAuth();
+      console.log('[认证] 登录状态:', isAuth);
+      setIsAuthenticated(isAuth);
+      setIsLoading(false);
+    };
+
+    checkAuthStatus();
+  }, [rootState?.key]);
+
+  // 路由守卫
+  useEffect(() => {
+    if (isLoading || !rootState?.key) return;
+
+    const inLoginRoute = segments[0] === 'login';
+
+    console.log('[认证] 路由守卫检查:', {
+      isAuthenticated,
+      inLoginRoute,
+      segments,
+    });
+
+    // 未登录且不在登录页 → 跳转登录页
+    if (!isAuthenticated && !inLoginRoute) {
+      console.log('[认证] 未登录，跳转到登录页');
+      router.replace('/login');
+    }
+
+    // 已登录但在登录页 → 跳转首页
+    if (isAuthenticated && inLoginRoute) {
+      console.log('[认证] 已登录，跳转到首页');
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, segments, isLoading, rootState?.key, router]);
 
   return (
     <>
