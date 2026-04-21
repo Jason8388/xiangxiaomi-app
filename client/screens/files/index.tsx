@@ -9,6 +9,9 @@ import {
   FlatList,
   StyleSheet,
   ListRenderItem,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -641,12 +644,6 @@ export default function FilesScreen() {
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={10}
-          removeClippedSubviews={true}
-          getItemLayout={(data, index) => ({
-            length: 88,
-            offset: 88 * index,
-            index,
-          })}
         />
       </View>
 
