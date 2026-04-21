@@ -257,6 +257,14 @@ export default function FilesScreen() {
     }
   };
 
+  // 使用 useMemo 缓存筛选后的文件类型选项（必须在 fetchFiles 之前定义）
+  const fileTypeOptions = useMemo(() => [
+    { type: 'excel', label: 'Excel', icon: 'file-excel', color: '#00B894', extensions: ['xlsx', 'xls'] },
+    { type: 'ppt', label: 'PPT', icon: 'file-powerpoint', color: '#FDCB6E', extensions: ['pptx', 'ppt'] },
+    { type: 'word', label: 'Word', icon: 'file-word', color: '#1E88E5', extensions: ['docx', 'doc'] },
+    { type: 'pdf', label: 'PDF', icon: 'file-pdf', color: '#FF6B6B', extensions: ['pdf'] },
+  ], []);
+
   // 筛选文件（带 useCallback 稳定引用）
   const fetchFiles = useCallback(async (tagId?: number, fileType?: string) => {
     setLoading(true);
@@ -284,14 +292,6 @@ export default function FilesScreen() {
       setLoading(false);
     }
   }, [searchText, fileTypeOptions]);
-
-  // 使用 useMemo 缓存筛选后的文件类型选项
-  const fileTypeOptions = useMemo(() => [
-    { type: 'excel', label: 'Excel', icon: 'file-excel', color: '#00B894', extensions: ['xlsx', 'xls'] },
-    { type: 'ppt', label: 'PPT', icon: 'file-powerpoint', color: '#FDCB6E', extensions: ['pptx', 'ppt'] },
-    { type: 'word', label: 'Word', icon: 'file-word', color: '#1E88E5', extensions: ['docx', 'doc'] },
-    { type: 'pdf', label: 'PDF', icon: 'file-pdf', color: '#FF6B6B', extensions: ['pdf'] },
-  ], []);
 
   // 搜索处理
   const handleSearch = useCallback(() => {
