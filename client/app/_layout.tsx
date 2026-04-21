@@ -169,6 +169,7 @@ function RootLayoutInner() {
         <Stack.Screen name="query-after-sales" options={{ title: "" }} />
         <Stack.Screen name="reports" options={{ title: "" }} />
         <Stack.Screen name="report-customer" options={{ title: "" }} />
+        <Stack.Screen name="report-customer-detail" options={{ title: "" }} />
         <Stack.Screen name="report-device" options={{ title: "" }} />
         <Stack.Screen name="report-after-sales" options={{ title: "" }} />
         <Stack.Screen name="reminders" options={{ title: "" }} />

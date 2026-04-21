@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  TextInput,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
@@ -15,6 +16,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getApiBaseUrl } from '@/utils/api';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 interface SummaryData {
   total_customers: number;
@@ -54,6 +56,9 @@ export default function ReportCustomer() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const router = useSafeRouter();
 
   useEffect(() => {
     loadReportData();
@@ -130,8 +135,26 @@ export default function ReportCustomer() {
     }
   };
 
-  const handleViewDetail = (customerId: number) => {
-    Alert.alert('提示', '查看客户详情功能待实现');
+  const handleViewDetail = (customerId: number, customerName: string) => {
+    router.push('/report-customer-detail', {
+      customerId,
+      customerName,
+    });
+  };
+
+  const handleSearch = () => {
+    setShowSearchModal(false);
+    // 根据搜索词过滤数据
+    if (searchQuery.trim()) {
+      const filtered = details.filter((item) =>
+        item.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      if (filtered.length === 0) {
+        Alert.alert('提示', `未找到包含"${searchQuery}"的客户`);
+      } else {
+        Alert.alert('提示', `找到 ${filtered.length} 个匹配的客户`);
+      }
+    }
   };
 
   if (loading) {
@@ -194,11 +217,18 @@ export default function ReportCustomer() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
+            style={styles.searchButton}
+            onPress={() => setShowSearchModal(true)}
+          >
+            <FontAwesome6 name="search" size={14} color="#FFFFFF" />
+            <Text style={styles.actionButtonTextWhite}>查询</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.exportButton}
             onPress={() => setShowExportModal(true)}
           >
             <FontAwesome6 name="file-export" size={14} color="#FFFFFF" />
-            <Text style={styles.actionButtonText}>导出</Text>
+            <Text style={styles.actionButtonTextWhite}>导出</Text>
           </TouchableOpacity>
         </View>
 
@@ -217,7 +247,9 @@ export default function ReportCustomer() {
                 </View>
                 <TouchableOpacity
                   style={styles.viewButton}
-                  onPress={() => handleViewDetail(item.customer_id)}
+                  onPress={() =>
+                    handleViewDetail(item.customer_id, item.customer_name)
+                  }
                 >
                   <FontAwesome6 name="chevron-right" size={16} color="#636E72" />
                 </TouchableOpacity>
@@ -285,6 +317,40 @@ export default function ReportCustomer() {
                 )}
               </TouchableOpacity>
             ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 搜索弹窗 */}
+      <Modal visible={showSearchModal} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSearchModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>查询客户</Text>
+              <TouchableOpacity onPress={() => setShowSearchModal(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.searchInputContainer}>
+              <FontAwesome6 name="search" size={16} color="#95A5A6" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="输入客户名称"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#95A5A6"
+              />
+            </View>
+            <TouchableOpacity
+              style={styles.searchSubmitButton}
+              onPress={handleSearch}
+            >
+              <Text style={styles.searchSubmitButtonText}>查询</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -406,6 +472,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1E88E5',
     fontWeight: '500',
+  },
+  actionButtonTextWhite: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  searchButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: '#3498DB',
+    borderRadius: 8,
   },
   detailsSection: {
     marginBottom: 20,
@@ -534,5 +615,31 @@ const styles = StyleSheet.create({
   exportOptionText: {
     fontSize: 15,
     color: '#2D3436',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#2D3436',
+  },
+  searchSubmitButton: {
+    backgroundColor: '#1E88E5',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  searchSubmitButtonText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
