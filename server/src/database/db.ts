@@ -57,8 +57,8 @@ const pool = new Pool({
   },
 });
 
-// 允许设置是否使用数据库的标志
-export let USE_DATABASE = true;
+// 允许设置是否使用数据库的标志（初始为false，只有数据库连接测试成功后才设置为true）
+export let USE_DATABASE = false;
 
 // 关闭数据库连接的函数
 export const closeDatabase = async () => {
