@@ -229,7 +229,7 @@ export default function KnowledgeBase() {
       <PageHeader title="知识库" />
 
       <ScrollView style={styles.container}>
-        {/* 操作栏 */}
+        {/* 批量操作栏 */}
         <View style={styles.actionBar}>
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.actionButton} onPress={handleImport}>
@@ -245,6 +245,10 @@ export default function KnowledgeBase() {
               <Text style={styles.actionButtonText}>模板</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* 新建知识卡按钮（单独一行） */}
+        <View style={styles.createButtonContainer}>
           <TouchableOpacity style={styles.createButton} onPress={handleCreate}>
             <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
             <Text style={styles.createButtonText}>新建知识卡</Text>
@@ -378,7 +382,7 @@ const styles = StyleSheet.create({
   },
   actionBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -407,14 +411,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#2D3436',
   },
+  createButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#6C63FF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 20,
-    gap: 6,
+    gap: 8,
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   createButtonText: {
     color: '#FFFFFF',

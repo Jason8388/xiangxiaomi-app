@@ -859,3 +859,5 @@ router.get('/:id/logs', async (req, res) => {
 });
 
 export default router;
+
+export { memoryWorkOrders };

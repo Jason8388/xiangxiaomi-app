@@ -1,4 +1,5 @@
 import express from 'express';
+import { memoryWorkOrders as workOrders } from './workOrders';
 
 const router = express.Router();
 
@@ -19,115 +20,130 @@ let reminderId = 1;
 
 export default router;
 
-// 获取工单待填写字段检查
-router.post('/check', async (req, res) => {
+// 检查工单是否缺失必填字段
+function checkMissingFields(workOrder: any): string[] {
+  const missingFields: string[] = [];
+
+  // 检查任务负责人（task_leader 或 assignee_name）
+  if (!workOrder.task_leader && !workOrder.assignee_name) {
+    missingFields.push('任务负责人');
+  }
+
+  // 检查任务进度
+  if (!workOrder.task_progress) {
+    missingFields.push('任务进度');
+  }
+
+  // 检查任务状态
+  if (!workOrder.task_status) {
+    missingFields.push('任务状态');
+  }
+
+  // 检查需求信息（description 或 requirement_description）
+  if (!workOrder.description && !workOrder.requirement_description) {
+    missingFields.push('需求信息');
+  }
+
+  // 检查服务方案说明
+  if (!workOrder.service_plan) {
+    missingFields.push('服务方案说明');
+  }
+
+  // 检查计划完成日期
+  if (!workOrder.planned_completion_date) {
+    missingFields.push('计划完成日期');
+  }
+
+  // 检查是否收费
+  if (workOrder.is_charged === undefined || workOrder.is_charged === null) {
+    missingFields.push('是否收费');
+  }
+
+  return missingFields;
+}
+
+// 自动扫描所有工单并生成待填提醒
+router.post('/scan', async (req, res) => {
   try {
-    const { workOrder } = req.body;
+    // 清空旧提醒（可选）
+    // memoryReminders.length = 0;
 
-    if (!workOrder) {
-      return res.status(400).json({ error: '工单信息不能为空' });
-    }
+    // 扫描所有工单
+    let newRemindersCount = 0;
 
-    const missingFields: string[] = [];
+    workOrders.forEach((workOrder) => {
+      // 检查缺失字段
+      const missingFields = checkMissingFields(workOrder);
 
-    // 检查必填字段
-    if (!workOrder.task_phase) {
-      missingFields.push('任务阶段');
-    }
-    if (!workOrder.task_progress) {
-      missingFields.push('任务进度');
-    }
-    if (!workOrder.task_status) {
-      missingFields.push('任务状态');
-    }
-    
-    // 客户信息检查
-    if (!workOrder.customer_name) {
-      missingFields.push('客户名称');
-    }
-    if (!workOrder.contacts || workOrder.contacts.length === 0) {
-      missingFields.push('客户联系人');
-    }
-    
-    // 服务方案检查
-    if (!workOrder.service_plan) {
-      missingFields.push('服务方案');
-    }
-    
-    // 是否收费检查
-    if (workOrder.is_charged === undefined || workOrder.is_charged === null) {
-      missingFields.push('是否收费');
-    }
-    
-    // 客户共识凭证检查
-    if (!workOrder.consensus_docs) {
-      missingFields.push('客户共识凭证');
-    }
-    
-    // OA系统工单编号检查
-    if (!workOrder.oa_work_order_no) {
-      missingFields.push('OA系统工单编号');
-    }
-    
-    // 派工单照片检查
-    if (!workOrder.work_order_docs) {
-      missingFields.push('派工单照片');
-    }
-    
-    // 派工单签字人检查
-    if (!workOrder.work_order_signer) {
-      missingFields.push('派工单签字人');
-    }
-    
-    // 实际工时检查
-    if (!workOrder.actual_hours && workOrder.actual_hours !== 0) {
-      missingFields.push('实际工时');
-    }
+      // 如果有缺失字段，创建提醒
+      if (missingFields.length > 0) {
+        // 检查是否已经存在该工单的提醒
+        const existingReminder = memoryReminders.find(
+          (r) => r.work_order_id === workOrder.id && !r.is_read
+        );
+
+        if (!existingReminder) {
+          const reminder: WorkOrderReminder = {
+            id: reminderId++,
+            work_order_id: workOrder.id,
+            work_order_name: workOrder.title || '未命名工单',
+            work_order_no: workOrder.order_no || '',
+            missing_fields,
+            created_at: new Date().toISOString(),
+            is_read: false,
+            assigned_to: workOrder.task_leader || workOrder.assignee_name || '',
+          };
+
+          memoryReminders.push(reminder);
+          newRemindersCount++;
+        }
+      }
+    });
 
     res.json({
-      missingFields,
-      totalMissing: missingFields.length,
-      hasMissing: missingFields.length > 0,
+      success: true,
+      newRemindersCount,
+      totalReminders: memoryReminders.length,
     });
   } catch (error) {
-    console.error('Check work order error:', error);
-    res.status(500).json({ error: '检查失败' });
+    console.error('Scan work orders error:', error);
+    res.status(500).json({ error: '扫描失败' });
   }
 });
 
-// 创建工单提醒
-router.post('/', async (req, res) => {
-  try {
-    const { work_order_id, work_order_name, work_order_no, missing_fields, assigned_to } = req.body;
-
-    if (!work_order_id || !missing_fields || missing_fields.length === 0) {
-      return res.status(400).json({ error: '参数不完整' });
-    }
-
-    const reminder: WorkOrderReminder = {
-      id: reminderId++,
-      work_order_id,
-      work_order_name: work_order_name || '未命名工单',
-      work_order_no: work_order_no || '',
-      missing_fields,
-      created_at: new Date().toISOString(),
-      is_read: false,
-      assigned_to,
-    };
-
-    memoryReminders.push(reminder);
-
-    res.json(reminder);
-  } catch (error) {
-    console.error('Create reminder error:', error);
-    res.status(500).json({ error: '创建提醒失败' });
-  }
-});
-
-// 获取所有提醒
+// 获取所有提醒（自动扫描）
 router.get('/', async (req, res) => {
   try {
-    const { is_read, work_order_id } = req.query;
+    const { is_read, work_order_id, auto_scan } = req.query;
+
+    // 如果请求自动扫描
+    if (auto_scan === 'true') {
+      workOrders.forEach((workOrder) => {
+        const missingFields = checkMissingFields(workOrder);
+        if (missingFields.length > 0) {
+          const existingReminder = memoryReminders.find(
+            (r) => r.work_order_id === workOrder.id
+          );
+          if (!existingReminder) {
+            const reminder: WorkOrderReminder = {
+              id: reminderId++,
+              work_order_id: workOrder.id,
+              work_order_name: workOrder.title || '未命名工单',
+              work_order_no: workOrder.order_no || '',
+              missing_fields: missingFields,
+              created_at: new Date().toISOString(),
+              is_read: false,
+              assigned_to: workOrder.task_leader || workOrder.assignee_name || '',
+            };
+            memoryReminders.push(reminder);
+          } else if (existingReminder.missing_fields.join(',') !== missingFields.join(',')) {
+            // 更新缺失字段
+            existingReminder.missing_fields = missingFields;
+            existingReminder.is_read = false;
+          }
+        }
+      });
+    }
 
     let filtered = [...memoryReminders];
 
