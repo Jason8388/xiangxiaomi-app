@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
-import * as FileSystem from 'expo-file-system/legacy';
+import { getApiBaseUrl } from '@/utils/api';
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 
@@ -49,20 +49,19 @@ export default function SystemCleanupScreen() {
   // 获取存储空间信息
   const getStorageInfo = async () => {
     try {
-      const diskInfo = await FileSystem.getFreeDiskStorageAsync();
-      const totalDiskInfo = await FileSystem.getTotalDiskCapacityAsync();
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/system-cleanup/storage-info`);
+      const result = await response.json();
 
-      // 估算已使用空间（这里使用计算方式）
-      const usedSpace = Math.max(0, totalDiskInfo - diskInfo);
-
-      setStorageInfo({
-        totalSpace: totalDiskInfo,
-        usedSpace: usedSpace,
-        freeSpace: diskInfo,
-      });
+      if (result.success && result.data) {
+        setStorageInfo({
+          totalSpace: result.data.total,
+          usedSpace: result.data.used,
+          freeSpace: result.data.available,
+        });
+      }
     } catch (error) {
       console.error('Failed to get storage info:', error);
-      Alert.alert('错误', '获取存储空间信息失败');
+      // 静默失败，不显示错误提示
     }
   };
 
