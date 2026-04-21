@@ -3,6 +3,7 @@ import { memoryFiles } from './files';
 import { memoryCustomers } from './customers';
 import { memoryDevices } from './devices';
 import { memoryContracts } from './contracts';
+import { memoryMaterials } from './materials';
 
 const router = express.Router();
 
@@ -133,11 +134,45 @@ router.get('/devices', async (req, res) => {
 // 物料查询
 router.get('/materials', async (req, res) => {
   try {
-    res.status(200).json({
-      code: 0,
-      data: [],
-      message: 'success'
-    });
+    const { keyword } = req.query;
+
+    if (!keyword || typeof keyword !== 'string') {
+      return res.status(200).json([]);
+    }
+
+    // 从内存存储中搜索物料
+    const keywordLower = keyword.toLowerCase();
+    const filteredMaterials = memoryMaterials
+      .filter((material) => {
+        // 搜索物料名称、编码、型号、单位、标签、分类
+        const materialName = (material.name || material.material_name || '').toLowerCase();
+        const materialCode = (material.code || material.material_code || '').toLowerCase();
+        const materialModel = (material.spec || material.material_model || '').toLowerCase();
+        const unit = (material.unit || '').toLowerCase();
+        const category = (material.category || '').toLowerCase();
+        const tags = (material.tags || []).map((t: string) => t.toLowerCase()).join(' ');
+
+        return (
+          materialName.includes(keywordLower) ||
+          materialCode.includes(keywordLower) ||
+          materialModel.includes(keywordLower) ||
+          unit.includes(keywordLower) ||
+          category.includes(keywordLower) ||
+          tags.includes(keywordLower)
+        );
+      })
+      .map((material) => ({
+        id: material.id,
+        material_name: material.name || material.material_name || '',
+        material_code: material.code || material.material_code || '',
+        material_model: material.spec || material.material_model || '',
+        unit: material.unit || '',
+        quantity: material.current_stock || material.quantity || 0,
+        tags: material.tags || [],
+        created_at: material.created_at,
+      }));
+
+    res.status(200).json(filteredMaterials);
   } catch (error) {
     console.error('Query materials error:', error);
     res.status(500).json({ code: 1, message: 'Internal server error' });

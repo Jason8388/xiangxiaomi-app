@@ -44,7 +44,9 @@ export default function QueryMaterial() {
       );
       const data = await response.json();
       if (response.ok) {
-        setResults(data);
+        setResults(data || []);
+      } else {
+        Alert.alert('错误', data.message || '查询失败');
       }
     } catch (error) {
       Alert.alert('错误', '查询失败');
@@ -112,7 +114,7 @@ export default function QueryMaterial() {
                   </View>
                   <View style={styles.materialInfo}>
                     <Text style={styles.materialName}>{material.material_name}</Text>
-                    <Text style={styles.materialCode}>{material.material_code}</Text>
+                    <Text style={styles.materialCode}>{material.material_code || '未设置'}</Text>
                   </View>
                 </View>
 
@@ -121,22 +123,22 @@ export default function QueryMaterial() {
                   <View style={styles.detailItem}>
                     <FontAwesome6 name="cube" size={12} color="#636E72" />
                     <Text style={styles.detailLabel}>型号：</Text>
-                    <Text style={styles.detailValue}>{material.material_model}</Text>
+                    <Text style={styles.detailValue}>{material.material_model || '未设置'}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <FontAwesome6 name="scale-balanced" size={12} color="#636E72" />
                     <Text style={styles.detailLabel}>单位：</Text>
-                    <Text style={styles.detailValue}>{material.unit}</Text>
+                    <Text style={styles.detailValue}>{material.unit || '未设置'}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <FontAwesome6 name="hashtag" size={12} color="#636E72" />
                     <Text style={styles.detailLabel}>库存：</Text>
-                    <Text style={styles.detailValue}>{material.quantity}</Text>
+                    <Text style={styles.detailValue}>{material.quantity || 0}</Text>
                   </View>
                 </View>
 
                 {/* 标签 */}
-                {material.tags.length > 0 && (
+                {material.tags && Array.isArray(material.tags) && material.tags.length > 0 && (
                   <View style={styles.tagsContainer}>
                     {material.tags.slice(0, 3).map((tag, index) => (
                       <View key={index} style={styles.tagBadge}>
@@ -148,7 +150,7 @@ export default function QueryMaterial() {
 
                 <View style={styles.materialFooter}>
                   <Text style={styles.createdDate}>
-                    创建于 {new Date(material.created_at).toLocaleDateString()}
+                    创建于 {material.created_at ? new Date(material.created_at).toLocaleDateString() : '未设置'}
                   </Text>
                   <FontAwesome6 name="chevron-right" size={16} color="#95A5A6" />
                 </View>
