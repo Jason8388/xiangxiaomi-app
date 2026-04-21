@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
@@ -17,6 +18,8 @@ import { getApiBaseUrl } from '@/utils/api';
 import { SmartDateInput } from '@/components/SmartDateInput';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 const DEVICE_TYPES = [
   '智能测温',
@@ -147,8 +150,80 @@ export default function DeviceDetailPage() {
     Alert.alert('提示', '二维码生成功能开发中');
   };
 
-  const handleDownloadQRCode = () => {
-    Alert.alert('提示', '二维码下载功能开发中');
+  const handleDownloadDeviceHistory = async () => {
+    if (!device || !id) return;
+
+    try {
+      Alert.alert('提示', '正在生成设备履历表，请稍候...');
+
+      // 生成下载 URL
+      const downloadUrl = `${getApiBaseUrl()}/api/v1/devices/${id}/history-detail/export`;
+
+      // 生成文件名
+      const timestamp = new Date().getTime();
+      const filename = `设备履历表_${device.device_name}_${timestamp}.xlsx`;
+
+      if (Platform.OS === 'web') {
+        // Web 环境：使用浏览器的下载功能
+        const response = await fetch(downloadUrl);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '下载失败');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Alert.alert('成功', '设备履历表下载成功');
+      } else {
+        // 移动端：使用 Expo 文件系统下载
+        const fileUri = FileSystem.documentDirectory + filename;
+
+        const downloadResult = await (FileSystem as any).downloadAsync(
+          downloadUrl,
+          fileUri
+        );
+
+        if (downloadResult.status !== 200) {
+          throw new Error('下载失败');
+        }
+
+        // 提示用户是否分享/打开文件
+        Alert.alert(
+          '下载成功',
+          '设备履历表已保存到本地，是否现在打开？',
+          [
+            { text: '取消', style: 'cancel' },
+            {
+              text: '打开',
+              onPress: async () => {
+                try {
+                  if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(fileUri);
+                  } else {
+                    Alert.alert('提示', `文件已保存到: ${fileUri}`);
+                  }
+                } catch (shareError) {
+                  console.error('Share error:', shareError);
+                  Alert.alert('提示', `文件已保存到: ${fileUri}`);
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('Download device history error:', error);
+      Alert.alert('错误', error.message || '下载设备履历表失败');
+    }
   };
 
   const handleUploadPhoto = async () => {
@@ -428,11 +503,11 @@ export default function DeviceDetailPage() {
           </View>
           <TouchableOpacity
             style={styles.recordCard}
-            onPress={() => Alert.alert('提示', '设备履历表功能开发中')}
+            onPress={handleDownloadDeviceHistory}
           >
             <View style={styles.recordInfo}>
               <FontAwesome6 name="file-excel" size={24} color="#27AE60" />
-              <Text style={styles.recordText}>查看设备履历表</Text>
+              <Text style={styles.recordText}>下载设备履历表</Text>
             </View>
             <FontAwesome6 name="download" size={16} color="#636E72" />
           </TouchableOpacity>

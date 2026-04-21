@@ -1139,7 +1139,32 @@ router.get('/:deviceId/history-detail/export', async (req, res) => {
       console.log('Database query failed for device history detail, will use memory storage if available:', error.message);
     }
 
-    // 如果数据库查询失败或无数据，返回错误
+    // 如果数据库查询失败或无数据，尝试使用内存存储的设备信息
+    if (!historyData && USE_MEMORY_STORAGE) {
+      console.log(`[History Export] Using memory storage for device ${deviceId}`);
+      const device = memoryDevices.find(d => d.id === parseInt(deviceId));
+      if (device) {
+        // 使用设备信息生成履历表数据
+        historyData = {
+          device_name: device.device_name,
+          product_spec: device.device_model,
+          device_code: device.device_number,
+          contract_name: device.contract_name,
+          contract_number: device.contract_number,
+          contract_date: device.factory_date,
+          customer_name: device.customer_name,
+          device_code: device.device_number,
+          factory_date: device.factory_date,
+          acceptance_date: device.acceptance_date,
+          warranty_end_date: device.warranty_end_date,
+          warranty_period: device.warranty_end_date,
+          location: device.location,
+          remarks: device.remarks,
+        };
+      }
+    }
+
+    // 如果仍然没有数据，返回错误
     if (!historyData) {
       return res.status(404).json({ error: '未找到设备履历表' });
     }
