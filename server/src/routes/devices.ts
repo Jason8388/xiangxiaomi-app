@@ -1118,4 +1118,178 @@ router.delete('/:deviceId/history/:historyId', async (req, res) => {
   }
 });
 
+// 导出设备履历表详情
+router.get('/:deviceId/history-detail/export', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+
+    let historyData: any = null;
+
+    // 尝试从数据库获取设备履历表详情
+    try {
+      const result = await pool.query(
+        'SELECT * FROM device_history_detail WHERE device_id = $1',
+        [deviceId]
+      );
+
+      if (result.rows.length > 0) {
+        historyData = result.rows[0];
+      }
+    } catch (error: any) {
+      console.log('Database query failed for device history detail, will use memory storage if available:', error.message);
+    }
+
+    // 如果数据库查询失败或无数据，返回错误
+    if (!historyData) {
+      return res.status(404).json({ error: '未找到设备履历表' });
+    }
+
+    // 导出为Excel
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('设备履历表');
+
+    // 创建工作表数据
+    const worksheetData = [
+      ['设备履历表'],
+      [],
+      ['基本信息'],
+      ['字段名称', '内容'],
+      ['设备名称', historyData.device_name || ''],
+      ['产品规格', historyData.product_spec || ''],
+      ['设备编码', historyData.device_code || ''],
+      [],
+      ['销售订单信息'],
+      ['字段名称', '内容'],
+      ['合同名称', historyData.contract_name || ''],
+      ['合同编号', historyData.contract_number || ''],
+      ['合同签订日期', historyData.contract_date || ''],
+      ['客户名称', historyData.customer_name || ''],
+      ['业务经理', historyData.sales_manager || ''],
+      ['设备质保期', historyData.warranty_period || ''],
+      [],
+      ['制造信息'],
+      ['字段名称', '内容'],
+      ['生产单位', historyData.production_unit || ''],
+      ['生产订单号', historyData.production_order || ''],
+      ['批次号', historyData.batch_number || ''],
+      ['生产负责人', historyData.production_manager || ''],
+      ['生产完工日期', historyData.production_complete_date || ''],
+      ['测试人', historyData.tester || ''],
+      ['调试完工日期', historyData.debug_complete_date || ''],
+      ['质检员', historyData.quality_inspector || ''],
+      ['出厂检验人', historyData.factory_inspector || ''],
+      ['出厂日期', historyData.factory_date || ''],
+      ['设备制造SOP文件', historyData.manufacturing_sop_file || ''],
+      ['出厂检验文件包', historyData.factory_test_files || ''],
+      ['设备质保范围与价格标准', historyData.warranty_scope_price || ''],
+      [],
+      ['交付验收信息'],
+      ['字段名称', '内容'],
+      ['项目交付PM', historyData.delivery_pm || ''],
+      ['客户现场对接人', historyData.customer_contact || ''],
+      ['交付厂区/车间区域', historyData.delivery_location || ''],
+      ['交付人', historyData.delivery_person || ''],
+      ['计划进场时间', historyData.planned_arrival_date || ''],
+      ['实际进场时间', historyData.actual_arrival_date || ''],
+      ['验收负责人', historyData.acceptance_manager || ''],
+      ['客户验收干系人', historyData.customer_acceptance_stakeholders || ''],
+      ['计划验收时间', historyData.planned_acceptance_date || ''],
+      ['实际验收时间', historyData.actual_acceptance_date || ''],
+      ['设备质保到期时间', historyData.warranty_expiry_date || ''],
+      ['交付协同人员', historyData.delivery_team || ''],
+      ['客户培训人员', historyData.customer_training_personnel || ''],
+      ['设备质保期', historyData.device_warranty_period || ''],
+      ['设备操作SOP', historyData.operation_sop || ''],
+      ['设备培训确认单文件', historyData.training_confirmation_file || ''],
+      ['设备维保SOP', historyData.maintenance_sop || ''],
+      [],
+      ['研发信息'],
+      ['字段名称', '内容'],
+      ['方案文件', historyData.solution_files || ''],
+      ['出厂软件算法版本说明', historyData.software_version || ''],
+      [],
+      ['附件信息'],
+      ['文件名称', '说明'],
+    ];
+
+    // 添加数据到工作表
+    worksheetData.forEach((row, rowIndex) => {
+      const worksheetRow = worksheet.addRow(row);
+
+      // 设置标题样式
+      if (rowIndex === 0) {
+        worksheetRow.font = { bold: true, size: 16 };
+        worksheetRow.alignment = { horizontal: 'center' };
+        worksheet.mergeCells('A1:B1');
+      }
+      // 设置分类标题样式
+      else if (row && row[0] && !row[1] && row[0].endsWith('信息')) {
+        worksheetRow.font = { bold: true, size: 14, color: { argb: 'FF1E88E5' } };
+        worksheetRow.alignment = { horizontal: 'left' };
+      }
+      // 设置表头样式
+      else if (rowIndex > 0 && worksheetData[rowIndex - 1] && worksheetData[rowIndex - 1][0] && !worksheetData[rowIndex - 1][1]) {
+        worksheetRow.font = { bold: true, size: 12 };
+        worksheetRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE3F2FD' },
+        };
+      }
+      // 设置数据行样式
+      else if (rowIndex > 0 && row[1]) {
+        worksheetRow.alignment = { vertical: 'top', wrapText: true };
+      }
+    });
+
+    // 设置列宽
+    worksheet.getColumn(1).width = 30;
+    worksheet.getColumn(2).width = 50;
+
+    // 解析附件
+    if (historyData.attachments) {
+      try {
+        const attachmentList = JSON.parse(historyData.attachments);
+        if (Array.isArray(attachmentList) && attachmentList.length > 0) {
+          attachmentList.forEach((attachment: any) => {
+            const row = worksheet.addRow([
+              attachment.name || '',
+              `大小: ${attachment.size ? formatFileSize(attachment.size) : ''}`
+            ]);
+            row.alignment = { vertical: 'top', wrapText: true };
+          });
+        } else {
+          worksheet.addRow(['暂无附件', '']);
+        }
+      } catch {
+        worksheet.addRow(['暂无附件', '']);
+      }
+    } else {
+      worksheet.addRow(['暂无附件', '']);
+    }
+
+    // 生成Excel文件
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+
+    // 设置响应头
+    const filename = `设备履历表_${historyData.device_name || deviceId}_${new Date().getTime()}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Length', excelBuffer.length);
+
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('Export device history detail error:', error);
+    res.status(500).json({ error: '导出失败' });
+  }
+});
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 export default router;

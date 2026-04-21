@@ -251,8 +251,65 @@ export default function DeviceHistory() {
     Alert.alert('提示', '导入功能开发中...');
   };
 
-  const handleDownload = () => {
-    Alert.alert('提示', '下载功能开发中...');
+  // 下载功能
+  const handleDownload = async () => {
+    try {
+      /**
+       * 服务端文件：server/src/routes/devices.ts
+       * 接口：GET /api/v1/devices/:deviceId/history-detail/export
+       * 功能：导出设备履历表为Excel文件
+       */
+      const response = await fetch(
+        `${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail/export`
+      );
+
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+
+      // Web端下载
+      if (Platform.OS === 'web') {
+        // 获取文件内容
+        const blob = await response.blob();
+
+        // 从响应头获取文件名
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `设备履历表_${deviceId}.xlsx`;
+
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = decodeURIComponent(filenameMatch[1]);
+          }
+        }
+
+        // 创建下载链接
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+
+        // 清理
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Alert.alert('成功', '下载成功！');
+      } else {
+        // 移动端下载
+        const fileUri = FileSystem.documentDirectory + `设备履历表_${deviceId}.xlsx`;
+        const base64 = await response.text();
+        await (FileSystem as any).writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        Alert.alert('成功', '文件已保存到文档目录');
+      }
+    } catch (error) {
+      console.error('下载失败:', error);
+      Alert.alert('错误', '下载失败，请重试');
+    }
   };
 
   // 上传附件
