@@ -359,6 +359,24 @@ export default function WorkOrdersScreen() {
     const statusConfig = getStatusConfig(order.stage);
     const priorityConfigData = priorityConfig(order.priority);
 
+    // 根据任务阶段计算进度
+    const getProgress = (stage: string) => {
+      switch (stage) {
+        case 'pending':
+          return 0;
+        case 'assigned':
+          return 25;
+        case 'processing':
+          return 60;
+        case 'completed':
+          return 100;
+        default:
+          return 0;
+      }
+    };
+
+    const progress = getProgress(order.stage);
+
     return (
       <TouchableOpacity
         style={styles.card}
@@ -387,22 +405,19 @@ export default function WorkOrdersScreen() {
             <Text style={styles.infoText}>{order.customer_name || '未指定'}</Text>
           </View>
           <View style={styles.infoRow}>
-            <FontAwesome6 name="wrench" size={14} color="#9CA3AF" />
-            <Text style={styles.infoText}>{order.type || '维修'}</Text>
-            {order.plan_hours > 0 && (
-              <>
-                <View style={styles.dot} />
-                <Text style={styles.infoText}>{order.plan_hours}h</Text>
-              </>
-            )}
-            {order.quoted_price > 0 && (
-              <>
-                <View style={styles.dot} />
-                <Text style={[styles.infoText, { color: '#EF4444' }]}>
-                  ¥{order.quoted_price.toLocaleString()}
-                </Text>
-              </>
-            )}
+            <FontAwesome6 name="user" size={14} color="#9CA3AF" />
+            <Text style={styles.infoText}>{order.assignee_name || '未分配'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <FontAwesome6 name="chart-line" size={14} color="#9CA3AF" />
+            <Text style={styles.infoText}>{progress}%</Text>
+            <View style={styles.progressContainer}>
+              <View style={[styles.progressBar, { width: `${progress}%` }]} />
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <FontAwesome6 name="list-check" size={14} color="#9CA3AF" />
+            <Text style={styles.infoText}>{statusConfig.text}</Text>
           </View>
         </View>
 
@@ -414,12 +429,6 @@ export default function WorkOrdersScreen() {
               {priorityConfigData.text}优先级
             </Text>
           </View>
-          {order.assignee_name && (
-            <View style={styles.assigneeBadge}>
-              <FontAwesome6 name="user" size={12} color="#6B7280" />
-              <Text style={styles.assigneeText}>{order.assignee_name}</Text>
-            </View>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -866,6 +875,18 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: '#D1D5DB',
+  },
+  progressContainer: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 3,
   },
   cardFooter: {
     flexDirection: 'row',
