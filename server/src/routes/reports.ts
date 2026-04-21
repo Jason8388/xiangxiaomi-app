@@ -1,287 +1,243 @@
 import express from 'express';
+import pool from '../database/db.js';
+import * as XLSX from 'xlsx';
+import { memoryContracts, memoryDevices, memoryWorkOrders } from '../database/memory-storage.js';
 
 const router = express.Router();
 
-// 内存设备数据（用于统计）
-const memoryDevices = [
-  { id: 1, device_name: '服务器', model: '服务器类', status: 'normal', warranty_expire: '2025-01-01' },
-  { id: 2, device_name: '交换机', model: '网络设备', status: 'normal', warranty_expire: '2026-06-01' },
-  { id: 3, device_name: '路由器', model: '网络设备', status: 'normal', warranty_expire: '2023-12-01' },
-  { id: 4, device_name: '存储设备', model: '存储设备', status: 'fault', warranty_expire: '2024-06-01' },
-  { id: 5, device_name: 'UPS电源', model: '电源设备', status: 'normal', warranty_expire: '2025-12-01' },
-  { id: 6, device_name: '打印机', model: '办公设备', status: 'maintenance', warranty_expire: '2022-06-01' },
-  { id: 7, device_name: '台式机', model: '办公设备', status: 'normal', warranty_expire: '2026-01-01' },
-  { id: 8, device_name: '笔记本', model: '办公设备', status: 'normal', warranty_expire: '2024-03-01' },
-  { id: 9, device_name: '防火墙', model: '安全设备', status: 'normal', warranty_expire: '2027-01-01' },
-  { id: 10, device_name: '负载均衡器', model: '网络设备', status: 'normal', warranty_expire: '2025-09-01' },
-  { id: 11, device_name: '磁带库', model: '存储设备', status: 'normal', warranty_expire: '2024-08-01' },
-  { id: 12, device_name: '空调', model: '机房配套', status: 'normal', warranty_expire: '2026-12-01' },
-];
-
-// 判断设备是否在质保期内
-function isWithinWarranty(warrantyExpire: string): boolean {
-  if (!warrantyExpire) return false;
-  const expireDate = new Date(warrantyExpire);
-  return expireDate >= new Date();
-}
-
-// 获取客户统计
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/customers
+ * 描述：获取客户统计信息，包含合同数、设备数、工单数
+ */
 router.get('/customers', async (req, res) => {
   try {
-    res.status(200).json({
-      code: 0,
-      data: {
-        total: 0,
-        new_this_month: 0,
-        active: 0
-      },
-      message: 'success'
-    });
-  } catch (error) {
-    console.error('Report customers error:', error);
-    res.status(500).json({ code: 1, message: 'Internal server error' });
-  }
-});
+    // 从合同数据中提取客户
+    const customerMap = new Map();
 
-// 获取设备统计（按设备类型分组）
-router.get('/devices', async (req, res) => {
-  try {
-    // 按设备类型分组统计
-    const typeStats: Record<string, { total: number; within_warranty: number; out_of_warranty: number }> = {};
-    
+    // 遍历合同，统计每个客户的合同数
+    memoryContracts.forEach(contract => {
+      if (!customerMap.has(contract.customer_name)) {
+        customerMap.set(contract.customer_name, {
+          customer_id: contract.customer_id,
+          customer_name: contract.customer_name,
+          contract_count: 0,
+          device_count: 0,
+          work_order_count: 0,
+        });
+      }
+      const customer = customerMap.get(contract.customer_name);
+      customer.contract_count++;
+    });
+
+    // 统计每个客户的设备数
     memoryDevices.forEach(device => {
-      const deviceType = device.model || '未知类型';
-      if (!typeStats[deviceType]) {
-        typeStats[deviceType] = { total: 0, within_warranty: 0, out_of_warranty: 0 };
-      }
-      typeStats[deviceType].total++;
-      if (isWithinWarranty(device.warranty_expire)) {
-        typeStats[deviceType].within_warranty++;
-      } else {
-        typeStats[deviceType].out_of_warranty++;
+      if (customerMap.has(device.customer_name)) {
+        const customer = customerMap.get(device.customer_name);
+        customer.device_count++;
       }
     });
 
-    // 转换为数组格式
-    const typeStatsArray = Object.entries(typeStats).map(([type, stats]) => ({
-      device_type: type,
-      ...stats
-    }));
+    // 统计每个客户的工单数
+    memoryWorkOrders.forEach(workOrder => {
+      if (customerMap.has(workOrder.customer_name)) {
+        const customer = customerMap.get(workOrder.customer_name);
+        customer.work_order_count++;
+      }
+    });
 
-    // 总体统计
-    const totalDevices = memoryDevices.length;
-    const totalWithinWarranty = memoryDevices.filter(d => isWithinWarranty(d.warranty_expire)).length;
+    // 转换为数组
+    let customers = Array.from(customerMap.values());
 
-    res.status(200).json({
-      code: 0,
-      summary: {
-        total_devices: totalDevices,
-        within_warranty: totalWithinWarranty,
-        out_of_warranty: totalDevices - totalWithinWarranty,
-        updated_at: new Date().toISOString()
-      },
-      type_stats: typeStatsArray,
-      message: 'success'
+    // 如果有查询参数，进行过滤
+    const { search } = req.query;
+    console.log('[Reports] search param:', search, 'type:', typeof search);
+
+    if (search && typeof search === 'string') {
+      console.log('[Reports] filtering customers by:', search);
+      customers = customers.filter(customer =>
+        customer.customer_name.includes(search)
+      );
+      console.log('[Reports] filtered customers count:', customers.length);
+    }
+
+    // 计算总数
+    const summary = {
+      total_customers: customers.length,
+      total_contracts: customers.reduce((sum, c) => sum + c.contract_count, 0),
+      total_devices: customers.reduce((sum, c) => sum + c.device_count, 0),
+      total_work_orders: customers.reduce((sum, c) => sum + c.work_order_count, 0),
+    };
+
+    res.json({
+      summary,
+      details: customers,
     });
   } catch (error) {
-    console.error('Report devices error:', error);
-    res.status(500).json({ code: 1, message: 'Internal server error' });
+    console.error('Failed to fetch customers:', error);
+    res.status(500).json({ error: '获取客户统计信息失败' });
   }
 });
 
-// 获取工单统计
-router.get('/after-sales', async (req, res) => {
-  try {
-    // 模拟工单统计数据
-    const mockOrders = [
-      { id: 1, is_charged: true, status: '已完成', amount: 15000, paid: 15000 },
-      { id: 2, is_charged: true, status: '已完成', amount: 8000, paid: 5000 },
-      { id: 3, is_charged: false, status: '已完成', amount: 0, paid: 0 },
-      { id: 4, is_charged: true, status: '处理中', amount: 12000, paid: 8000 },
-      { id: 5, is_charged: true, status: '已完成', amount: 20000, paid: 20000 },
-      { id: 6, is_charged: false, status: '处理中', amount: 0, paid: 0 },
-      { id: 7, is_charged: true, status: '已完成', amount: 5500, paid: 5500 },
-      { id: 8, is_charged: true, status: '待处理', amount: 10000, paid: 0 },
-      { id: 9, is_charged: false, status: '已完成', amount: 0, paid: 0 },
-      { id: 10, is_charged: true, status: '已完成', amount: 18000, paid: 18000 },
-      { id: 11, is_charged: true, status: '处理中', amount: 9500, paid: 5000 },
-      { id: 12, is_charged: false, status: '已完成', amount: 0, paid: 0 },
-    ];
-
-    const totalOrders = mockOrders.length;
-    const chargedOrders = mockOrders.filter(o => o.is_charged).length;
-    const freeOrders = mockOrders.filter(o => !o.is_charged).length;
-    const completedOrders = mockOrders.filter(o => o.status === '已完成').length;
-    const totalAmount = mockOrders.reduce((sum, o) => sum + o.amount, 0);
-    const paidAmount = mockOrders.reduce((sum, o) => sum + o.paid, 0);
-    const pendingAmount = totalAmount - paidAmount;
-
-    res.status(200).json({
-      code: 0,
-      summary: {
-        total_orders: totalOrders,
-        charged_orders: chargedOrders,
-        free_orders: freeOrders,
-        completed_orders: completedOrders,
-        total_amount: totalAmount,
-        paid_amount: paidAmount,
-        pending_amount: pendingAmount,
-        updated_at: new Date().toISOString()
-      },
-      message: 'success'
-    });
-  } catch (error) {
-    console.error('Report after-sales error:', error);
-    res.status(500).json({ code: 1, message: 'Internal server error' });
-  }
-});
-
-// 获取客户详情 - 合同列表
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/customers/:customerId/contracts
+ * 描述：获取客户的合同列表
+ * Query 参数：无
+ */
 router.get('/customers/:customerId/contracts', async (req, res) => {
   try {
     const { customerId } = req.params;
 
-    // 模拟数据 - 实际应该从数据库查询
-    const mockContracts = [
-      {
-        id: 1,
-        contract_no: 'CON202401001',
-        contract_name: '企业IT设备采购合同',
-        sign_date: '2024-01-15',
-        amount: '150000',
-        status: 'active'
-      },
-      {
-        id: 2,
-        contract_no: 'CON202402001',
-        contract_name: '网络设备维护合同',
-        sign_date: '2024-02-20',
-        amount: '50000',
-        status: 'active'
-      },
-      {
-        id: 3,
-        contract_no: 'CON202303001',
-        contract_name: '年度服务合同',
-        sign_date: '2023-03-10',
-        amount: '80000',
-        status: 'completed'
-      }
-    ];
+    if (!customerId || isNaN(Number(customerId))) {
+      return res.status(400).json({ error: '客户ID无效' });
+    }
 
-    res.status(200).json({
-      code: 0,
-      data: mockContracts,
-      message: 'success'
-    });
+    // 从合同数据中筛选客户的合同
+    const contracts = memoryContracts.filter(
+      contract => contract.customer_id === Number(customerId)
+    ).map(contract => ({
+      contract_number: contract.contract_number,
+      contract_name: contract.contract_name,
+      contract_amount: contract.contract_amount,
+      sign_date: contract.sign_date,
+      acceptance_date: contract.acceptance_date,
+      status: contract.status,
+      remarks: contract.remarks,
+    }));
+
+    res.json(contracts);
   } catch (error) {
-    console.error('Customer contracts error:', error);
-    res.status(500).json({ code: 1, message: 'Internal server error' });
+    console.error('Failed to fetch customer contracts:', error);
+    res.status(500).json({ error: '获取客户合同列表失败' });
   }
 });
 
-// 获取客户详情 - 设备列表
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/customers/:customerId/devices
+ * 描述：获取客户的设备列表
+ * Query 参数：无
+ */
 router.get('/customers/:customerId/devices', async (req, res) => {
   try {
     const { customerId } = req.params;
 
-    // 模拟数据 - 实际应该从数据库查询
-    const mockDevices = [
-      {
-        id: 1,
-        device_sn: 'SN202401001',
-        device_name: '企业级服务器',
-        device_model: 'ProServer X1',
-        device_type: '智能焊接',
-        delivery_date: '2024-01-20',
-        acceptance_date: '2024-02-01'
-      },
-      {
-        id: 2,
-        device_sn: 'SN202401002',
-        device_name: '工业摄像头',
-        device_model: 'CamPro 2000',
-        device_type: '外观品检',
-        delivery_date: '2024-01-25',
-        acceptance_date: '2024-02-05'
-      },
-      {
-        id: 3,
-        device_sn: 'SN202402001',
-        device_name: '测温传感器',
-        device_model: 'TempSense Pro',
-        device_type: '智能测温',
-        delivery_date: '2024-02-15',
-        acceptance_date: null
-      }
-    ];
+    if (!customerId || isNaN(Number(customerId))) {
+      return res.status(400).json({ error: '客户ID无效' });
+    }
 
-    res.status(200).json({
-      code: 0,
-      data: mockDevices,
-      message: 'success'
-    });
+    // 从设备数据中筛选客户的设备
+    const devices = memoryDevices.filter(
+      device => device.customer_id === Number(customerId)
+    ).map(device => ({
+      device_model: device.device_model,
+      factory_serial_number: device.factory_serial_number,
+      device_name: device.device_name,
+      device_type: device.device_type,
+      factory_date: device.factory_date,
+      status: device.status,
+    }));
+
+    res.json(devices);
   } catch (error) {
-    console.error('Customer devices error:', error);
-    res.status(500).json({ code: 1, message: 'Internal server error' });
+    console.error('Failed to fetch customer devices:', error);
+    res.status(500).json({ error: '获取客户设备列表失败' });
   }
 });
 
-// 获取客户详情 - 工单列表
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/customers/:customerId/workorders
+ * 描述：获取客户的工单列表
+ * Query 参数：无
+ */
 router.get('/customers/:customerId/workorders', async (req, res) => {
   try {
     const { customerId } = req.params;
 
-    // 模拟数据 - 实际应该从数据库查询
-    const mockWorkOrders = [
-      {
-        id: 1,
-        work_order_no: 'WO202401001',
-        work_order_type: '设备故障维修',
-        priority: '高',
-        status: '已完成',
-        created_at: '2024-01-25T10:30:00Z'
-      },
-      {
-        id: 2,
-        work_order_no: 'WO202402001',
-        work_order_type: '定期巡检',
-        priority: '中',
-        status: '进行中',
-        created_at: '2024-02-10T14:00:00Z'
-      },
-      {
-        id: 3,
-        work_order_no: 'WO202403001',
-        work_order_type: '设备保养',
-        priority: '低',
-        status: '待处理',
-        created_at: '2024-02-20T09:15:00Z'
-      }
-    ];
+    if (!customerId || isNaN(Number(customerId))) {
+      return res.status(400).json({ error: '客户ID无效' });
+    }
 
-    res.status(200).json({
-      code: 0,
-      data: mockWorkOrders,
-      message: 'success'
-    });
+    // 从工单数据中筛选客户的工单
+    const workOrders = memoryWorkOrders.filter(
+      workOrder => workOrder.customer_id === Number(customerId)
+    ).map(workOrder => ({
+      order_no: workOrder.order_no,
+      title: workOrder.title,
+      type: workOrder.type,
+      status: workOrder.status === 'pending' ? '待处理'
+            : workOrder.status === 'processing' ? '进行中'
+            : '已完成',
+      created_at: workOrder.created_at,
+    }));
+
+    res.json(workOrders);
   } catch (error) {
-    console.error('Customer workorders error:', error);
-    res.status(500).json({ code: 1, message: 'Internal server error' });
+    console.error('Failed to fetch customer work orders:', error);
+    res.status(500).json({ error: '获取客户工单列表失败' });
   }
 });
 
-// 导出客户报表
+// 导出客户统计Excel（复用原有功能）
 router.get('/customers/export', async (req, res) => {
   try {
-    res.status(200).json({
-      code: 0,
-      data: { url: '' },
-      message: 'success'
+    const { memoryStorage } = await import('../database/memory-storage.ts');
+
+    const contracts = memoryStorage?.contracts || [];
+    const customerMap = new Map();
+
+    contracts.forEach((contract: any) => {
+      const customerId = contract.customer_id;
+      if (!customerId) return;
+
+      if (!customerMap.has(customerId)) {
+        customerMap.set(customerId, {
+          customer_id: customerId,
+          customer_name: contract.customer_name || `客户${customerId}`,
+          contract_count: 0,
+          device_count: 0,
+          after_sales_count: 0,
+        });
+      }
+      customerMap.get(customerId).contract_count++;
     });
+
+    const devices = memoryStorage?.devices || [];
+    if (Array.isArray(devices)) {
+      devices.forEach((device: any) => {
+        const customerId = device.customer_id;
+        if (!customerId) return;
+
+        if (!customerMap.has(customerId)) {
+          customerMap.set(customerId, {
+            customer_id: customerId,
+            customer_name: device.customer_name || `客户${customerId}`,
+            contract_count: 0,
+            device_count: 0,
+            after_sales_count: 0,
+          });
+        }
+        customerMap.get(customerId).device_count++;
+      });
+    }
+
+    const customers = Array.from(customerMap.values());
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(customers);
+    XLSX.utils.book_append_sheet(workbook, worksheet, '客户统计');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileName = encodeURIComponent('客户统计.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${fileName}`);
+    res.send(buffer);
   } catch (error) {
-    console.error('Report export error:', error);
-    res.status(500).json({ code: 1, message: 'Internal server error' });
+    console.error('Export customers error:', error);
+    res.status(500).json({ error: '导出客户统计失败' });
   }
 });
 

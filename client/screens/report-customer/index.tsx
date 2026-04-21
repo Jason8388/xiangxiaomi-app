@@ -52,6 +52,7 @@ const EXPORT_OPTIONS = [
 export default function ReportCustomer() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [details, setDetails] = useState<CustomerReportItem[]>([]);
+  const [filteredDetails, setFilteredDetails] = useState<CustomerReportItem[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -63,6 +64,11 @@ export default function ReportCustomer() {
   useEffect(() => {
     loadReportData();
   }, [selectedFilter]);
+
+  useEffect(() => {
+    // 当原始数据更新时，重置过滤数据
+    setFilteredDetails(details);
+  }, [details]);
 
   const loadReportData = async () => {
     try {
@@ -143,18 +149,24 @@ export default function ReportCustomer() {
   };
 
   const handleSearch = () => {
-    setShowSearchModal(false);
-    // 根据搜索词过滤数据
     if (searchQuery.trim()) {
       const filtered = details.filter((item) =>
         item.customer_name.toLowerCase().includes(searchQuery.toLowerCase())
       );
+      setFilteredDetails(filtered);
       if (filtered.length === 0) {
         Alert.alert('提示', `未找到包含"${searchQuery}"的客户`);
-      } else {
-        Alert.alert('提示', `找到 ${filtered.length} 个匹配的客户`);
       }
+    } else {
+      setFilteredDetails(details);
     }
+    setShowSearchModal(false);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setFilteredDetails(details);
+    setShowSearchModal(false);
   };
 
   if (loading) {
@@ -234,8 +246,11 @@ export default function ReportCustomer() {
 
         {/* 明细列表 */}
         <View style={styles.detailsSection}>
-          <Text style={styles.detailsTitle}>客户明细（{details?.length || 0}）</Text>
-          {(details || []).map((item) => (
+          <Text style={styles.detailsTitle}>
+            客户明细（{filteredDetails?.length || 0}）
+            {searchQuery && ` · 搜索: "${searchQuery}"`}
+          </Text>
+          {(filteredDetails || []).map((item) => (
             <View key={item.customer_id} style={styles.detailCard}>
               <View style={styles.detailHeader}>
                 <FontAwesome6 name="building" size={20} color="#1E88E5" />
@@ -345,12 +360,20 @@ export default function ReportCustomer() {
                 placeholderTextColor="#95A5A6"
               />
             </View>
-            <TouchableOpacity
-              style={styles.searchSubmitButton}
-              onPress={handleSearch}
-            >
-              <Text style={styles.searchSubmitButtonText}>查询</Text>
-            </TouchableOpacity>
+            <View style={styles.searchButtonContainer}>
+              <TouchableOpacity
+                style={styles.searchClearButton}
+                onPress={handleClearSearch}
+              >
+                <Text style={styles.searchClearButtonText}>清除</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.searchSubmitButton}
+                onPress={handleSearch}
+              >
+                <Text style={styles.searchSubmitButtonText}>查询</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -631,7 +654,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#2D3436',
   },
+  searchButtonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   searchSubmitButton: {
+    flex: 1,
     backgroundColor: '#1E88E5',
     borderRadius: 8,
     paddingVertical: 14,
@@ -641,5 +669,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  searchClearButton: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  searchClearButtonText: {
+    fontSize: 15,
+    color: '#636E72',
+    fontWeight: '500',
   },
 });
