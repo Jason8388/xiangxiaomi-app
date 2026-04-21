@@ -52,7 +52,7 @@ export default function ProfileScreen() {
     Alert.alert('检查更新', '当前已是最新版本', [{ text: '确定' }]);
   };
 
-  // 菜单项
+  // 菜单项（根据用户角色动态生成）
   const menuItems = [
     {
       icon: 'user',
@@ -61,20 +61,16 @@ export default function ProfileScreen() {
       color: '#6C63FF',
       onPress: () => router.push('/account-settings'),
     },
-    {
-      icon: 'users-gear',
-      title: '账号管理',
-      subtitle: '管理用户账号和权限',
-      color: '#FF6B6B',
-      onPress: () => {
-        // 检查是否为管理员
-        if (user?.role !== 'admin') {
-          Alert.alert('提示', '只有管理员才能访问账号管理');
-          return;
-        }
-        router.push('/users');
+    // 只有管理员才能看到账号管理入口
+    ...(user?.role === 'admin' ? [
+      {
+        icon: 'users-gear',
+        title: '账号管理',
+        subtitle: '管理用户账号和权限',
+        color: '#FF6B6B',
+        onPress: () => router.push('/users'),
       },
-    },
+    ] : []),
     {
       icon: 'circle-question',
       title: '帮助与反馈',

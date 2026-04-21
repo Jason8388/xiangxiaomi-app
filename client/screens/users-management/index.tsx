@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { Button } from '@/components/Button';
 import { getApiBaseUrl } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { FontAwesome6 } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface User {
   id: number;
@@ -19,10 +20,32 @@ export default function UsersManagement() {
   const router = useSafeRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    loadUsers();
+    checkAdminAndLoadUsers();
   }, []);
+
+  const checkAdminAndLoadUsers = async () => {
+    try {
+      // 检查当前用户是否为管理员
+      const userStr = await AsyncStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+
+      if (!user || user.role !== 'admin') {
+        Alert.alert('权限不足', '只有管理员才能访问账号管理');
+        router.back();
+        return;
+      }
+
+      setCurrentUser(user);
+      await loadUsers();
+    } catch (error) {
+      console.error('[账号管理] 检查管理员权限错误:', error);
+      Alert.alert('错误', '权限检查失败');
+      router.back();
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -42,9 +65,12 @@ export default function UsersManagement() {
   };
 
   const handlePermissionConfig = (user: User) => {
-    router.push('/permission-config', {
-      userId: user.id.toString(),
-      userName: user.name,
+    router.push({
+      pathname: '/permission-config',
+      params: {
+        userId: user.id.toString(),
+        userName: user.name,
+      },
     });
   };
 
@@ -93,11 +119,11 @@ export default function UsersManagement() {
               {/* 操作按钮 */}
               <View style={styles.actions}>
                 <TouchableOpacity
-                  style={styles.actionButton}
+                  style={styles.permissionButton}
                   onPress={() => handlePermissionConfig(user)}
                 >
-                  <FontAwesome6 name="shield-halved" size={16} color="#007AFF" />
-                  <Text style={styles.actionButtonText}>权限配置</Text>
+                  <FontAwesome6 name="shield-halved" size={14} color="#007AFF" />
+                  <Text style={styles.permissionButtonText}>权限</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -187,7 +213,23 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 10,
+  },
+  permissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 20,
+    gap: 6,
+  },
+  permissionButtonText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
   },
   actionButton: {
     flex: 1,
