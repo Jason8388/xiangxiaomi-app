@@ -241,4 +241,67 @@ router.get('/customers/export', async (req, res) => {
   }
 });
 
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/devices
+ * 描述：获取设备统计信息（汇总数据+设备列表）
+ * Query 参数：search (可选) - 设备名称搜索关键词
+ */
+router.get('/devices', async (req, res) => {
+  try {
+    // 获取所有设备数据
+    let devices = memoryDevices.map(device => ({
+      device_id: device.id,
+      device_name: device.device_name,
+      device_number: device.device_number,
+      device_model: device.device_model,
+      device_type: device.device_type,
+      customer_name: device.customer_name,
+      status: device.status,
+      installation_date: device.installation_date,
+      warranty_date: device.warranty_date,
+      project_name: device.project_name,
+    }));
+
+    // 如果有查询参数，进行过滤
+    const { search } = req.query;
+    if (search && typeof search === 'string') {
+      devices = devices.filter(device =>
+        device.device_name.includes(search) ||
+        device.device_number.includes(search) ||
+        device.device_model.includes(search)
+      );
+    }
+
+    // 计算总数
+    const summary = {
+      total_devices: devices.length,
+      by_status: {
+        normal: devices.filter(d => d.status === '正常').length,
+        warning: devices.filter(d => d.status === '警告').length,
+        error: devices.filter(d => d.status === '故障').length,
+        maintenance: devices.filter(d => d.status === '维护中').length,
+      },
+      by_type: {},
+    };
+
+    // 统计按类型的设备数量
+    devices.forEach(device => {
+      const type = device.device_type || '未知';
+      if (!summary.by_type[type]) {
+        summary.by_type[type] = 0;
+      }
+      summary.by_type[type]++;
+    });
+
+    res.json({
+      summary,
+      details: devices,
+    });
+  } catch (error) {
+    console.error('Failed to fetch devices:', error);
+    res.status(500).json({ error: '获取设备统计信息失败' });
+  }
+});
+
 export default router;
