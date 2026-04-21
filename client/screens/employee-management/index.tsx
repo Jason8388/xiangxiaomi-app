@@ -42,6 +42,7 @@ interface DepartmentWithUsers extends Department {
 }
 
 export default function EmployeeManagement() {
+  const router = useSafeRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<DepartmentWithUsers[]>([]);
   const [loading, setLoading] = useState(true);
