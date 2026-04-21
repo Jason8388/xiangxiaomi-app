@@ -1,5 +1,6 @@
 import express from 'express';
 import pool, { USE_DATABASE } from '../database/db';
+import XLSX from 'xlsx';
 
 const router = express.Router();
 
@@ -131,6 +132,81 @@ MAT-002,示例物料2,5L/桶,桶,润滑剂,50,20,供应商名称,128.00,B区-02-
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="material_template.csv"');
   res.send(template);
+});
+
+// 批量导出物料
+router.get('/batch-export', async (req, res) => {
+  try {
+    let materials: any[] = [];
+    try {
+      const result = await queryWithRetry('SELECT * FROM materials ORDER BY id DESC');
+      materials = result.rows;
+    } catch (error) {
+      console.error('Query materials error, using memory storage:', error);
+      materials = memoryMaterials;
+    }
+
+    if (materials.length === 0) {
+      return res.status(404).json({ error: '暂无物料数据' });
+    }
+
+    // 准备导出数据（包含所有字段）
+    const exportData = materials.map((m: any) => ({
+      'ID': m.id,
+      '物料编号': m.material_number || m.code || '',
+      '物料名称': m.material_name || m.name || '',
+      '规格型号': m.material_spec || m.spec || '',
+      '单位': m.material_unit || m.unit || '',
+      '分类': m.category || '',
+      '当前库存': m.stock_quantity || m.current_stock || 0,
+      '预警库存': m.warning_stock || m.min_stock || 0,
+      '供应商': m.supplier || '',
+      '单价': m.unit_price || m.price || 0,
+      '物料图片': m.material_photo || m.photo || '',
+      '二维码ID': m.qr_code_id || '',
+      '标签': m.tags && Array.isArray(m.tags) ? m.tags.join(', ') : '',
+      '备注': m.remarks || m.note || m.description || '',
+      '创建时间': m.created_at ? new Date(m.created_at).toLocaleString('zh-CN') : '',
+      '更新时间': m.updated_at ? new Date(m.updated_at).toLocaleString('zh-CN') : '',
+    }));
+
+    // 创建工作簿和工作表
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // 设置列宽
+    worksheet['!cols'] = [
+      { wch: 8 },  // ID
+      { wch: 15 }, // 物料编号
+      { wch: 20 }, // 物料名称
+      { wch: 15 }, // 规格型号
+      { wch: 8 },  // 单位
+      { wch: 12 }, // 分类
+      { wch: 10 }, // 当前库存
+      { wch: 10 }, // 预警库存
+      { wch: 15 }, // 供应商
+      { wch: 10 }, // 单价
+      { wch: 25 }, // 物料图片
+      { wch: 15 }, // 二维码ID
+      { wch: 20 }, // 标签
+      { wch: 25 }, // 备注
+      { wch: 20 }, // 创建时间
+      { wch: 20 }, // 更新时间
+    ];
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(workbook, worksheet, '物料清单');
+
+    // 生成文件并返回
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="' + encodeURIComponent('物料清单_' + new Date().getTime() + '.xlsx') + '"');
+    res.send(buffer);
+  } catch (error: any) {
+    console.error('Batch export materials error:', error);
+    res.status(500).json({ error: error.message || '导出失败' });
+  }
 });
 
 // 获取物料详情
