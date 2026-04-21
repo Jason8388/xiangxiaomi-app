@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -120,14 +122,43 @@ export default function FileDetailScreen() {
 
   const handleDownload = async () => {
     try {
-      await fetch(`${getApiBaseUrl()}/api/v1/files/download/${id}`, {
-        method: 'POST',
-      });
+      // 显示下载提示
+      Alert.alert('提示', '开始下载文件...');
 
-      Alert.alert('提示', '下载记录已更新');
-      fetchFileDetail();
-    } catch (error) {
-      Alert.alert('错误', '下载失败');
+      // 下载文件到本地
+      const downloadUrl = `${getApiBaseUrl()}/api/v1/files/download/${id}`;
+      const fileUri = `${FileSystem.documentDirectory}${file.original_name}`;
+
+      const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri);
+
+      if (downloadResult.status === 200) {
+        // 更新下载记录
+        try {
+          await fetch(`${getApiBaseUrl()}/api/v1/files/download/${id}`, {
+            method: 'POST',
+          });
+        } catch (error) {
+          console.error('Update download count error:', error);
+        }
+
+        // 保存文件到设备
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/octet-stream',
+            dialogTitle: `保存文件: ${file.original_name}`,
+          });
+        } else {
+          Alert.alert('成功', '文件已下载到本地');
+        }
+
+        // 刷新文件详情
+        fetchFileDetail();
+      } else {
+        Alert.alert('错误', '下载失败，请重试');
+      }
+    } catch (error: any) {
+      console.error('Download error:', error);
+      Alert.alert('错误', error.message || '下载失败');
     }
   };
 
