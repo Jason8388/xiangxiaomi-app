@@ -8,7 +8,9 @@ import {
   Modal,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -69,6 +71,7 @@ export default function ContractManagement() {
     tags: [] as string[],
   });
   const [tagInput, setTagInput] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
 
   useEffect(() => {
     const loadContracts = async () => {
@@ -111,7 +114,7 @@ export default function ContractManagement() {
       }
     };
     loadData();
-  }, []);
+  }, [refreshTrigger]);
 
   // 获取合同列表
   const fetchContracts = async (): Promise<Contract[]> => {
@@ -330,6 +333,94 @@ export default function ContractManagement() {
     setDeletingContract(null);
   };
 
+  // 批量导入
+  const handleImport = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const apiBaseUrl = getApiBaseUrl();
+      const formData = new FormData();
+      formData.append('file', {
+        uri: result.assets[0].uri,
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        name: result.assets[0].name,
+      } as any);
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/contracts/import`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        Alert.alert('导入成功', `成功导入 ${data.count} 条合同数据`);
+        fetchContracts();
+      } else {
+        Alert.alert('导入失败', data.message || '未知错误');
+      }
+    } catch (error) {
+      Alert.alert('导入失败', '请上传.xlsx格式的文件');
+    }
+  };
+
+  // 批量导出
+  const handleExport = async () => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('提示', '移动端暂不支持直接下载，请在PC端操作');
+      return;
+    }
+
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetch(`${apiBaseUrl}/api/v1/contracts/export`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = encodeURIComponent(`合同数据导出_${new Date().toISOString().split('T')[0]}.xlsx`);
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      Alert.alert('导出成功', '文件已开始下载');
+    } catch (error) {
+      Alert.alert('导出失败', '请稍后重试');
+    }
+  };
+
+  // 下载模板
+  const handleDownloadTemplate = async () => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('提示', '移动端暂不支持直接下载，请在PC端操作');
+      return;
+    }
+
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await fetch(`${apiBaseUrl}/api/v1/contracts/template`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = encodeURIComponent('合同导入模板.xlsx');
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      Alert.alert('下载成功', '模板已开始下载');
+    } catch (error) {
+      Alert.alert('下载失败', '请稍后重试');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -357,6 +448,18 @@ export default function ContractManagement() {
         <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
           <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
           <Text style={styles.addButtonText}>新建合同</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={handleImport}>
+          <FontAwesome6 name="file-import" size={16} color="#007AFF" />
+          <Text style={styles.actionButtonText}>导入</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={handleExport}>
+          <FontAwesome6 name="file-export" size={16} color="#34C759" />
+          <Text style={styles.actionButtonText}>导出</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={handleDownloadTemplate}>
+          <FontAwesome6 name="download" size={16} color="#FF9500" />
+          <Text style={styles.actionButtonText}>模板</Text>
         </TouchableOpacity>
       </View>
 

@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import { Screen } from '@/components/Screen';
 import { PageHeader } from '@/components/PageHeader';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -50,6 +51,7 @@ export default function MeetingMinutes() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [selectedMinute, setSelectedMinute] = useState<MeetingMinute | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -197,6 +199,94 @@ export default function MeetingMinutes() {
     } catch (error) {
       console.error('删除错误:', error);
       Alert.alert('错误', '删除失败');
+    }
+  };
+
+  const handleImport = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const formData = new FormData();
+        formData.append('file', {
+          uri: file.uri,
+          name: file.name,
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        } as any);
+
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/meeting-minutes/import`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          Alert.alert('成功', `成功导入${data.count || 0}条会议纪要`);
+          setRefreshTrigger(!refreshTrigger);
+          fetchMeetingMinutes();
+        } else {
+          const error = await response.json();
+          Alert.alert('错误', error.message || '导入失败');
+        }
+      }
+    } catch (error) {
+      console.error('导入错误:', error);
+      Alert.alert('错误', '导入失败');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/meeting-minutes/export`);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (typeof window !== 'undefined') {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const fileName = encodeURIComponent('会议纪要数据导出.xlsx');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          Alert.alert('成功', '导出成功');
+        } else {
+          Alert.alert('提示', '移动端暂不支持直接下载');
+        }
+      } else {
+        Alert.alert('错误', '导出失败');
+      }
+    } catch (error) {
+      console.error('导出错误:', error);
+      Alert.alert('错误', '导出失败');
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/meeting-minutes/template`);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (typeof window !== 'undefined') {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const fileName = encodeURIComponent('会议纪要导入模板.xlsx');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          Alert.alert('成功', '模板下载成功');
+        } else {
+          Alert.alert('提示', '移动端暂不支持直接下载');
+        }
+      } else {
+        Alert.alert('错误', '模板下载失败');
+      }
+    } catch (error) {
+      console.error('模板下载错误:', error);
+      Alert.alert('错误', '模板下载失败');
     }
   };
 
@@ -363,6 +453,31 @@ export default function MeetingMinutes() {
             )}
           </View>
         )}
+
+        {/* 批量操作按钮 */}
+        <View style={styles.batchOperations}>
+          <TouchableOpacity
+            style={[styles.batchButton, styles.importButton]}
+            onPress={handleImport}
+          >
+            <FontAwesome6 name="file-import" size={24} color="#FFFFFF" />
+            <Text style={styles.batchButtonText}>导入</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.batchButton, styles.exportButton]}
+            onPress={handleExport}
+          >
+            <FontAwesome6 name="file-export" size={24} color="#FFFFFF" />
+            <Text style={styles.batchButtonText}>导出</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.batchButton, styles.templateButton]}
+            onPress={handleDownloadTemplate}
+          >
+            <FontAwesome6 name="download" size={24} color="#FFFFFF" />
+            <Text style={styles.batchButtonText}>模板</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* 会议纪要列表 */}
         <FlatList
@@ -552,6 +667,36 @@ const styles = StyleSheet.create({
   },
   filterTagText: {
     fontSize: 12,
+    color: '#FFFFFF',
+  },
+  batchOperations: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  batchButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  importButton: {
+    backgroundColor: '#007AFF',
+  },
+  exportButton: {
+    backgroundColor: '#00C853',
+  },
+  templateButton: {
+    backgroundColor: '#FF9800',
+  },
+  batchButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   listContainer: {
