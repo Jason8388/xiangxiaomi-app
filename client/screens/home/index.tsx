@@ -155,6 +155,21 @@ const adminNavItems: NavigationItem[] = [
   },
 ];
 
+// 管理员专属功能ID列表
+const adminOnlyFeatures = ['account', 'logs', 'cleanup', 'version'];
+
+// 根据用户角色过滤导航项
+const filterNavItemsByRole = (
+  navItems: NavigationItem[],
+  user: User | null
+): NavigationItem[] => {
+  // 如果用户未登录或不是管理员，过滤掉管理员专属功能
+  if (!user || user.role !== 'admin') {
+    return navItems.filter(item => !adminOnlyFeatures.includes(item.id));
+  }
+  return navItems;
+};
+
 export default function HomeScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,6 +202,9 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
+
+  // 根据用户角色过滤导航项
+  const filteredNavItems = filterNavItemsByRole(adminNavItems, user);
 
   if (loading) {
     return (
@@ -223,7 +241,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>功能导航</Text>
           <View style={styles.navGrid}>
-            {adminNavItems.map(item => (
+            {filteredNavItems.map(item => (
               <TouchableOpacity
                 key={item.id}
                 style={styles.navItem}
