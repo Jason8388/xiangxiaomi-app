@@ -73,11 +73,41 @@ export function PCLayout({ children, activePath }: PCLayoutProps) {
     }
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      window.location.href = '/pc/login';
+      try {
+        // 获取 session_id
+        const sessionId = localStorage.getItem('session_id');
+
+        // 如果有 session_id，调用后端退出登录 API
+        if (sessionId) {
+          try {
+            const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/sessions/logout/${sessionId}`, {
+              method: 'POST',
+            });
+
+            if (response.ok) {
+              console.log('[PCLayout] 后端会话已注销');
+            } else {
+              console.warn('[PCLayout] 后端会话注销失败:', response.status);
+            }
+          } catch (apiError) {
+            console.warn('[PCLayout] 后端 API 调用失败，继续清理本地数据:', apiError);
+          }
+        }
+
+        // 清理所有登录相关的存储数据
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('session_id');
+
+        console.log('[PCLayout] 已清理用户登录数据，准备跳转到登录页');
+
+        // 跳转到登录页
+        window.location.href = '/pc/login';
+      } catch (error) {
+        console.error('[PCLayout] 退出登录失败:', error);
+      }
     }
   }, []);
 

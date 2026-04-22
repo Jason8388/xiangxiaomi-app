@@ -87,7 +87,11 @@ export function PCHeader({ breadcrumbs, user, onLogout, onRefresh }: PCHeaderPro
         {/* 退出登录按钮 */}
         <button
           className="pc-btn pc-btn-default pc-btn-sm"
-          onClick={onLogout}
+          onClick={() => {
+            if (window.confirm('确定要退出登录吗？')) {
+              onLogout();
+            }
+          }}
         >
           <FontAwesome6 name="right-from-bracket" size={14} />
           <span>退出</span>
