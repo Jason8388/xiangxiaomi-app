@@ -28,24 +28,69 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('确认', '确定要退出登录吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '退出',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await storage.deleteItem('user');
-            await storage.deleteItem('token');
-            await storage.deleteItem('session_id');
-            router.replace('/login');
-          } catch (error) {
-            console.error('Logout error:', error);
+  const handleLogout = async () => {
+    try {
+      console.log('[Profile] 准备退出登录');
+
+      // 1. 获取 session_id
+      const sessionId = await storage.getItem('session_id');
+      console.log('[Profile] session_id:', sessionId);
+
+      // 2. 如果有 session_id，调用后端退出登录 API
+      if (sessionId) {
+        try {
+          const apiUrl = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+          const response = await fetch(`${apiUrl}/api/v1/sessions/logout/${sessionId}`, {
+            method: 'POST',
+          });
+
+          if (response.ok) {
+            console.log('[Profile] 后端会话已注销');
+          } else {
+            console.warn('[Profile] 后端会话注销失败:', response.status);
           }
-        },
-      },
-    ]);
+        } catch (apiError) {
+          console.warn('[Profile] 后端 API 调用失败，继续清理本地数据:', apiError);
+        }
+      }
+
+      // 3. 显示确认对话框
+      Alert.alert(
+        '确认',
+        '确定要退出登录吗？',
+        [
+          {
+            text: '取消',
+            style: 'cancel',
+          },
+          {
+            text: '退出',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                console.log('[Profile] 用户确认退出，开始清理数据');
+
+                // 4. 清理所有登录相关的存储数据
+                await storage.deleteItem('user');
+                await storage.deleteItem('token');
+                await storage.deleteItem('session_id');
+
+                console.log('[Profile] 本地数据已清理，准备跳转到登录页');
+
+                // 5. 跳转到登录页
+                router.replace('/login');
+              } catch (error) {
+                console.error('[Profile] 退出登录失败:', error);
+                Alert.alert('错误', '退出登录失败，请重试');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('[Profile] 退出登录流程错误:', error);
+      Alert.alert('错误', '退出登录失败，请重试');
+    }
   };
 
   const handleCheckUpdate = () => {
