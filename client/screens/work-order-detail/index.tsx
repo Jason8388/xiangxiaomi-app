@@ -77,6 +77,7 @@ interface WorkOrderDetail {
   sales_sub_project_no?: string;
   material_code?: string;
   oa_work_order_no?: string;
+  erp_outbound_no?: string;
   // 合同信息
   contract_id?: number;
   contract_no?: string;
@@ -259,6 +260,7 @@ function WorkOrderDetailScreen() {
     sales_sub_project_no: '',
     material_code: '',
     oa_work_order_no: '',
+    erp_outbound_no: '',
     contract_id: undefined,
     contract_no: '',
     contract_name: '',
@@ -356,6 +358,7 @@ function WorkOrderDetailScreen() {
         sales_sub_project_no: data.sales_sub_project_no || '',
         material_code: data.material_code || '',
         oa_work_order_no: data.oa_work_order_no || '',
+        erp_outbound_no: data.erp_outbound_no || '',
         contract_id: data.contract_id,
         contract_no: data.contract_no || '',
         contract_name: data.contract_name || '',
@@ -815,6 +818,7 @@ function WorkOrderDetailScreen() {
           sales_sub_project_no: order.sales_sub_project_no,
           material_code: order.material_code,
           oa_work_order_no: order.oa_work_order_no,
+          erp_outbound_no: order.erp_outbound_no,
           contract_id: order.contract_id,
           contract_no: order.contract_no,
           contract_name: order.contract_name,
@@ -1363,6 +1367,7 @@ function WorkOrderDetailScreen() {
                   )}
                   {renderMultiLineRow('物料编码', 'material_code', '请输入物料编码（支持多行）')}
                   {renderInputRow('OA系统工单编号', 'oa_work_order_no', '请输入OA系统工单编号')}
+                  {renderInputRow('ERP出库申请单号', 'erp_outbound_no', '请输入ERP出库申请单号')}
                 </>
               ) : (
                 <>
@@ -1409,6 +1414,7 @@ function WorkOrderDetailScreen() {
                   ) : null}
                   {renderMultiLineRow('物料编码', 'material_code', '请输入物料编码（支持多行）')}
                   {renderInputRow('OA系统工单编号', 'oa_work_order_no', '请输入OA系统工单编号', true)}
+                  {renderInputRow('ERP出库申请单号', 'erp_outbound_no', '请输入ERP出库申请单号', true)}
                 </>
               )}
             </View>
