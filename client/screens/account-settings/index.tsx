@@ -59,18 +59,17 @@ export default function AccountSettingsScreen() {
       setLoading(true);
       setError(null);
       const userStr = await getSecureItem('user');
-      const sessionStr = await getSecureItem('session');
+      const sessionId = await getSecureItem('session_id');
       
-      if (userStr && sessionStr) {
+      if (userStr && sessionId) {
         const userData = JSON.parse(userStr);
-        const sessionData = JSON.parse(sessionStr);
         
         // 获取最新用户信息
         const response = await fetch(
           `${getApiBaseUrl()}/api/v1/users/me`,
           {
             headers: {
-              'Authorization': `Bearer ${sessionData.session_id}`,
+              'Authorization': `Bearer ${sessionId}`,
             },
           }
         );
@@ -87,7 +86,7 @@ export default function AccountSettingsScreen() {
           setUser(null);
           setError(null);
           await deleteSecureItem('user');
-          await deleteSecureItem('session');
+          await deleteSecureItem('session_id');
         } else {
           // 服务器错误，使用本地缓存
           setUser(userData);
@@ -144,12 +143,11 @@ export default function AccountSettingsScreen() {
   const uploadAvatar = async (uri: string) => {
     try {
       setUploadingAvatar(true);
-      const sessionStr = await getSecureItem('session');
-      if (!sessionStr) {
+      const sessionId = await getSecureItem('session_id');
+      if (!sessionId) {
         Alert.alert('错误', '未登录');
         return;
       }
-      const sessionData = JSON.parse(sessionStr);
 
       // 创建 FormData
       const formData = new FormData();
@@ -166,7 +164,7 @@ export default function AccountSettingsScreen() {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${sessionData.session_id}`,
+            'Authorization': `Bearer ${sessionId}`,
             // 不要设置 Content-Type，让浏览器/客户端自动处理
           },
           body: formData,
@@ -210,12 +208,11 @@ export default function AccountSettingsScreen() {
 
     try {
       setSavingPassword(true);
-      const sessionStr = await getSecureItem('session');
-      if (!sessionStr) {
+      const sessionId = await getSecureItem('session_id');
+      if (!sessionId) {
         Alert.alert('错误', '未登录');
         return;
       }
-      const sessionData = JSON.parse(sessionStr);
 
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/users/me`,
@@ -223,7 +220,7 @@ export default function AccountSettingsScreen() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionData.session_id}`,
+            'Authorization': `Bearer ${sessionId}`,
           },
           body: JSON.stringify({
             old_password: oldPassword,
@@ -258,12 +255,11 @@ export default function AccountSettingsScreen() {
 
     try {
       setSavingSignature(true);
-      const sessionStr = await getSecureItem('session');
-      if (!sessionStr) {
+      const sessionId = await getSecureItem('session_id');
+      if (!sessionId) {
         Alert.alert('错误', '未登录');
         return;
       }
-      const sessionData = JSON.parse(sessionStr);
 
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/users/me`,
@@ -271,7 +267,7 @@ export default function AccountSettingsScreen() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionData.session_id}`,
+            'Authorization': `Bearer ${sessionId}`,
           },
           body: JSON.stringify({ signature }),
         }
