@@ -30,5 +30,5 @@ check_command "pnpm"
 check_command "npm"
 
 info "开始执行：pnpm run start (server)"
-(pushd "$ROOT_DIR/server" > /dev/null && PORT="$PORT" pnpm run start; popd > /dev/null) || error "服务启动失败"
+(pushd "$ROOT_DIR/server" > /dev/null && PORT="$PORT" NODE_ENV=production pnpm run start; popd > /dev/null) || error "服务启动失败"
 info "服务启动完成！\n"
