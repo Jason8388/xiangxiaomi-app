@@ -24,9 +24,7 @@ export default function PCLogin() {
 
     try {
       console.log('[PC登录] 开始登录...');
-      console.log('[PC登录] 用户名:', username);
 
-      // 调用后端登录接口（与APP端保持一致）
       const baseUrl = getApiBaseUrl();
       const response = await fetch(`${baseUrl}/api/v1/users/login`, {
         method: 'POST',
@@ -44,28 +42,21 @@ export default function PCLogin() {
 
       const data = await response.json();
 
-      console.log('[PC登录] 响应数据:', data);
-
       if (!response.ok) {
         throw new Error(data.error || '登录失败');
       }
 
-      // 保存登录信息（与APP端保持一致）
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
-        console.log('[PC登录] 用户信息已保存');
       }
 
       if (data.session && data.session.session_id) {
         localStorage.setItem('session_id', data.session.session_id);
         localStorage.setItem('token', data.session.session_id);
-        console.log('[PC登录] 会话ID已保存');
       }
 
-      // 使用浏览器原生 alert（Web平台）
       window.alert('登录成功！欢迎回来！');
 
-      // 跳转到首页
       setTimeout(() => {
         window.location.href = '/pc/dashboard';
       }, 500);
@@ -77,71 +68,115 @@ export default function PCLogin() {
     }
   }, [username, password]);
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !loading) {
+      handleLogin();
+    }
+  };
+
   return (
-    <>
-      <div className="pc-login-container">
-        <div className="pc-login-card">
+    <div className="pc-login-container">
+      <div className="pc-login-card">
+        {/* 左侧品牌区域 */}
+        <div className="pc-login-left">
           <div className="pc-login-logo">
             <img src="/client/assets/images/icon.png" alt="项小秘" />
-            <h1 className="pc-login-title">项小秘</h1>
-            <p className="pc-login-subtitle">项目管理系统</p>
+            <div className="pc-login-logo-text">
+              <span className="pc-login-logo-title">项小秘</span>
+              <span className="pc-login-logo-subtitle">Xiang Xiao Mi</span>
+            </div>
+          </div>
+          
+          <h2 className="pc-login-tagline">让项目管理<br />更简单高效</h2>
+          
+          <p className="pc-login-description">
+            一站式项目管理系统，集成客户管理、设备管理、合同管理等功能，助力企业数字化转型。
+          </p>
+
+          <div className="pc-login-features">
+            <div className="pc-login-feature">
+              <div className="pc-login-feature-icon">📊</div>
+              <span>智能数据看板</span>
+            </div>
+            <div className="pc-login-feature">
+              <div className="pc-login-feature-icon">🔒</div>
+              <span>安全权限管理</span>
+            </div>
+            <div className="pc-login-feature">
+              <div className="pc-login-feature-icon">📱</div>
+              <span>移动端同步</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 右侧登录表单 */}
+        <div className="pc-login-right">
+          <div className="pc-login-header">
+            <h1 className="pc-login-title">欢迎回来</h1>
+            <p className="pc-login-subtitle">请登录您的账户继续使用</p>
           </div>
 
+          {error && (
+            <div className="pc-login-error">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
           <form className="pc-login-form" onSubmit={e => { e.preventDefault(); handleLogin(); }}>
-            {error && (
-              <div style={{
-                padding: '10px 12px',
-                background: '#FFF2F0',
-                border: '1px solid #FFCCC7',
-                borderRadius: 6,
-                color: '#FF4D4F',
-                fontSize: 13
-              }}>
-                {error}
+            <div className="pc-form-item">
+              <label className="pc-form-label">用户名</label>
+              <div className="pc-form-input-wrapper">
+                <span className="pc-form-input-icon">👤</span>
+                <input
+                  type="text"
+                  className="pc-form-control has-icon"
+                  placeholder="请输入用户名"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  autoComplete="username"
+                />
               </div>
-            )}
-
-            <div className="pc-form-item">
-              <label className="pc-form-label required">用户名</label>
-              <input
-                type="text"
-                className="pc-form-control"
-                placeholder="请输入用户名"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                autoComplete="username"
-              />
             </div>
 
             <div className="pc-form-item">
-              <label className="pc-form-label required">密码</label>
-              <input
-                type="password"
-                className="pc-form-control"
-                placeholder="请输入密码"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
+              <label className="pc-form-label">密码</label>
+              <div className="pc-form-input-wrapper">
+                <span className="pc-form-input-icon">🔒</span>
+                <input
+                  type="password"
+                  className="pc-form-control has-icon"
+                  placeholder="请输入密码"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  autoComplete="current-password"
+                />
+              </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <div className="pc-login-options">
+              <label className="pc-remember-label">
                 <input
                   type="checkbox"
                   checked={remember}
                   onChange={e => setRemember(e.target.checked)}
                 />
-                <span style={{ fontSize: 13, color: '#666' }}>记住密码</span>
+                <span>记住密码</span>
               </label>
-              <a href="#" style={{ fontSize: 13, color: '#4F8EF7' }}>忘记密码？</a>
+              <a href="#" className="pc-forgot-link" onClick={e => {
+                e.preventDefault();
+                window.alert('请联系管理员重置密码');
+              }}>
+                忘记密码？
+              </a>
             </div>
 
             <button
               type="submit"
-              className="pc-btn pc-btn-primary pc-btn-lg"
+              className="pc-btn-submit"
               disabled={loading}
-              style={{ width: '100%', marginTop: 8 }}
             >
               {loading ? '登录中...' : '登 录'}
             </button>
@@ -155,6 +190,6 @@ export default function PCLogin() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
