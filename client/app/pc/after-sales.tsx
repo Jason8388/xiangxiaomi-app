@@ -740,7 +740,6 @@ export default function PCAfterSales() {
             loading={loading} 
             selectedRowKeys={selectedRowKeys} 
             onSelectChange={setSelectedRowKeys}
-            rowClassName="workorder-table-row"
           />
           
           <div className="workorder-pagination">

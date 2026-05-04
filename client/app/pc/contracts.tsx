@@ -43,7 +43,7 @@ export default function PCContracts() {
     amount: '',
     sign_date: '',
     expire_date: '',
-    status: 'pending' as const,
+    status: '' as 'active' | 'expired' | 'pending' | '',
   });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 

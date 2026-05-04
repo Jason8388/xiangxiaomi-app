@@ -33,7 +33,7 @@ export default function PCCustomers() {
     contact_person: '',
     contact_phone: '',
     address: '',
-    status: 'active' as const,
+    status: '' as 'active' | 'inactive' | '',
   });
   const [pagination, setPagination] = useState({
     current: 1,

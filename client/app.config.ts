@@ -42,11 +42,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "NSDocumentsFolderUsageDescription": "允许项小秘App访问文档文件夹以便管理文件。",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "config": {
-        "googleSignIn": {
-          "reservedClientId": "REVERSED_CLIENT_ID"
-        }
-      }
+      "config": {}
     },
     "android": {
       "adaptiveIcon": {

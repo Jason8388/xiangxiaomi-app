@@ -42,7 +42,7 @@ export default function PCDevices() {
     model: '',
     customer_name: '',
     location: '',
-    status: 'online' as const,
+    status: '' as 'online' | 'offline' | 'warning' | '',
   });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
