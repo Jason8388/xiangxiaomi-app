@@ -12,27 +12,36 @@ import { PCPagination } from '@/components/pc/PCComponents';
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
 
-interface Meeting {
+interface MeetingMinute {
   id: number;
-  title: string;
+  meeting_name: string;
   meeting_date: string;
-  attendees: string[];
-  location: string;
-  summary: string;
-  tasks: string[];
-  creator: string;
-  created_at: string;
+  meeting_location?: string;
+  attendees?: string;
+  recorder?: string;
+  topics?: string;
+  summary?: string;
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export default function PCMeetingMinutes() {
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetings, setMeetings] = useState<MeetingMinute[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
-  const [viewMeeting, setViewMeeting] = useState<Meeting | null>(null);
-  const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
-  const [formData, setFormData] = useState({ title: '', meeting_date: '', attendees: '', location: '', summary: '', tasks: '' });
+  const [editingMeeting, setEditingMeeting] = useState<MeetingMinute | null>(null);
+  const [formData, setFormData] = useState({
+    meeting_name: '',
+    meeting_date: '',
+    meeting_location: '',
+    attendees: '',
+    recorder: '',
+    topics: '',
+    summary: '',
+    tags: '',
+  });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
   const fetchMeetings = useCallback(async () => {
@@ -40,14 +49,18 @@ export default function PCMeetingMinutes() {
     try {
       const response = await fetch(`${API_BASE}/api/v1/meeting-minutes`);
       const data = await response.json();
-      const list = Array.isArray(data) ? data : (data.meetings || []);
-      setMeetings(list);
-      setPagination(prev => ({ ...prev, total: list.length }));
+      const list = Array.isArray(data) ? data : (data.meeting_minutes || []);
+      const sorted = list.sort((a: MeetingMinute, b: MeetingMinute) => 
+        new Date(b.meeting_date || 0).getTime() - new Date(a.meeting_date || 0).getTime()
+      );
+      setMeetings(sorted);
+      setPagination(prev => ({ ...prev, total: sorted.length }));
     } catch (error) {
+      console.error('获取会议纪要列表失败:', error);
       setMeetings([
-        { id: 1, title: '项目进度周例会', meeting_date: '2024-03-20', attendees: ['张三', '李四', '王五'], location: '会议室A', summary: '讨论了项目当前进度及存在的问题...', tasks: ['完成模块A开发', '修复测试发现的问题'], creator: '张三', created_at: '2024-03-20' },
-        { id: 2, title: '客户需求评审会', meeting_date: '2024-03-18', attendees: ['张三', '李四'], location: '会议室B', summary: '评审了客户新提出的功能需求...', tasks: ['编写需求文档', '安排技术评估'], creator: '李四', created_at: '2024-03-18' },
-        { id: 3, title: '技术方案评审会', meeting_date: '2024-03-15', attendees: ['王五', '赵六'], location: '会议室A', summary: '对技术方案进行了详细评审...', tasks: ['优化数据库设计', '完善接口文档'], creator: '王五', created_at: '2024-03-15' },
+        { id: 1, meeting_name: '项目进度汇报会议', meeting_date: '2024-01-20', meeting_location: '3号会议室', attendees: '张三、李四、王五', recorder: '赵六', topics: '1. 项目进度汇报\n2. 问题讨论\n3. 下阶段计划', summary: '本次会议主要讨论了项目当前进度，各模块负责人分别汇报了工作情况，并就遇到的问题进行了讨论。', tags: ['项目会议', '进度'], created_at: '2024-01-20 18:00:00', updated_at: '2024-01-20 18:30:00' },
+        { id: 2, meeting_name: '技术方案评审', meeting_date: '2024-01-18', meeting_location: '2号会议室', attendees: '李工、王工、张工', recorder: '刘工', topics: '1. 新技术方案介绍\n2. 技术可行性讨论', summary: '对新技术方案进行了评审，与会人员一致认为该方案可行，建议尽快推进实施。', tags: ['技术评审'], created_at: '2024-01-18 14:00:00', updated_at: '2024-01-18 16:00:00' },
+        { id: 3, meeting_name: '客户需求讨论', meeting_date: '2024-01-15', meeting_location: '视频会议', attendees: '销售部、技术部', recorder: '周经理', topics: '1. 客户新需求分析\n2. 开发周期评估', summary: '针对客户提出的新需求进行了讨论，初步评估了开发周期和资源需求。', tags: ['需求讨论', '客户'], created_at: '2024-01-15 10:00:00', updated_at: '2024-01-15 12:00:00' },
       ]);
       setPagination(prev => ({ ...prev, total: 3 }));
     } finally {
@@ -55,78 +68,292 @@ export default function PCMeetingMinutes() {
     }
   }, []);
 
-  useEffect(() => { fetchMeetings(); }, [fetchMeetings]);
+  useEffect(() => {
+    fetchMeetings();
+  }, [fetchMeetings]);
+
+  const handleSearch = () => {
+    if (!searchText.trim()) {
+      fetchMeetings();
+      return;
+    }
+    const keyword = searchText.toLowerCase();
+    const filtered = meetings.filter(m =>
+      m.meeting_name.toLowerCase().includes(keyword) ||
+      (m.summary && m.summary.toLowerCase().includes(keyword)) ||
+      (m.topics && m.topics.toLowerCase().includes(keyword))
+    );
+    setPagination(prev => ({ ...prev, total: filtered.length }));
+  };
+
+  const handleAdd = () => {
+    setEditingMeeting(null);
+    setFormData({
+      meeting_name: '',
+      meeting_date: '',
+      meeting_location: '',
+      attendees: '',
+      recorder: '',
+      topics: '',
+      summary: '',
+      tags: '',
+    });
+    setModalVisible(true);
+  };
+
+  const handleEdit = (meeting: MeetingMinute) => {
+    setEditingMeeting(meeting);
+    setFormData({
+      meeting_name: meeting.meeting_name,
+      meeting_date: meeting.meeting_date || '',
+      meeting_location: meeting.meeting_location || '',
+      attendees: meeting.attendees || '',
+      recorder: meeting.recorder || '',
+      topics: meeting.topics || '',
+      summary: meeting.summary || '',
+      tags: Array.isArray(meeting.tags) ? meeting.tags.join(', ') : '',
+    });
+    setModalVisible(true);
+  };
+
+  const handleDelete = async (meeting: MeetingMinute) => {
+    if (!confirm(`确定删除会议"${meeting.meeting_name}"吗？`)) return;
+    try {
+      await fetch(`${API_BASE}/api/v1/meeting-minutes/${meeting.id}`, { method: 'DELETE' });
+    } catch (error) {
+      console.error('删除失败:', error);
+    }
+    setMeetings(prev => prev.filter(m => m.id !== meeting.id));
+    setPagination(prev => ({ ...prev, total: prev.total - 1 }));
+  };
+
+  const handleSave = async () => {
+    if (!formData.meeting_name.trim()) {
+      alert('请输入会议名称');
+      return;
+    }
+
+    const submitData = {
+      ...formData,
+      tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+    };
+
+    try {
+      if (editingMeeting) {
+        const response = await fetch(`${API_BASE}/api/v1/meeting-minutes/${editingMeeting.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submitData),
+        });
+        if (response.ok) {
+          setMeetings(prev =>
+            prev.map(m => m.id === editingMeeting.id ? { ...m, ...submitData } : m)
+          );
+        }
+      } else {
+        const response = await fetch(`${API_BASE}/api/v1/meeting-minutes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submitData),
+        });
+        if (response.ok) {
+          const newMeeting: MeetingMinute = {
+            id: Date.now(),
+            ...submitData,
+            created_at: new Date().toLocaleString(),
+            updated_at: new Date().toLocaleString(),
+          };
+          setMeetings(prev => [...prev, newMeeting]);
+          setPagination(prev => ({ ...prev, total: prev.total + 1 }));
+        }
+      }
+    } catch (error) {
+      console.error('保存失败:', error);
+    }
+    setModalVisible(false);
+  };
 
   const columns = [
-    { key: 'title', title: '会议主题', width: 200 },
+    { key: 'meeting_name', title: '会议名称', width: 180 },
     { key: 'meeting_date', title: '会议日期', width: 100 },
-    { key: 'location', title: '地点', width: 80 },
-    { key: 'attendees', title: '参会人', width: 150, render: (val: string[]) => val?.join(', ') },
-    { key: 'creator', title: '记录人', width: 80 },
-    { key: 'created_at', title: '创建时间', width: 100 },
-    { key: 'actions', title: '操作', width: 180, render: (_: any, record: Meeting) => (
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="pc-btn pc-btn-text pc-btn-sm" onClick={() => setViewMeeting(record)}>查看</button>
-        <button className="pc-btn pc-btn-text pc-btn-sm" onClick={() => { setEditingMeeting(record); setFormData({ title: record.title, meeting_date: record.meeting_date, attendees: record.attendees.join(','), location: record.location, summary: record.summary, tasks: record.tasks.join('\n') }); setModalVisible(true); }}>编辑</button>
-        <button className="pc-btn pc-btn-text pc-btn-sm" style={{ color: '#FF4D4F' }} onClick={() => { if (confirm('确定删除吗？')) setMeetings(prev => prev.filter(m => m.id !== record.id)); }}>删除</button>
-      </div>
-    ) },
+    { key: 'meeting_location', title: '会议地点', width: 100 },
+    { key: 'attendees', title: '参会人员', width: 150 },
+    { key: 'recorder', title: '记录人', width: 80 },
+    { 
+      key: 'topics', 
+      title: '议题', 
+      width: 200,
+      render: (val: string) => val ? <div style={{ maxHeight: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val.replace(/\n/g, ' | ')}</div> : '-'
+    },
+    { 
+      key: 'summary', 
+      title: '会议总结', 
+      width: 250,
+      render: (val: string) => val ? <div style={{ maxHeight: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</div> : '-'
+    },
+    {
+      key: 'tags',
+      title: '标签',
+      width: 120,
+      render: (val: string[]) => (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {Array.isArray(val) && val.map((tag, i) => (
+            <span key={i} style={{ background: '#E6F7FF', color: '#1890FF', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>{tag}</span>
+          ))}
+        </div>
+      ),
+    },
+    { key: 'created_at', title: '创建时间', width: 150 },
+    {
+      key: 'actions',
+      title: '操作',
+      width: 140,
+      render: (_: any, record: MeetingMinute) => (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="pc-btn pc-btn-text pc-btn-sm" onClick={() => handleEdit(record)}>编辑</button>
+          <button className="pc-btn pc-btn-text pc-btn-sm" style={{ color: '#FF4D4F' }} onClick={() => handleDelete(record)}>删除</button>
+        </div>
+      ),
+    },
   ];
-
-  const filteredMeetings = meetings.filter(m => !searchText || m.title.includes(searchText) || m.summary.includes(searchText));
 
   return (
     <>
       
       <PCLayout>
-        <div className="pc-page-header"><h1 className="pc-page-title">会议纪要</h1><p className="pc-page-description">记录和管理各类会议纪要，包括参会人员、会议内容和待办事项</p></div>
+        <div className="pc-page-header">
+          <h1 className="pc-page-title">会议纪要</h1>
+          <p className="pc-page-description">管理所有会议纪要，包括会议名称、议题、参会人员、会议总结、标签等完整信息</p>
+        </div>
+
         <PCCard>
-          <PCToolbar left={<PCSearchBar placeholder="搜索会议纪要..." value={searchText} onChange={setSearchText} onSearch={() => {}} />} right={<button className="pc-btn pc-btn-primary" onClick={() => { setEditingMeeting(null); setFormData({ title: '', meeting_date: '', attendees: '', location: '', summary: '', tasks: '' }); setModalVisible(true); }}>+ 新建会议纪要</button>} />
-          <PCTable columns={columns} data={filteredMeetings} rowKey="id" loading={loading} selectedRowKeys={selectedRowKeys} onSelectChange={setSelectedRowKeys} />
-          <PCPagination current={pagination.current} pageSize={pagination.pageSize} total={pagination.total} onChange={(page) => setPagination(prev => ({ ...prev, current: page }))} />
+          <PCToolbar
+            left={
+              <PCSearchBar
+                placeholder="搜索会议名称、会议总结或议题..."
+                value={searchText}
+                onChange={setSearchText}
+                onSearch={handleSearch}
+              />
+            }
+            right={
+              <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
+                + 新增会议纪要
+              </button>
+            }
+          />
+
+          <PCTable
+            columns={columns}
+            data={meetings}
+            rowKey="id"
+            loading={loading}
+          />
+
+          <PCPagination
+            current={pagination.current}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            onChange={(page) => setPagination(prev => ({ ...prev, current: page }))}
+          />
         </PCCard>
 
-        {/* 查看详情 */}
-        <PCModal visible={!!viewMeeting} title={viewMeeting?.title || ''} onClose={() => setViewMeeting(null)} width={700}
-          footer={<button className="pc-btn pc-btn-default" onClick={() => setViewMeeting(null)}>关闭</button>}
-        >
-          {viewMeeting && (
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-                <div><span style={{ color: '#999' }}>会议日期：</span>{viewMeeting.meeting_date}</div>
-                <div><span style={{ color: '#999' }}>会议地点：</span>{viewMeeting.location}</div>
-                <div><span style={{ color: '#999' }}>参会人员：</span>{viewMeeting.attendees.join(', ')}</div>
-                <div><span style={{ color: '#999' }}>记录人：</span>{viewMeeting.creator}</div>
-              </div>
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>会议内容</div>
-                <div style={{ color: '#333', lineHeight: 1.8 }}>{viewMeeting.summary}</div>
-              </div>
-              {viewMeeting.tasks?.length > 0 && (
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>待办事项</div>
-                  <ul style={{ paddingLeft: 20, color: '#333' }}>
-                    {viewMeeting.tasks.map((task, i) => <li key={i}>{task}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </PCModal>
-
-        {/* 编辑弹窗 */}
-        <PCModal visible={modalVisible} title={editingMeeting ? '编辑会议纪要' : '新建会议纪要'} onClose={() => setModalVisible(false)} width={600}
-          footer={<><button className="pc-btn pc-btn-default" onClick={() => setModalVisible(false)}>取消</button><button className="pc-btn pc-btn-primary" onClick={() => { const newMeeting = { ...formData, attendees: formData.attendees.split(',').map(s => s.trim()).filter(s => s), tasks: formData.tasks.split('\n').filter(s => s.trim()) }; if (editingMeeting) { setMeetings(prev => prev.map(m => m.id === editingMeeting.id ? { ...m, ...newMeeting } : m)); } else { setMeetings(prev => [...prev, { id: Date.now(), ...newMeeting, creator: '管理员', created_at: new Date().toISOString().split('T')[0] }]); setPagination(prev => ({ ...prev, total: prev.total + 1 })); } setModalVisible(false); }}>保存</button></>}
+        <PCModal
+          visible={modalVisible}
+          title={editingMeeting ? '编辑会议纪要' : '新增会议纪要'}
+          onClose={() => setModalVisible(false)}
+          width={700}
+          footer={
+            <>
+              <button className="pc-btn pc-btn-default" onClick={() => setModalVisible(false)}>取消</button>
+              <button className="pc-btn pc-btn-primary" onClick={handleSave}>保存</button>
+            </>
+          }
         >
           <div className="pc-form">
-            <div className="pc-form-item"><label className="pc-form-label required">会议主题</label><input type="text" className="pc-form-control" value={formData.title} onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} /></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="pc-form-item"><label className="pc-form-label">会议日期</label><input type="date" className="pc-form-control" value={formData.meeting_date} onChange={e => setFormData(prev => ({ ...prev, meeting_date: e.target.value }))} /></div>
-              <div className="pc-form-item"><label className="pc-form-label">会议地点</label><input type="text" className="pc-form-control" value={formData.location} onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))} /></div>
+            <div className="pc-form-item">
+              <label className="pc-form-label required">会议名称</label>
+              <input
+                type="text"
+                className="pc-form-control"
+                placeholder="请输入会议名称"
+                value={formData.meeting_name}
+                onChange={e => setFormData(prev => ({ ...prev, meeting_name: e.target.value }))}
+              />
             </div>
-            <div className="pc-form-item"><label className="pc-form-label">参会人员</label><input type="text" className="pc-form-control" placeholder="多个用逗号分隔" value={formData.attendees} onChange={e => setFormData(prev => ({ ...prev, attendees: e.target.value }))} /></div>
-            <div className="pc-form-item"><label className="pc-form-label">会议内容</label><textarea className="pc-form-control pc-form-textarea" rows={4} value={formData.summary} onChange={e => setFormData(prev => ({ ...prev, summary: e.target.value }))} /></div>
-            <div className="pc-form-item"><label className="pc-form-label">待办事项</label><textarea className="pc-form-control pc-form-textarea" rows={3} placeholder="每行一个待办" value={formData.tasks} onChange={e => setFormData(prev => ({ ...prev, tasks: e.target.value }))} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="pc-form-item">
+                <label className="pc-form-label">会议日期</label>
+                <input
+                  type="date"
+                  className="pc-form-control"
+                  value={formData.meeting_date}
+                  onChange={e => setFormData(prev => ({ ...prev, meeting_date: e.target.value }))}
+                />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label">会议地点</label>
+                <input
+                  type="text"
+                  className="pc-form-control"
+                  placeholder="请输入会议地点"
+                  value={formData.meeting_location}
+                  onChange={e => setFormData(prev => ({ ...prev, meeting_location: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="pc-form-item">
+                <label className="pc-form-label">参会人员</label>
+                <input
+                  type="text"
+                  className="pc-form-control"
+                  placeholder="请输入参会人员，多人以逗号分隔"
+                  value={formData.attendees}
+                  onChange={e => setFormData(prev => ({ ...prev, attendees: e.target.value }))}
+                />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label">记录人</label>
+                <input
+                  type="text"
+                  className="pc-form-control"
+                  placeholder="请输入记录人"
+                  value={formData.recorder}
+                  onChange={e => setFormData(prev => ({ ...prev, recorder: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="pc-form-item">
+              <label className="pc-form-label">议题</label>
+              <textarea
+                className="pc-form-control pc-form-textarea"
+                rows={4}
+                placeholder="请输入会议议题，每行一个议题"
+                value={formData.topics}
+                onChange={e => setFormData(prev => ({ ...prev, topics: e.target.value }))}
+              />
+            </div>
+            <div className="pc-form-item">
+              <label className="pc-form-label">会议总结</label>
+              <textarea
+                className="pc-form-control pc-form-textarea"
+                rows={4}
+                placeholder="请输入会议总结"
+                value={formData.summary}
+                onChange={e => setFormData(prev => ({ ...prev, summary: e.target.value }))}
+              />
+            </div>
+            <div className="pc-form-item">
+              <label className="pc-form-label">标签</label>
+              <input
+                type="text"
+                className="pc-form-control"
+                placeholder="请输入标签，多个标签以逗号分隔"
+                value={formData.tags}
+                onChange={e => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+              />
+            </div>
           </div>
         </PCModal>
       </PCLayout>

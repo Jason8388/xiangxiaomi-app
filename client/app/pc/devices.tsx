@@ -14,14 +14,23 @@ const API_BASE = getApiBaseUrl();
 
 interface Device {
   id: number;
-  device_id: string;
+  device_number: string;
   device_name: string;
-  model: string;
+  device_model?: string;
+  device_type?: string;
   customer_name: string;
-  location: string;
-  status: 'online' | 'offline' | 'warning';
-  last_maintenance: string;
+  factory_date?: string;
+  acceptance_date?: string;
+  warranty_end_date?: string;
+  status: string;
+  contract_name?: string;
+  qr_code_id?: string;
+  location?: string;
+  remarks?: string;
+  service_number?: string;
 }
+
+const DEVICE_TYPES = ['智能测温', '智能焊接', '智能测量', '外观品检', '尺寸测量', '角度定位', '数字化产品', '第三方设备', '其它'];
 
 const statusMap = {
   online: { label: '在线', type: 'success' as const },
@@ -35,15 +44,24 @@ export default function PCDevices() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [formData, setFormData] = useState({
-    device_id: '',
+    device_number: '',
     device_name: '',
-    model: '',
+    device_model: '',
+    device_type: '',
     customer_name: '',
+    factory_date: '',
+    acceptance_date: '',
+    warranty_end_date: '',
+    status: 'online' as string,
+    contract_name: '',
+    qr_code_id: '',
     location: '',
-    status: '' as 'online' | 'offline' | 'warning' | '',
+    remarks: '',
+    service_number: '',
   });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
@@ -53,13 +71,18 @@ export default function PCDevices() {
       const response = await fetch(`${API_BASE}/api/v1/devices`);
       const data = await response.json();
       const list = Array.isArray(data) ? data : (data.devices || []);
-      setDevices(list);
-      setPagination(prev => ({ ...prev, total: list.length }));
+      // 按出厂日期排序
+      const sorted = list.sort((a: Device, b: Device) => 
+        new Date(a.factory_date || 0).getTime() - new Date(b.factory_date || 0).getTime()
+      );
+      setDevices(sorted);
+      setPagination(prev => ({ ...prev, total: sorted.length }));
     } catch (error) {
+      console.error('获取设备列表失败:', error);
       setDevices([
-        { id: 1, device_id: 'A-001', device_name: '变频器控制器', model: 'VFD-5000', customer_name: '北京科技', location: '1号车间', status: 'online', last_maintenance: '2024-03-15' },
-        { id: 2, device_id: 'A-002', device_name: 'PLC控制柜', model: 'S7-1200', customer_name: '上海网络', location: '2号车间', status: 'warning', last_maintenance: '2024-02-28' },
-        { id: 3, device_id: 'B-001', device_name: '伺服驱动器', model: 'MR-J4', customer_name: '广州智能', location: '3号车间', status: 'offline', last_maintenance: '2024-01-20' },
+        { id: 1, device_number: 'A-001', device_name: '变频器控制器', device_model: 'VFD-5000', device_type: '智能测温', customer_name: '北京科技有限公司', factory_date: '2023-06-15', acceptance_date: '2023-07-01', warranty_end_date: '2024-07-01', status: 'online', contract_name: 'HT-2024-001', qr_code_id: 'QR-A001', location: '1号车间', remarks: '运行正常', service_number: 'FW-2024-001' },
+        { id: 2, device_number: 'A-002', device_name: 'PLC控制柜', device_model: 'S7-1200', device_type: '数字化产品', customer_name: '上海网络科技', factory_date: '2023-08-20', acceptance_date: '2023-09-01', warranty_end_date: '2024-09-01', status: 'warning', contract_name: 'HT-2024-002', qr_code_id: 'QR-A002', location: '2号车间', remarks: '需要维护', service_number: 'FW-2024-002' },
+        { id: 3, device_number: 'B-001', device_name: '伺服驱动器', device_model: 'MR-J4', device_type: '智能焊接', customer_name: '广州智能制造', factory_date: '2023-10-10', acceptance_date: '2023-11-01', warranty_end_date: '2024-11-01', status: 'offline', contract_name: 'HT-2024-003', qr_code_id: 'QR-B001', location: '3号车间', remarks: '', service_number: 'FW-2024-003' },
       ]);
       setPagination(prev => ({ ...prev, total: 3 }));
     } finally {
@@ -72,26 +95,68 @@ export default function PCDevices() {
   }, [fetchDevices]);
 
   const handleSearch = () => {
+    if (!searchText.trim()) {
+      fetchDevices();
+      return;
+    }
+    const keyword = searchText.toLowerCase();
     const filtered = devices.filter(d =>
-      d.device_name.includes(searchText) || d.device_id.includes(searchText)
+      d.device_name.toLowerCase().includes(keyword) ||
+      d.device_number.toLowerCase().includes(keyword) ||
+      d.customer_name.toLowerCase().includes(keyword)
     );
     setPagination(prev => ({ ...prev, total: filtered.length }));
   };
 
   const handleAdd = () => {
     setEditingDevice(null);
-    setFormData({ device_id: '', device_name: '', model: '', customer_name: '', location: '', status: 'online' });
+    setFormData({
+      device_number: '',
+      device_name: '',
+      device_model: '',
+      device_type: '',
+      customer_name: '',
+      factory_date: '',
+      acceptance_date: '',
+      warranty_end_date: '',
+      status: 'online',
+      contract_name: '',
+      qr_code_id: '',
+      location: '',
+      remarks: '',
+      service_number: '',
+    });
     setModalVisible(true);
   };
 
   const handleEdit = (device: Device) => {
     setEditingDevice(device);
-    setFormData({ ...device });
+    setFormData({
+      device_number: device.device_number,
+      device_name: device.device_name,
+      device_model: device.device_model || '',
+      device_type: device.device_type || '',
+      customer_name: device.customer_name,
+      factory_date: device.factory_date || '',
+      acceptance_date: device.acceptance_date || '',
+      warranty_end_date: device.warranty_end_date || '',
+      status: device.status || 'online',
+      contract_name: device.contract_name || '',
+      qr_code_id: device.qr_code_id || '',
+      location: device.location || '',
+      remarks: device.remarks || '',
+      service_number: device.service_number || '',
+    });
     setModalVisible(true);
   };
 
   const handleDelete = async (device: Device) => {
     if (!confirm(`确定删除设备"${device.device_name}"吗？`)) return;
+    try {
+      await fetch(`${API_BASE}/api/v1/devices/${device.id}`, { method: 'DELETE' });
+    } catch (error) {
+      console.error('删除失败:', error);
+    }
     setDevices(prev => prev.filter(d => d.id !== device.id));
     setPagination(prev => ({ ...prev, total: prev.total - 1 }));
   };
@@ -108,28 +173,40 @@ export default function PCDevices() {
     setStatusFilter(status === statusFilter ? '' : status);
   };
 
+  const handleTypeFilter = (type: string) => {
+    setTypeFilter(type === typeFilter ? '' : type);
+  };
+
   const filteredDevices = devices.filter(d => {
-    const matchSearch = !searchText || d.device_name.includes(searchText) || d.device_id.includes(searchText);
+    const matchSearch = !searchText || d.device_name.includes(searchText) || d.device_number.includes(searchText) || d.customer_name.includes(searchText);
     const matchStatus = !statusFilter || d.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchType = !typeFilter || d.device_type === typeFilter;
+    return matchSearch && matchStatus && matchType;
   });
 
   const columns = [
-    { key: 'device_id', title: '设备编号', width: 100 },
+    { key: 'device_number', title: '设备编号', width: 100 },
     { key: 'device_name', title: '设备名称', width: 150 },
-    { key: 'model', title: '型号', width: 120 },
-    { key: 'customer_name', title: '所属客户', width: 120 },
-    { key: 'location', title: '安装位置', width: 100 },
+    { key: 'device_model', title: '型号', width: 100 },
+    { key: 'device_type', title: '设备类型', width: 100 },
+    { key: 'customer_name', title: '所属客户', width: 150 },
+    { key: 'factory_date', title: '出厂日期', width: 100 },
+    { key: 'acceptance_date', title: '验收日期', width: 100 },
+    { key: 'warranty_end_date', title: '质保到期', width: 100 },
     {
       key: 'status',
       title: '状态',
       width: 80,
-      render: (val: keyof typeof statusMap) => {
-        const { label, type } = statusMap[val];
-        return <PCTag type={type}>{label}</PCTag>;
+      render: (val: string) => {
+        const map = statusMap[val as keyof typeof statusMap] || { label: val, type: 'default' as const };
+        return <PCTag type={map.type}>{map.label}</PCTag>;
       },
     },
-    { key: 'last_maintenance', title: '最近维护', width: 100 },
+    { key: 'contract_name', title: '关联合同', width: 120 },
+    { key: 'qr_code_id', title: '二维码ID', width: 100 },
+    { key: 'location', title: '安装位置', width: 100 },
+    { key: 'service_number', title: '服务编号', width: 120 },
+    { key: 'remarks', title: '备注', width: 80 },
     {
       key: 'actions',
       title: '操作',
@@ -150,7 +227,7 @@ export default function PCDevices() {
       <PCLayout>
         <div className="pc-page-header">
           <h1 className="pc-page-title">设备管理</h1>
-          <p className="pc-page-description">管理所有设备信息，监控设备状态</p>
+          <p className="pc-page-description">管理所有设备信息，包括设备类型、出厂日期、验收日期、质保到期、二维码ID等完整信息</p>
         </div>
 
         <PCCard>
@@ -158,12 +235,12 @@ export default function PCDevices() {
             left={
               <>
                 <PCSearchBar
-                  placeholder="搜索设备名称或编号..."
+                  placeholder="搜索设备名称、编号或客户..."
                   value={searchText}
                   onChange={setSearchText}
                   onSearch={handleSearch}
                 />
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, marginLeft: 16 }}>
                   {Object.entries(statusMap).map(([key, { label }]) => (
                     <button
                       key={key}
@@ -212,46 +289,94 @@ export default function PCDevices() {
           visible={modalVisible}
           title={editingDevice ? '编辑设备' : '新增设备'}
           onClose={() => setModalVisible(false)}
+          width={700}
           footer={
             <>
               <button className="pc-btn pc-btn-default" onClick={() => setModalVisible(false)}>取消</button>
-              <button className="pc-btn pc-btn-primary" onClick={() => {
-                if (editingDevice) {
-                  setDevices(prev => prev.map(d => d.id === editingDevice.id ? { ...d, ...formData } : d));
-                } else {
-                  setDevices(prev => [...prev, { id: Date.now(), ...formData, last_maintenance: new Date().toISOString().split('T')[0] }]);
-                  setPagination(prev => ({ ...prev, total: prev.total + 1 }));
-                }
-                setModalVisible(false);
-              }}>保存</button>
+              <button className="pc-btn pc-btn-primary" onClick={async () => { try { if (editingDevice) { const response = await fetch(`${API_BASE}/api/v1/devices/${editingDevice.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) }); if (response.ok) setDevices(prev => prev.map(d => d.id === editingDevice.id ? { ...d, ...formData } : d)); } else { const response = await fetch(`${API_BASE}/api/v1/devices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) }); if (response.ok) setDevices(prev => [...prev, { id: Date.now(), ...formData }]); setPagination(prev => ({ ...prev, total: prev.total + 1 })); } } catch (e) { console.error(e); } setModalVisible(false); }}>保存</button>
             </>
           }
         >
           <div className="pc-form">
-            <div className="pc-form-item">
-              <label className="pc-form-label required">设备编号</label>
-              <input type="text" className="pc-form-control" value={formData.device_id}
-                onChange={e => setFormData(prev => ({ ...prev, device_id: e.target.value }))} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="pc-form-item">
+                <label className="pc-form-label required">设备编号</label>
+                <input type="text" className="pc-form-control" placeholder="请输入设备编号" value={formData.device_number}
+                  onChange={e => setFormData(prev => ({ ...prev, device_number: e.target.value }))} />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label required">设备名称</label>
+                <input type="text" className="pc-form-control" placeholder="请输入设备名称" value={formData.device_name}
+                  onChange={e => setFormData(prev => ({ ...prev, device_name: e.target.value }))} />
+              </div>
             </div>
-            <div className="pc-form-item">
-              <label className="pc-form-label required">设备名称</label>
-              <input type="text" className="pc-form-control" value={formData.device_name}
-                onChange={e => setFormData(prev => ({ ...prev, device_name: e.target.value }))} />
-            </div>
-            <div className="pc-form-item">
-              <label className="pc-form-label">型号</label>
-              <input type="text" className="pc-form-control" value={formData.model}
-                onChange={e => setFormData(prev => ({ ...prev, model: e.target.value }))} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="pc-form-item">
+                <label className="pc-form-label">设备型号</label>
+                <input type="text" className="pc-form-control" placeholder="请输入设备型号" value={formData.device_model}
+                  onChange={e => setFormData(prev => ({ ...prev, device_model: e.target.value }))} />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label">设备类型</label>
+                <select className="pc-form-control" value={formData.device_type}
+                  onChange={e => setFormData(prev => ({ ...prev, device_type: e.target.value }))}>
+                  <option value="">请选择设备类型</option>
+                  {DEVICE_TYPES.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="pc-form-item">
               <label className="pc-form-label">所属客户</label>
-              <input type="text" className="pc-form-control" value={formData.customer_name}
+              <input type="text" className="pc-form-control" placeholder="请输入所属客户" value={formData.customer_name}
                 onChange={e => setFormData(prev => ({ ...prev, customer_name: e.target.value }))} />
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+              <div className="pc-form-item">
+                <label className="pc-form-label">出厂日期</label>
+                <input type="date" className="pc-form-control" value={formData.factory_date}
+                  onChange={e => setFormData(prev => ({ ...prev, factory_date: e.target.value }))} />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label">验收日期</label>
+                <input type="date" className="pc-form-control" value={formData.acceptance_date}
+                  onChange={e => setFormData(prev => ({ ...prev, acceptance_date: e.target.value }))} />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label">质保到期</label>
+                <input type="date" className="pc-form-control" value={formData.warranty_end_date}
+                  onChange={e => setFormData(prev => ({ ...prev, warranty_end_date: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="pc-form-item">
+                <label className="pc-form-label">关联合同</label>
+                <input type="text" className="pc-form-control" placeholder="请输入关联合同" value={formData.contract_name}
+                  onChange={e => setFormData(prev => ({ ...prev, contract_name: e.target.value }))} />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label">二维码ID</label>
+                <input type="text" className="pc-form-control" placeholder="请输入二维码ID" value={formData.qr_code_id}
+                  onChange={e => setFormData(prev => ({ ...prev, qr_code_id: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="pc-form-item">
+                <label className="pc-form-label">安装位置</label>
+                <input type="text" className="pc-form-control" placeholder="请输入安装位置" value={formData.location}
+                  onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))} />
+              </div>
+              <div className="pc-form-item">
+                <label className="pc-form-label">服务编号</label>
+                <input type="text" className="pc-form-control" placeholder="请输入服务编号" value={formData.service_number}
+                  onChange={e => setFormData(prev => ({ ...prev, service_number: e.target.value }))} />
+              </div>
+            </div>
             <div className="pc-form-item">
-              <label className="pc-form-label">安装位置</label>
-              <input type="text" className="pc-form-control" value={formData.location}
-                onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))} />
+              <label className="pc-form-label">备注</label>
+              <textarea className="pc-form-control pc-form-textarea" rows={2} placeholder="请输入备注信息" value={formData.remarks}
+                onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))} />
             </div>
           </div>
         </PCModal>
