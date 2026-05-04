@@ -5,7 +5,6 @@ import Toast from 'react-native-toast-message';
 import { useEffect, useState } from 'react';
 import { useSegments, useRootNavigationState } from 'expo-router';
 import { Provider } from '@/components/Provider';
-import { useVersionUpdate } from '@/components/VersionUpdate';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { storage } from '@/utils/storage';
 
@@ -39,25 +38,6 @@ function RootLayoutInner() {
   const rootState = useRootNavigationState();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
-  const { checkVersionUpdate, renderDialog } = useVersionUpdate({
-    // Web 环境下禁用版本更新检查
-    enabled: Platform.OS !== 'web',
-    onUpgradeStart: () => {
-      console.log('升级开始');
-    },
-    onUpgradeSuccess: () => {
-      console.log('升级成功');
-    },
-    onUpgradeError: (error) => {
-      console.error('升级失败:', error);
-    },
-  });
-
-  // 应用启动时检查版本更新
-  useEffect(() => {
-    checkVersionUpdate();
-  }, []);
 
   // 认证检查逻辑 - 应用启动时检查
   useEffect(() => {
@@ -185,7 +165,6 @@ function RootLayoutInner() {
         {/* PC端管理平台 */}
         <Stack.Screen name="pc" options={{ title: "" }} />
       </Stack>
-      {Platform.OS !== 'web' && renderDialog()}
       <Toast />
     </>
   );

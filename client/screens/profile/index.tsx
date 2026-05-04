@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, StyleSheet, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Image } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -8,7 +8,6 @@ import { storage } from '@/utils/storage';
 export default function ProfileScreen() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [versionModalVisible, setVersionModalVisible] = useState(false);
   const router = useSafeRouter();
 
   useEffect(() => {
@@ -93,10 +92,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleCheckUpdate = () => {
-    Alert.alert('检查更新', '当前已是最新版本', [{ text: '确定' }]);
-  };
-
   // 菜单项（根据用户角色动态生成）
   const menuItems = [
     {
@@ -112,13 +107,6 @@ export default function ProfileScreen() {
       subtitle: '产品操作指导手册',
       color: '#00B894',
       onPress: () => router.push('/help-feedback'),
-    },
-    {
-      icon: 'mobile-screen',
-      title: '系统版本与更新',
-      subtitle: '检查更新、版本信息',
-      color: '#3498DB',
-      onPress: () => setVersionModalVisible(true),
     },
     // 管理员专属功能
     ...(user?.role === 'admin' ? [
@@ -245,56 +233,6 @@ export default function ProfileScreen() {
         <View style={styles.versionSection}>
           <Text style={styles.versionText}>项小秘 v1.0.0</Text>
         </View>
-
-        {/* 系统版本与更新弹窗 */}
-        <Modal
-          visible={versionModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setVersionModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>系统版本与更新</Text>
-                <TouchableOpacity onPress={() => setVersionModalVisible(false)}>
-                  <FontAwesome6 name="xmark" size={20} color="#636E72" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.versionInfo}>
-                <View style={styles.versionRow}>
-                  <Text style={styles.versionLabel}>应用名称</Text>
-                  <Text style={styles.versionValue}>项小秘</Text>
-                </View>
-                <View style={styles.versionRow}>
-                  <Text style={styles.versionLabel}>应用版本</Text>
-                  <Text style={styles.versionValue}>v1.0.0</Text>
-                </View>
-                <View style={styles.versionRow}>
-                  <Text style={styles.versionLabel}>运行平台</Text>
-                  <Text style={styles.versionValue}>iOS / Android / Web</Text>
-                </View>
-                <View style={styles.versionRow}>
-                  <Text style={styles.versionLabel}>软件版本号</Text>
-                  <Text style={styles.versionValue}>1.0.0.20240101</Text>
-                </View>
-                <View style={styles.versionRow}>
-                  <Text style={styles.versionLabel}>更新说明</Text>
-                  <Text style={styles.versionValue}>首次发布版本</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.checkUpdateButton}
-                onPress={handleCheckUpdate}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.checkUpdateText}>检查更新</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
     </Screen>
   );
@@ -493,40 +431,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2D3436',
-  },
-  versionInfo: {
-    marginBottom: 24,
-  },
-  versionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
-  },
-  versionLabel: {
-    fontSize: 15,
-    color: '#636E72',
-  },
-  versionValue: {
-    fontSize: 15,
-    color: '#2D3436',
-    fontWeight: '500',
-  },
-  checkUpdateButton: {
-    backgroundColor: '#6C63FF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  checkUpdateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
 });
+
+
