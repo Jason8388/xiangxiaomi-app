@@ -16,8 +16,22 @@ interface OSSConfig {
 let ossClient: OSS | null = null;
 
 function getOSSConfig(): OSSConfig {
+  // OSS_REGION 应该配置为 'oss-cn-hangzhou' 格式
+  // 不要配置成完整的 endpoint URL
+  const region = process.env.OSS_REGION || '';
+  
+  // 如果环境变量配置的是完整的 endpoint URL，尝试提取 region
+  let finalRegion = region;
+  if (region && !region.startsWith('oss-') && region.includes('.aliyuncs.com')) {
+    // 如果是完整 URL，提取 region
+    const match = region.match(/oss-(.+)\.aliyuncs\.com/);
+    if (match) {
+      finalRegion = `oss-${match[1]}`;
+    }
+  }
+  
   const config = {
-    region: process.env.OSS_REGION || '',
+    region: finalRegion,
     accessKeyId: process.env.OSS_ACCESS_KEY_ID || '',
     accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET || '',
     bucket: process.env.OSS_BUCKET || '',
@@ -36,22 +50,33 @@ function getOSSConfig(): OSSConfig {
 /**
  * 获取 OSS 客户端实例（单例模式）
  */
+/**
+ * 获取 OSS 客户端实例（单例模式）
+ */
 export function getOSSClient(): OSS {
   if (!ossClient) {
     const config = getOSSConfig();
 
     // 验证配置
-    if (!config.region || !config.accessKeyId || !config.accessKeySecret || !config.bucket) {
+    if (!config.accessKeyId || !config.accessKeySecret || !config.bucket) {
       throw new Error('OSS 配置不完整，请检查环境变量');
     }
 
-    ossClient = new OSS({
-      region: config.region,
+    // 使用 region 参数（阿里云SDK会自动构建正确的endpoint）
+    const clientOptions: any = {
       accessKeyId: config.accessKeyId,
       accessKeySecret: config.accessKeySecret,
       bucket: config.bucket,
+      region: config.region, // 使用 region 如 'oss-cn-hangzhou'
       secure: true, // 使用 HTTPS
+    };
+
+    console.log('[OSS Client] 初始化配置:', {
+      region: clientOptions.region,
+      bucket: clientOptions.bucket,
     });
+
+    ossClient = new OSS(clientOptions);
   }
 
   return ossClient;
