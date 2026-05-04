@@ -6,7 +6,8 @@ import { PCCard } from '@/components/pc/PCComponents';
 import { PCTable } from '@/components/pc/PCComponents';
 import { PCTag } from '@/components/pc/PCComponents';
 
-const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+import { getApiBaseUrl } from '@/utils/api';
+const API_BASE = getApiBaseUrl();
 
 export default function PCReports() {
   const [stats, setStats] = useState({

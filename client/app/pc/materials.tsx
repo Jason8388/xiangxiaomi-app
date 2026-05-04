@@ -9,7 +9,8 @@ import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
 
-const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+import { getApiBaseUrl } from '@/utils/api';
+const API_BASE = getApiBaseUrl();
 
 interface Material {
   id: number;
@@ -51,9 +52,9 @@ export default function PCMaterials() {
       setPagination(prev => ({ ...prev, total: list.length }));
     } catch (error) {
       setMaterials([
-        { id: 1, material_code: 'M-001', material_name: '变频器模块', category: '电子元器件', unit: '个', stock: 50, min_stock: 20, price: 1200, supplier: '深圳电子' },
-        { id: 2, material_code: 'M-002', material_name: 'PLC控制器', category: '控制元件', unit: '台', stock: 8, min_stock: 10, price: 3500, supplier: '上海自动化' },
-        { id: 3, material_code: 'M-003', material_name: '伺服电机', category: '电机类', unit: '台', stock: 0, min_stock: 5, price: 5800, supplier: '广州电机' },
+        { id: 1, material_code: 'M-001', material_name: '变频器模块', category: '电子元器件', unit: '个', stock: 50, min_stock: 20, price: 1200, supplier: '深圳电子', status: 'normal' },
+        { id: 2, material_code: 'M-002', material_name: 'PLC控制器', category: '控制元件', unit: '台', stock: 8, min_stock: 10, price: 3500, supplier: '上海自动化', status: 'normal' },
+        { id: 3, material_code: 'M-003', material_name: '伺服电机', category: '电机类', unit: '台', stock: 0, min_stock: 5, price: 5800, supplier: '广州电机', status: 'out' },
       ]);
       setPagination(prev => ({ ...prev, total: 3 }));
     } finally {

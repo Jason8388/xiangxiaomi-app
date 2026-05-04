@@ -9,7 +9,8 @@ import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
 
-const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+import { getApiBaseUrl } from '@/utils/api';
+const API_BASE = getApiBaseUrl();
 
 interface Contract {
   id: number;
@@ -137,7 +138,7 @@ export default function PCContracts() {
                 </div>
               </>
             }
-            right={<button className="pc-btn pc-btn-primary" onClick={() => { setEditingContract(null); setFormData({ contract_no: '', contract_name: '', customer_name: '', amount: '', sign_date: '', expire_date: '', status: 'pending' }); setModalVisible(true); }}>+ 新增合同</button>}
+            right={<button className="pc-btn pc-btn-primary" onClick={() => { setEditingContract(null); setFormData({ contract_no: '', contract_name: '', customer_name: '', amount: '', sign_date: '', expire_date: '', status: 'active' as const }); setModalVisible(true); }}>+ 新增合同</button>}
           />
 
           <PCTable columns={columns} data={filteredContracts} rowKey="id" loading={loading} selectedRowKeys={selectedRowKeys} onSelectChange={setSelectedRowKeys} />

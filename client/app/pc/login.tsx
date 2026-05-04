@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import '@/assets/styles/pc-global.css';
+import { getApiBaseUrl } from '@/utils/api';
 
 export default function PCLogin() {
   const [username, setUsername] = useState('');
@@ -26,7 +27,8 @@ export default function PCLogin() {
       console.log('[PC登录] 用户名:', username);
 
       // 调用后端登录接口（与APP端保持一致）
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/users/login`, {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/v1/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -9,7 +9,8 @@ import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
 
-const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+import { getApiBaseUrl } from '@/utils/api';
+const API_BASE = getApiBaseUrl();
 
 interface Device {
   id: number;
