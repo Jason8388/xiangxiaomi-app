@@ -463,7 +463,7 @@ function WorkOrderDetailScreen() {
 
         try {
           // 上传到 OSS
-          const uploadUrl = `${getApiBaseUrl()}/api/v1/upload/oss`;
+          const uploadUrl = `${getApiBaseUrl()}/api/v1/upload`;
           const formData = new FormData();
 
           // 在 Web 平台上，expo-image-picker 可能返回原生 File 对象

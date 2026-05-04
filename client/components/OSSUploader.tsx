@@ -84,7 +84,7 @@ export const OSSUploader: React.FC<OSSUploaderProps> = ({
       setProgress(0);
 
       // 构建上传接口
-      const uploadUrl = `${getApiBaseUrl()}/api/v1/upload/oss`;
+      const uploadUrl = `${getApiBaseUrl()}/api/v1/upload`;
 
       // 创建 FormData（使用 createFormDataFile）
       const formData = new FormData();
