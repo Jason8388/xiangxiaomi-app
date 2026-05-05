@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import { useRouter } from '@/hooks/useSafeRouter';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { getApiBaseUrl } from '@/utils/api';
 import { storage } from '@/utils/storage';
@@ -37,7 +37,7 @@ interface LoginStats {
 }
 
 export default function PCLogs() {
-  const router = useRouter();
+  const router = useSafeRouter();
   const [activeTab, setActiveTab] = useState<'login' | 'operation'>('login');
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
   const [operationLogs, setOperationLogs] = useState<OperationLog[]>([]);
