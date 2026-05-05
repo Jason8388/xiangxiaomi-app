@@ -73,6 +73,7 @@ export default function LoginScreen() {
       ]);
     } catch (error: any) {
       console.error('[APP登录] 错误:', error);
+      console.error('[APP登录] 错误消息:', error.message);
       Alert.alert('错误', error.message);
     } finally {
       setLoading(false);

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import '@/assets/styles/pc-global.css';
 import { getApiBaseUrl } from '@/utils/api';
 import { storage } from '@/utils/storage';
@@ -15,11 +15,14 @@ export default function PCLogin() {
 
   // 检测平台并显示提示
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      // 移动端提示
-      console.warn('[PC登录] 当前为移动端环境，PC功能可能受限');
+    console.log('[PC登录] Platform.OS:', Platform.OS);
+    console.log('[PC登录] window defined:', typeof window !== 'undefined');
+    if (typeof window !== 'undefined') {
+      console.log('[PC登录] location.href:', window.location.href);
     }
   }, []);
+
+  const isWeb = typeof window !== 'undefined';
 
   const handleLogin = useCallback(async () => {
     if (!username.trim()) {
@@ -38,7 +41,11 @@ export default function PCLogin() {
       console.log('[PC登录] 开始登录...');
 
       const baseUrl = getApiBaseUrl();
-      const deviceInfo = Platform.OS === 'web' 
+      console.log('[PC登录] API Base URL:', baseUrl);
+      console.log('[PC登录] 发送请求:', `${baseUrl}/api/v1/users/login`);
+      
+      const isWeb = typeof window !== 'undefined';
+      const deviceInfo = isWeb 
         ? JSON.stringify({
             platform: 'web',
             userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
@@ -59,22 +66,31 @@ export default function PCLogin() {
         }),
       });
 
+      console.log('[PC登录] 响应状态:', response.status);
       const data = await response.json();
+      console.log('[PC登录] 响应数据:', data);
 
       if (!response.ok) {
         throw new Error(data.error || '登录失败');
       }
 
-      if (data.user) {
-        await storage.setItem('user', JSON.stringify(data.user));
+      try {
+        if (data.user) {
+          await storage.setItem('user', JSON.stringify(data.user));
+          console.log('[PC登录] 用户信息已保存');
+        }
+
+        if (data.session && data.session.session_id) {
+          await storage.setItem('session_id', data.session.session_id);
+          await storage.setItem('token', data.session.session_id);
+          console.log('[PC登录] 会话ID已保存');
+        }
+      } catch (storageError) {
+        console.error('[PC登录] 存储错误:', storageError);
+        // 存储失败不影响登录成功
       }
 
-      if (data.session && data.session.session_id) {
-        await storage.setItem('session_id', data.session.session_id);
-        await storage.setItem('token', data.session.session_id);
-      }
-
-      if (Platform.OS === 'web') {
+      if (isWeb) {
         window.alert('登录成功！欢迎回来！');
       } else {
         Alert.alert('登录成功', '欢迎回来！');
@@ -85,6 +101,8 @@ export default function PCLogin() {
       }, 500);
     } catch (err: any) {
       console.error('[PC登录] 错误:', err);
+      console.error('[PC登录] 错误消息:', err.message);
+      console.error('[PC登录] 错误详情:', JSON.stringify(err));
       setError(err.message || '登录失败，请稍后重试');
     } finally {
       setLoading(false);
@@ -190,11 +208,7 @@ export default function PCLogin() {
               </label>
               <a href="#" className="pc-forgot-link" onClick={e => {
                 e.preventDefault();
-                if (Platform.OS === 'web') {
-                  window.alert('请联系管理员重置密码');
-                } else {
-                  Alert.alert('提示', '请联系管理员重置密码');
-                }
+                window.alert('请联系管理员重置密码');
               }}>
                 忘记密码？
               </a>
