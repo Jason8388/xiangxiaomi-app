@@ -332,31 +332,34 @@ export default function PCWorkOrders() {
     { key: 'title', title: '工单名称', width: 150 },
     { key: 'customer_name', title: '客户名称', width: 150 },
     { key: 'task_leader', title: '任务负责人', width: 100 },
-    { key: 'implementation_entity', title: '实施主体', width: 120 },
     { key: 'task_phase', title: '任务阶段', width: 100 },
     { key: 'task_progress', title: '任务进度', width: 120 },
     { key: 'task_status', title: '任务状态', width: 80 },
-    { key: 'contacts', title: '联系人', width: 80, render: (val: Contact[]) => val?.length || 0 },
+    { key: 'is_charged', title: '是否收费', width: 90, render: (val) => val === '是' ? '是' : (val === '否' ? '否' : '-') },
+    { key: 'quoted_price', title: '收费金额', width: 100, render: (val) => val ? `¥${Number(val).toFixed(2)}` : '-' },
     { key: 'created_at', title: '创建时间', width: 150 },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 140,
-      render: (_: any, record: WorkOrder) => (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity onPress={() => window.location.href = `/pc/work-order-detail?id=${record.id}`}>
-            <Text style={styles.btnText}>详情</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleEdit(record)}>
-            <Text style={styles.btnText}>编辑</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDelete(record)}>
-            <Text style={[styles.btnText, { color: '#FF4D4F' }]}>删除</Text>
-          </TouchableOpacity>
-        </View>
-      ),
-    },
   ];
+
+  const actionsColumn = {
+    key: 'actions',
+    title: '操作',
+    width: 140,
+    render: (_: any, record: WorkOrder) => (
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity onPress={() => window.location.href = `/pc/work-order-detail?id=${record.id}`}>
+          <Text style={styles.btnText}>详情</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleEdit(record)}>
+          <Text style={styles.btnText}>编辑</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleDelete(record)}>
+          <Text style={[styles.btnText, { color: '#FF4D4F' }]}>删除</Text>
+        </TouchableOpacity>
+      </View>
+    ),
+  };
+
+  const tableColumns = [...columns, actionsColumn];
 
   return (
     <PCLayout>
@@ -402,7 +405,7 @@ export default function PCWorkOrders() {
         />
 
         <PCTable
-          columns={columns}
+          columns={tableColumns}
           data={filteredOrders}
           rowKey="id"
           loading={loading}
