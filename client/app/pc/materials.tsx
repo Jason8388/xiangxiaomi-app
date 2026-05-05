@@ -732,18 +732,7 @@ export default function PCMaterials() {
         }}
         title="批量导入物料"
         apiPath="/api/v1/materials/batch"
-        fields={[
-          { key: 'material_name', label: '物料名称', required: true },
-          { key: 'material_number', label: '物料编码' },
-          { key: 'material_spec', label: '规格型号' },
-          { key: 'material_unit', label: '计量单位' },
-          { key: 'category', label: '分类' },
-          { key: 'stock_quantity', label: '库存数量' },
-          { key: 'warning_stock', label: '预警库存' },
-          { key: 'unit_price', label: '单价' },
-          { key: 'supplier', label: '供应商' },
-          { key: 'remark', label: '备注' }
-        ]}
+        templateUrl={`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/template`}
       />
     </PCLayout>
   );

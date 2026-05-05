@@ -534,10 +534,13 @@ export function PCImportModal({ visible, onClose, title, apiUrl, templateUrl, te
   const downloadTemplate = () => {
     try {
       if (templateUrl) {
-        // 直接从URL下载模板
+        // 直接从URL下载模板，使用完整的API地址
+        const fullUrl = templateUrl.startsWith('http') ? templateUrl : `${API_BASE}${templateUrl}`;
         const link = document.createElement('a');
-        link.href = templateUrl;
-        link.download = 'import_template.xlsx';
+        link.href = fullUrl;
+        // 根据URL后缀判断文件类型
+        const isCsv = templateUrl.includes('.csv') || fullUrl.includes('/template');
+        link.download = isCsv ? 'import_template.csv' : 'import_template.xlsx';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
