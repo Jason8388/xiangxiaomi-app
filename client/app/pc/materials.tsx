@@ -731,8 +731,8 @@ export default function PCMaterials() {
           fetchMaterials();
         }}
         title="批量导入物料"
-        apiPath="/api/v1/materials/batch"
-        templateUrl={`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/materials/template`}
+        apiPath="/api/v1/materials/import"
+        templateUrl={`${API_BASE}/api/v1/materials/template`}
       />
     </PCLayout>
   );

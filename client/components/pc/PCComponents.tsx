@@ -535,46 +535,36 @@ export function PCImportModal({ visible, onClose, title, apiUrl, templateUrl, te
   const downloadTemplate = () => {
     try {
       if (templateUrl) {
-        // 使用 fetch + blob 方式下载，避免页面跳转问题
+        // 直接使用 a 标签下载，避免 CORS 问题
         const fullUrl = templateUrl.startsWith('http') ? templateUrl : `${API_BASE}${templateUrl}`;
-        fetch(fullUrl)
-          .then(response => {
-            if (!response.ok) throw new Error('下载失败');
-            const contentType = response.headers.get('content-type') || '';
-            const isCsv = contentType.includes('csv') || templateUrl.includes('/template');
-            const filename = isCsv ? 'import_template.csv' : 'import_template.xlsx';
-            return response.blob().then(blob => ({ blob, filename }));
-          })
-          .then(({ blob, filename }) => {
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(link);
-          })
-          .catch(err => {
-            console.error('Download failed:', err);
-            alert('下载模板失败，请稍后重试');
-          });
-      } else if (xlsxReady && templateFields && templateFields.length > 0) {
-        // 使用XLSX库生成模板
-        try {
-          const worksheet = (window as any).XLSX.utils.json_to_sheet(
-            templateFields.map(field => ({ '字段名': field.replace('*', '') }))
-          );
-          const workbook = (window as any).XLSX.utils.book_new();
-          (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板');
-          (window as any).XLSX.writeFile(workbook, 'import_template.xlsx');
-        } catch (xlsxError) {
-          console.error('Error generating template with xlsx:', xlsxError);
-          alert('生成模板失败，请稍后重试');
+        const isCsv = templateUrl.includes('.csv') || templateUrl.includes('/template');
+        const filename = isCsv ? 'import_template.csv' : 'import_template.xlsx';
+        const link = document.createElement('a');
+        link.href = fullUrl;
+        link.download = filename;
+        link.target = '_blank';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (templateFields && templateFields.length > 0) {
+        // 使用 XLSX 库生成模板
+        if (typeof window !== 'undefined' && (window as any).XLSX) {
+          try {
+            const worksheet = (window as any).XLSX.utils.json_to_sheet(
+              templateFields.map(field => ({ '字段名': field.replace('*', '') }))
+            );
+            const workbook = (window as any).XLSX.utils.book_new();
+            (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板');
+            (window as any).XLSX.writeFile(workbook, 'import_template.xlsx');
+          } catch (xlsxError) {
+            console.error('Error generating template with xlsx:', xlsxError);
+            alert('生成模板失败，请稍后重试');
+          }
+        } else {
+          alert('模板生成库未就绪，请刷新页面后重试');
         }
       } else {
-        console.warn('xlsx ready:', xlsxReady, 'templateFields:', templateFields);
         alert('模板生成库未就绪，请刷新页面后重试');
       }
     } catch (error) {
