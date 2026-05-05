@@ -223,6 +223,9 @@ export default function PCWorkOrderDetail() {
     handleEditFieldChange('requirement_photos', filteredPhotos.join(','));
   };
 
+  // 上传需求照片（别名）
+  const handleAddRequirementPhoto = handleUploadRequirementPhoto;
+
   // 上传报价单照片
   const handleUploadQuotedPricePhoto = () => {
     const input = document.createElement('input');
@@ -331,6 +334,9 @@ export default function PCWorkOrderDetail() {
     handleEditFieldChange('work_order_docs', photos.join(','));
   };
 
+  // 上传派工单照片（别名）
+  const handleAddWorkOrderDoc = handleUploadWorkOrderPhoto;
+
   // 上传现场实施照片
   const handleUploadImplementationPhoto = () => {
     const input = document.createElement('input');
@@ -366,6 +372,9 @@ export default function PCWorkOrderDetail() {
     const photos = toPhotoArray(current).filter(p => p !== photoUrl);
     handleEditFieldChange('site_completion_docs', photos.join(','));
   };
+
+  // 上传现场实施照片（别名）
+  const handleAddSiteCompletionDoc = handleUploadImplementationPhoto;
 
   // 更新编辑字段
   const handleEditFieldChange = (field: keyof WorkOrderDetail, value: any) => {
