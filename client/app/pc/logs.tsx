@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from '@/hooks/useSafeRouter';
-import PCLayout from '@/components/pc/PCLayout';
+import { PCLayout } from '@/components/pc/PCLayout';
 import { getApiBaseUrl } from '@/utils/api';
 import { storage } from '@/utils/storage';
 

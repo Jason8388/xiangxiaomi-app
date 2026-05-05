@@ -13,6 +13,7 @@ import {
 import { FontAwesome6 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { storage } from '@/utils/storage';
+import { PCLayout } from '@/components/pc/PCLayout';
 
 interface User {
   id: number;
@@ -262,17 +263,8 @@ export default function PCAccountSettings() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* 头部 */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <FontAwesome6 name="arrow-left" size={18} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>账号设置</Text>
-        <View style={styles.headerRight} />
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <PCLayout title="账号管理" activePath="/account-settings">
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* 头像区域 */}
         <View style={styles.avatarSection}>
           <TouchableOpacity 
@@ -461,7 +453,8 @@ export default function PCAccountSettings() {
           </View>
         </View>
       )}
-    </View>
+      </ScrollView>
+    </PCLayout>
   );
 }
 

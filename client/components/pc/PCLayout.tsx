@@ -17,14 +17,18 @@ const routeMap: Record<string, { label: string; path: string }[]> = {
   '/pc/device-detail': [{ label: '设备管理', path: '/pc/devices' }, { label: '设备详情' }],
   '/pc/contracts': [{ label: '合同管理' }],
   '/pc/contract-detail': [{ label: '合同管理', path: '/pc/contracts' }, { label: '合同详情' }],
-  '/pc/after-sales': [{ label: '工单管理' }],
+  '/pc/work-orders': [{ label: '工单管理' }],
   '/pc/materials': [{ label: '仓库管理' }],
   '/pc/knowledge': [{ label: '知识库' }],
   '/pc/meeting-minutes': [{ label: '会议纪要' }],
   '/pc/files': [{ label: '文件管理' }],
   '/pc/reports': [{ label: '统计报表' }],
+  '/pc/gallery': [{ label: '相册管理' }],
+  '/pc/logs': [{ label: '日志查询' }],
+  '/pc/account-settings': [{ label: '账号管理' }],
   '/pc/settings': [{ label: '系统设置' }],
   '/pc/help': [{ label: '帮助中心' }],
+  '/pc/query-assistant': [{ label: '查询助手' }],
 };
 
 export function PCLayout({ children, activePath }: PCLayoutProps) {
