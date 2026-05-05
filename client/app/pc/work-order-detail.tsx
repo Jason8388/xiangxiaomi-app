@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
 import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { PCLayout } from '@/components/pc/PCLayout';
