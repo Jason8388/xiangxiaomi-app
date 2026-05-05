@@ -535,16 +535,31 @@ export function PCImportModal({ visible, onClose, title, apiUrl, templateUrl, te
   const downloadTemplate = () => {
     try {
       if (templateUrl) {
-        // 直接从URL下载模板，使用完整的API地址
+        // 使用 fetch + blob 方式下载，避免页面跳转问题
         const fullUrl = templateUrl.startsWith('http') ? templateUrl : `${API_BASE}${templateUrl}`;
-        const link = document.createElement('a');
-        link.href = fullUrl;
-        // 根据URL后缀判断文件类型
-        const isCsv = templateUrl.includes('.csv') || fullUrl.includes('/template');
-        link.download = isCsv ? 'import_template.csv' : 'import_template.xlsx';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        fetch(fullUrl)
+          .then(response => {
+            if (!response.ok) throw new Error('下载失败');
+            const contentType = response.headers.get('content-type') || '';
+            const isCsv = contentType.includes('csv') || templateUrl.includes('/template');
+            const filename = isCsv ? 'import_template.csv' : 'import_template.xlsx';
+            return response.blob().then(blob => ({ blob, filename }));
+          })
+          .then(({ blob, filename }) => {
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+          })
+          .catch(err => {
+            console.error('Download failed:', err);
+            alert('下载模板失败，请稍后重试');
+          });
       } else if (xlsxReady && templateFields && templateFields.length > 0) {
         // 使用XLSX库生成模板
         try {
