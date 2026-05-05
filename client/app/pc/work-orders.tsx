@@ -93,6 +93,15 @@ export default function PCWorkOrders() {
   const [editingContactIndex, setEditingContactIndex] = useState(-1);
   const [contactForm, setContactForm] = useState<Contact>({ name: '', role: '', phone: '' });
 
+  // 任务进度选择弹窗
+  const [taskProgressModalVisible, setTaskProgressModalVisible] = useState(false);
+  const taskProgressOptions = [
+    '10%收到服务需求', '20%确定方案与报价', '30%客户方案和报价共识',
+    '40%完成实施准备', '50%完成实施', '60%完成客户确认', '70%完成对账',
+    '80%完成开票和送达', '90%完成回款', '100%完成资料归档',
+    '已关单', '挂起暂停', '终止'
+  ];
+
   const fetchWorkOrders = useCallback(async () => {
     setLoading(true);
     try {
@@ -571,12 +580,15 @@ export default function PCWorkOrders() {
                     </View>
                     <View style={styles.formCol}>
                       <Text style={styles.formLabel}>任务进度</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="如: 10%收到服务需求"
-                        value={formData.task_progress}
-                        onChangeText={(text) => setFormData({ ...formData, task_progress: text })}
-                      />
+                      <TouchableOpacity
+                        style={styles.selectInput}
+                        onPress={() => setTaskProgressModalVisible(true)}
+                      >
+                        <Text style={formData.task_progress ? styles.selectInputText : styles.selectInputPlaceholder}>
+                          {formData.task_progress || '请选择任务进度'}
+                        </Text>
+                        <FontAwesome6 name="chevron-down" size={14} color="#666" />
+                      </TouchableOpacity>
                     </View>
                   </View>
                   <View style={styles.formRow}>
@@ -763,6 +775,56 @@ export default function PCWorkOrders() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* 任务进度选择弹窗 */}
+      <Modal
+        visible={taskProgressModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTaskProgressModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setTaskProgressModalVisible(false)}
+        >
+          <View style={styles.selectModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>选择任务进度</Text>
+              <TouchableOpacity onPress={() => setTaskProgressModalVisible(false)}>
+                <FontAwesome6 name="times" size={18} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.selectModalBody}>
+              {taskProgressOptions.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.selectOptionItem,
+                    formData.task_progress === option && styles.selectOptionItemActive,
+                  ]}
+                  onPress={() => {
+                    setFormData({ ...formData, task_progress: option });
+                    setTaskProgressModalVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.selectOptionItemText,
+                      formData.task_progress === option && styles.selectOptionItemTextActive,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                  {formData.task_progress === option && (
+                    <FontAwesome6 name="check" size={16} color="#1E88E5" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* 批量导入弹窗 */}
@@ -1061,6 +1123,63 @@ const styles = StyleSheet.create({
   },
   contactModalBody: {
     padding: 20,
+  },
+  selectInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 36,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#d9d9d9',
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  selectInputText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  selectInputPlaceholder: {
+    fontSize: 14,
+    color: '#999',
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    width: 400,
+    maxHeight: '70%',
+  },
+  selectModalBody: {
+    maxHeight: 400,
+    padding: 10,
+  },
+  selectOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectOptionItemActive: {
+    backgroundColor: '#e6f7ff',
+  },
+  selectOptionItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  selectOptionItemTextActive: {
+    color: '#1E88E5',
+    fontWeight: '500',
   },
   cancelBtn: {
     paddingHorizontal: 20,
