@@ -545,8 +545,11 @@ export default function PCWorkOrderDetail() {
             <InfoRow label="发票是否送达客户" value={order.invoice_delivered} editable="invoice_delivered" />
             <InfoRow label="计划回款日期" value={order.planned_payment_date} editable="planned_payment_date" />
             <InfoRow label="实际回款日期" value={order.actual_payment_date} editable="actual_payment_date" />
+            {order.payment_progress && !Array.isArray(order.payment_progress) && (
+              <InfoRow label="回款进度" value={order.payment_progress} />
+            )}
           </View>
-          {order.payment_progress && order.payment_progress.length > 0 && (
+          {Array.isArray(order.payment_progress) && order.payment_progress.length > 0 && (
             <View style={styles.paymentProgress}>
               <Text style={styles.sectionSubTitle}>回款进度记录</Text>
               {order.payment_progress.map((item, index) => (
