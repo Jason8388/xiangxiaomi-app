@@ -17,7 +17,7 @@ const upload = multer({
 });
 
 // 使用内存存储（用于演示，数据库连接超时）
-const USE_MEMORY_STORAGE = false;
+const USE_MEMORY_STORAGE = true;
 
 // 带重试的查询函数（快速失败，最多重试1次）
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {

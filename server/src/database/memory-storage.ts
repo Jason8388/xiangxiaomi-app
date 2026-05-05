@@ -3,7 +3,7 @@ export const memoryUsers: Record<string, any> = {
   admin: {
     id: 1,
     username: 'admin',
-    password: 'mc6668',
+    password: 'admin123',
     name: '管理员',
     role: 'admin',
     position: '管理员',
