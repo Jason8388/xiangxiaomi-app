@@ -565,48 +565,9 @@ export default function PCWorkOrderDetail() {
           <View style={styles.infoGrid}>
             {isEditMode ? (
               <>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>任务阶段</Text>
-                  <View style={styles.selectContainer}>
-                    {TASK_PHASE_OPTIONS.map(phase => (
-                      <TouchableOpacity
-                        key={phase}
-                        style={[styles.selectOption, getEditValue('task_phase') === phase && styles.selectOptionActive]}
-                        onPress={() => handleEditFieldChange('task_phase', phase)}
-                      >
-                        <Text style={[styles.selectOptionText, getEditValue('task_phase') === phase && styles.selectOptionTextActive]}>{phase}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>任务进度</Text>
-                  <View style={styles.selectContainer}>
-                    {TASK_PROGRESS_OPTIONS.slice(0, 6).map(progress => (
-                      <TouchableOpacity
-                        key={progress}
-                        style={[styles.selectOption, getEditValue('task_progress') === progress && styles.selectOptionActive]}
-                        onPress={() => handleEditFieldChange('task_progress', progress)}
-                      >
-                        <Text style={[styles.selectOptionText, getEditValue('task_progress') === progress && styles.selectOptionTextActive]}>{progress}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>任务状态</Text>
-                  <View style={styles.selectContainer}>
-                    {TASK_STATUS_OPTIONS.map(status => (
-                      <TouchableOpacity
-                        key={status}
-                        style={[styles.selectOption, getEditValue('task_status') === status && styles.selectOptionActive]}
-                        onPress={() => handleEditFieldChange('task_status', status)}
-                      >
-                        <Text style={[styles.selectOptionText, getEditValue('task_status') === status && styles.selectOptionTextActive]}>{status}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                <InfoRow label="任务阶段" value={getEditValue('task_phase')} editable="task_phase" />
+                <InfoRow label="任务进度" value={getEditValue('task_progress')} editable="task_progress" />
+                <InfoRow label="任务状态" value={getEditValue('task_status')} editable="task_status" />
               </>
             ) : (
               <>
