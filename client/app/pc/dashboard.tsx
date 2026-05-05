@@ -1,68 +1,146 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
-import { PCStatCard } from '@/components/pc/PCComponents';
-import { PCTable } from '@/components/pc/PCComponents';
-import { PCTag } from '@/components/pc/PCComponents';
 import { PCCard } from '@/components/pc/PCComponents';
-import { PCMessage } from '@/components/pc/PCComponents';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
 
-export default function PCDashboard() {
-  const [stats, setStats] = useState({
-    customers: 0,
-    devices: 0,
-    contracts: 0,
-    pendingTasks: 0,
-  });
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+interface QuickLink {
+  icon: string;
+  label: string;
+  path: string;
+  color: string;
+  description: string;
+}
 
-  const fetchDashboardData = useCallback(async () => {
+const quickLinks: QuickLink[] = [
+  { icon: 'users', label: '客户管理', path: '/pc/customers', color: '#4F8EF7', description: '客户信息管理' },
+  { icon: 'tablet-screen-button', label: '设备管理', path: '/pc/devices', color: '#52C41A', description: '设备档案维护' },
+  { icon: 'file-contract', label: '合同管理', path: '/pc/contracts', color: '#FAAD14', description: '合同文档管理' },
+  { icon: 'clipboard-list', label: '工单管理', path: '/pc/work-orders', color: '#722ED1', description: '工单任务处理' },
+  { icon: 'box', label: '物料管理', path: '/pc/materials', color: '#EB2F96', description: '物料库存管理' },
+  { icon: 'warehouse', label: '仓库管理', path: '/pc/warehouses', color: '#13C2C2', description: '仓库库位管理' },
+  { icon: 'book-open', label: '知识库', path: '/pc/knowledge', color: '#FA8C16', description: '知识文档库' },
+  { icon: 'address-card', label: '会议纪要', path: '/pc/meeting-minutes', color: '#8B5CF6', description: '会议记录管理' },
+];
+
+interface RecentActivity {
+  id: number;
+  type: string;
+  action: string;
+  target: string;
+  time: string;
+  user: string;
+  icon: string;
+  color: string;
+}
+
+export default function PCDashboard() {
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const fetchRecentActivities = useCallback(async () => {
     setLoading(true);
     try {
-      const [customersRes, devicesRes, contractsRes] = await Promise.all([
+      // 并行获取各模块最新数据
+      const [customersRes, devicesRes, contractsRes, workOrdersRes] = await Promise.all([
         fetch(`${API_BASE}/api/v1/customers`).catch(() => ({ ok: false, json: () => ({ customers: [] }) })),
         fetch(`${API_BASE}/api/v1/devices`).catch(() => ({ ok: false, json: () => ({ devices: [] }) })),
         fetch(`${API_BASE}/api/v1/contracts`).catch(() => ({ ok: false, json: () => ({ contracts: [] }) })),
+        fetch(`${API_BASE}/api/v1/work-orders`).catch(() => ({ ok: false, json: () => ({ work_orders: [] }) })),
       ]);
 
-      const [customers, devices, contracts] = await Promise.all([
+      const [customersData, devicesData, contractsData, workOrdersData] = await Promise.all([
         customersRes.json().catch(() => ({ customers: [] })),
         devicesRes.json().catch(() => ({ devices: [] })),
         contractsRes.json().catch(() => ({ contracts: [] })),
+        workOrdersRes.json().catch(() => ({ work_orders: [] })),
       ]);
 
-      setStats({
-        customers: Array.isArray(customers) ? customers.length : (customers.customers?.length || 0),
-        devices: Array.isArray(devices) ? devices.length : (devices.devices?.length || 0),
-        contracts: Array.isArray(contracts) ? contracts.length : (contracts.contracts?.length || 0),
-        pendingTasks: 8,
+      // 整合最近活动
+      const activities: RecentActivity[] = [];
+
+      // 添加客户
+      const customers = Array.isArray(customersData) ? customersData : (customersData.customers || []);
+      customers.slice(0, 2).forEach((c: any) => {
+        activities.push({
+          id: `c-${c.id}`,
+          type: 'customer',
+          action: '新增客户',
+          target: c.name || c.customer_name || '未知客户',
+          time: formatTime(c.created_at || c.created_at),
+          user: c.created_by || '系统',
+          icon: 'user-plus',
+          color: '#4F8EF7',
+        });
       });
 
-      // 模拟最近活动
-      setRecentActivities([
-        { id: 1, action: '新增客户', target: '北京科技有限公司', time: '2小时前', user: '管理员' },
-        { id: 2, action: '设备报修', target: '设备编号 A-001', time: '3小时前', user: '张三' },
-        { id: 3, action: '合同签署', target: '合同编号 HT-2024-001', time: '5小时前', user: '李四' },
-        { id: 4, action: '物料出库', target: '物料名称 变频器', time: '1天前', user: '王五' },
-        { id: 5, action: '知识更新', target: '设备维护手册 v2.0', time: '2天前', user: '管理员' },
-      ]);
+      // 添加设备
+      const devices = Array.isArray(devicesData) ? devicesData : (devicesData.devices || []);
+      devices.slice(0, 2).forEach((d: any) => {
+        activities.push({
+          id: `d-${d.id}`,
+          type: 'device',
+          action: d.status === '在线' ? '设备上线' : '新增设备',
+          target: d.name || d.device_name || '未知设备',
+          time: formatTime(d.created_at),
+          user: d.created_by || '系统',
+          icon: 'tablet-screen-button',
+          color: '#52C41A',
+        });
+      });
+
+      // 添加合同
+      const contracts = Array.isArray(contractsData) ? contractsData : (contractsData.contracts || []);
+      contracts.slice(0, 2).forEach((c: any) => {
+        activities.push({
+          id: `co-${c.id}`,
+          type: 'contract',
+          action: '新增合同',
+          target: c.name || c.contract_name || c.contract_number || '未知合同',
+          time: formatTime(c.created_at),
+          user: c.created_by || '系统',
+          icon: 'file-contract',
+          color: '#FAAD14',
+        });
+      });
+
+      // 添加工单
+      const workOrders = Array.isArray(workOrdersData) ? workOrdersData : (workOrdersData.work_orders || []);
+      workOrders.slice(0, 2).forEach((w: any) => {
+        activities.push({
+          id: `w-${w.id}`,
+          type: 'work-order',
+          action: getWorkOrderAction(w.status),
+          target: w.title || w.work_order_number || '未知工单',
+          time: formatTime(w.created_at),
+          user: w.handler || w.created_by || '系统',
+          icon: 'clipboard-list',
+          color: '#722ED1',
+        });
+      });
+
+      // 按时间排序
+      activities.sort((a, b) => {
+        if (!a.time || a.time === '刚刚') return 1;
+        if (!b.time || b.time === '刚刚') return -1;
+        return a.time.localeCompare(b.time, 'zh-CN', { numeric: true });
+      });
+
+      setRecentActivities(activities.slice(0, 8));
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
+      console.error('Failed to fetch recent activities:', error);
       // 使用默认数据
-      setStats({
-        customers: 156,
-        devices: 324,
-        contracts: 89,
-        pendingTasks: 12,
-      });
       setRecentActivities([
-        { id: 1, action: '新增客户', target: '北京科技有限公司', time: '2小时前', user: '管理员' },
-        { id: 2, action: '设备报修', target: '设备编号 A-001', time: '3小时前', user: '张三' },
-        { id: 3, action: '合同签署', target: '合同编号 HT-2024-001', time: '5小时前', user: '李四' },
+        { id: 1, type: 'customer', action: '系统运行中', target: '数据同步完成', time: '刚刚', user: '系统', icon: 'check-circle', color: '#52C41A' },
       ]);
     } finally {
       setLoading(false);
@@ -70,122 +148,440 @@ export default function PCDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    fetchRecentActivities();
+  }, [fetchRecentActivities]);
 
-  const activityColumns = [
-    { key: 'action', title: '操作', render: (val: string) => <PCTag type="primary">{val}</PCTag> },
-    { key: 'target', title: '对象' },
-    { key: 'user', title: '操作人' },
-    { key: 'time', title: '时间', render: (val: string) => <span style={{ color: '#999' }}>{val}</span> },
-  ];
+  // 格式化时间
+  function formatTime(dateStr?: string): string {
+    if (!dateStr) return '未知';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟前`;
+    if (hours < 24) return `${hours}小时前`;
+    if (days < 7) return `${days}天前`;
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  }
+
+  function getWorkOrderAction(status?: string): string {
+    const actions: Record<string, string> = {
+      '待处理': '新增工单',
+      '处理中': '工单进行中',
+      '已完成': '工单已完成',
+      '已取消': '工单已取消',
+    };
+    return actions[status || ''] || '新增工单';
+  }
+
+  // 获取用户信息
+  const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
+  const greeting = getGreeting();
+
+  function getGreeting(): string {
+    const hour = currentTime.getHours();
+    if (hour < 6) return '凌晨好';
+    if (hour < 9) return '早上好';
+    if (hour < 12) return '上午好';
+    if (hour < 14) return '中午好';
+    if (hour < 18) return '下午好';
+    if (hour < 22) return '晚上好';
+    return '夜深了';
+  }
 
   return (
-    <>
-      
-      <PCLayout>
-        <div className="pc-page-header">
-          <h1 className="pc-page-title">工作台</h1>
-          <p className="pc-page-description">欢迎回来，今天是 {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    <PCLayout>
+      {/* 欢迎区域 */}
+      <div className="dashboard-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">{greeting}，{userInfo.name || userInfo.username || '管理员'}</h1>
+          <p className="welcome-date">
+            {currentTime.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+          </p>
         </div>
-
-        {/* 统计卡片 */}
-        <div className="pc-stat-grid">
-          <PCStatCard
-            title="客户总数"
-            value={stats.customers}
-            icon="👥"
-            iconColor="#4F8EF7"
-            change={12}
-            changeLabel="较上月"
-          />
-          <PCStatCard
-            title="设备总数"
-            value={stats.devices}
-            icon="📱"
-            iconColor="#52C41A"
-            change={8}
-            changeLabel="较上月"
-          />
-          <PCStatCard
-            title="合同总数"
-            value={stats.contracts}
-            icon="📋"
-            iconColor="#FAAD14"
-            change={-3}
-            changeLabel="较上月"
-          />
-          <PCStatCard
-            title="待处理任务"
-            value={stats.pendingTasks}
-            icon="⏰"
-            iconColor="#FF4D4F"
-          />
+        <div className="welcome-decoration">
+          <div className="decoration-circle circle-1"></div>
+          <div className="decoration-circle circle-2"></div>
+          <div className="decoration-circle circle-3"></div>
         </div>
+      </div>
 
+      <div className="dashboard-content">
         {/* 快捷入口 */}
-        <div style={{ marginTop: 24 }}>
-          <PCCard
-            title="快捷入口"
-            extra={<a href="/pc/customers" style={{ color: '#4F8EF7', fontSize: 13 }}>更多 ›</a>}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
-              {[
-                { icon: '👥', label: '客户管理', path: '/pc/customers', color: '#4F8EF7' },
-                { icon: '📱', label: '设备管理', path: '/pc/devices', color: '#52C41A' },
-                { icon: '📋', label: '合同管理', path: '/pc/contracts', color: '#FAAD14' },
-                { icon: '🔧', label: '售后服务', path: '/pc/after-sales', color: '#722ED1' },
-                { icon: '📦', label: '物料管理', path: '/pc/materials', color: '#EB2F96' },
-                { icon: '📚', label: '知识库', path: '/pc/knowledge', color: '#13C2C2' },
-                { icon: '📝', label: '会议纪要', path: '/pc/meeting-minutes', color: '#FA8C16' },
-                { icon: '📁', label: '文件管理', path: '/pc/files', color: '#8B5CF6' },
-                { icon: '📊', label: '统计报表', path: '/pc/reports', color: '#F5222D' },
-              ].map((item, index) => (
-                <a
-                  key={index}
-                  href={item.path}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    padding: '20px 12px',
-                    background: 'var(--color-bg-base)',
-                    borderRadius: 8,
-                    textDecoration: 'none',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-hover)';
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-base)';
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                  }}
-                >
-                  <span style={{ fontSize: 32, marginBottom: 8 }}>{item.icon}</span>
-                  <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{item.label}</span>
-                </a>
-              ))}
-            </div>
-          </PCCard>
+        <div className="dashboard-section">
+          <div className="section-header">
+            <h2 className="section-title">
+              <FontAwesome6 name="th-large" size={16} color="#4F8EF7" style={{ marginRight: 8 }} />
+              快捷入口
+            </h2>
+          </div>
+          <div className="quick-links-grid">
+            {quickLinks.map((link, index) => (
+              <a
+                key={index}
+                href={link.path}
+                className="quick-link-card"
+                style={{ '--link-color': link.color } as React.CSSProperties}
+              >
+                <div className="quick-link-icon">
+                  <FontAwesome6 name={link.icon as any} size={24} color={link.color} />
+                </div>
+                <div className="quick-link-info">
+                  <span className="quick-link-label">{link.label}</span>
+                  <span className="quick-link-desc">{link.description}</span>
+                </div>
+              </a>
+            ))}
+          </div>
         </div>
 
         {/* 最近活动 */}
-        <div style={{ marginTop: 24 }}>
-          <PCCard
-            title="最近活动"
-            extra={<a href="#" style={{ color: '#4F8EF7', fontSize: 13 }}>查看全部 ›</a>}
-          >
-            <PCTable
-              columns={activityColumns}
-              data={recentActivities}
-              rowKey="id"
-              loading={loading}
-            />
-          </PCCard>
+        <div className="dashboard-section">
+          <div className="section-header">
+            <h2 className="section-title">
+              <FontAwesome6 name="clock-rotate-left" size={16} color="#722ED1" style={{ marginRight: 8 }} />
+              最近活动
+            </h2>
+            <button className="section-refresh" onClick={fetchRecentActivities}>
+              <FontAwesome6 name="refresh" size={14} color="#999" />
+              刷新
+            </button>
+          </div>
+          <div className="recent-activities">
+            {loading ? (
+              <div className="activities-loading">
+                <div className="loading-spinner"></div>
+                <span>加载中...</span>
+              </div>
+            ) : recentActivities.length === 0 ? (
+              <div className="activities-empty">
+                <FontAwesome6 name="inbox" size={40} color="#ccc" />
+                <span>暂无最近活动</span>
+              </div>
+            ) : (
+              recentActivities.map((activity) => (
+                <div key={activity.id} className="activity-item">
+                  <div className="activity-icon" style={{ backgroundColor: `${activity.color}15`, color: activity.color }}>
+                    <FontAwesome6 name={activity.icon as any} size={16} />
+                  </div>
+                  <div className="activity-content">
+                    <div className="activity-main">
+                      <span className="activity-action">{activity.action}</span>
+                      <span className="activity-target">{activity.target}</span>
+                    </div>
+                    <div className="activity-meta">
+                      <span className="activity-user">
+                        <FontAwesome6 name="user" size={11} style={{ marginRight: 4 }} />
+                        {activity.user}
+                      </span>
+                      <span className="activity-time">
+                        <FontAwesome6 name="clock" size={11} style={{ marginRight: 4 }} />
+                        {activity.time}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </PCLayout>
-    </>
+      </div>
+
+      <style>{`
+        .dashboard-welcome {
+          position: relative;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 16px;
+          padding: 32px 40px;
+          margin-bottom: 24px;
+          overflow: hidden;
+          color: white;
+        }
+
+        .welcome-content {
+          position: relative;
+          z-index: 1;
+        }
+
+        .welcome-title {
+          font-size: 28px;
+          font-weight: 600;
+          margin: 0 0 8px 0;
+          color: white;
+        }
+
+        .welcome-date {
+          font-size: 14px;
+          margin: 0;
+          opacity: 0.9;
+        }
+
+        .welcome-decoration {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 300px;
+        }
+
+        .decoration-circle {
+          position: absolute;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .circle-1 {
+          width: 200px;
+          height: 200px;
+          right: -50px;
+          top: -80px;
+        }
+
+        .circle-2 {
+          width: 150px;
+          height: 150px;
+          right: 80px;
+          bottom: -60px;
+        }
+
+        .circle-3 {
+          width: 80px;
+          height: 80px;
+          right: 20px;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+
+        .dashboard-content {
+          display: grid;
+          grid-template-columns: 1fr 400px;
+          gap: 24px;
+        }
+
+        .dashboard-section {
+          background: white;
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        .section-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #333;
+          margin: 0;
+          display: flex;
+          align-items: center;
+        }
+
+        .section-refresh {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: none;
+          border: none;
+          color: #999;
+          font-size: 12px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 4px;
+          transition: all 0.2s;
+        }
+
+        .section-refresh:hover {
+          background: #f5f5f5;
+          color: #666;
+        }
+
+        /* 快捷入口网格 */
+        .quick-links-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+
+        .quick-link-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 20px 12px;
+          background: #fafafa;
+          border-radius: 12px;
+          text-decoration: none;
+          transition: all 0.25s ease;
+          border: 1px solid transparent;
+        }
+
+        .quick-link-card:hover {
+          background: white;
+          border-color: var(--link-color);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          transform: translateY(-2px);
+        }
+
+        .quick-link-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: white;
+          margin-bottom: 12px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .quick-link-info {
+          text-align: center;
+        }
+
+        .quick-link-label {
+          display: block;
+          font-size: 14px;
+          font-weight: 500;
+          color: #333;
+          margin-bottom: 4px;
+        }
+
+        .quick-link-desc {
+          display: block;
+          font-size: 12px;
+          color: #999;
+        }
+
+        /* 最近活动 */
+        .recent-activities {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .activities-loading,
+        .activities-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 20px;
+          color: #999;
+          gap: 12px;
+        }
+
+        .loading-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid #f0f0f0;
+          border-top-color: #4F8EF7;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .activity-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 12px;
+          background: #fafafa;
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+
+        .activity-item:hover {
+          background: #f0f7ff;
+        }
+
+        .activity-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .activity-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .activity-main {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+        }
+
+        .activity-action {
+          font-size: 13px;
+          font-weight: 500;
+          color: #333;
+        }
+
+        .activity-target {
+          font-size: 13px;
+          color: #666;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .activity-meta {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          font-size: 12px;
+          color: #999;
+        }
+
+        .activity-user,
+        .activity-time {
+          display: flex;
+          align-items: center;
+        }
+
+        /* 响应式 */
+        @media (max-width: 1200px) {
+          .dashboard-content {
+            grid-template-columns: 1fr;
+          }
+          
+          .quick-links-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+
+        @media (max-width: 768px) {
+          .quick-links-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          
+          .dashboard-welcome {
+            padding: 24px;
+          }
+          
+          .welcome-title {
+            font-size: 22px;
+          }
+        }
+      `}</style>
+    </PCLayout>
   );
 }
