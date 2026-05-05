@@ -13,8 +13,8 @@ export default function PCLayout() {
       <Stack.Screen name="customers" />
       <Stack.Screen name="devices" />
       <Stack.Screen name="contracts" />
-      <Stack.Screen name="after-sales" />
-      <Stack.Screen name="materials" />
+      <Stack.Screen name="work-orders" />
+      <Stack.Screen name="warehouses" />
       <Stack.Screen name="knowledge" />
       <Stack.Screen name="meeting-minutes" />
       <Stack.Screen name="files" />
