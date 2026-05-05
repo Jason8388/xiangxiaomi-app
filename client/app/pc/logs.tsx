@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { useRouter } from '@/hooks/useSafeRouter';
+import PCLayout from '@/components/pc/PCLayout';
 import { getApiBaseUrl } from '@/utils/api';
 import { storage } from '@/utils/storage';
-import '@/assets/styles/pc-global.css';
 
 interface LoginLog {
   id: number;
@@ -36,6 +37,7 @@ interface LoginStats {
 }
 
 export default function PCLogs() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'login' | 'operation'>('login');
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
   const [operationLogs, setOperationLogs] = useState<OperationLog[]>([]);
@@ -54,7 +56,6 @@ export default function PCLogs() {
       const sessionId = await storage.getItem('session_id');
       
       if (activeTab === 'login') {
-        // 加载登录日志
         const params = new URLSearchParams();
         params.append('page', '1');
         params.append('page_size', '50');
@@ -70,7 +71,6 @@ export default function PCLogs() {
           setLoginLogs(data.logs || data.items || []);
         }
         
-        // 加载统计数据
         const statsResponse = await fetch(
           `${getApiBaseUrl()}/api/v1/logs/login/stats`,
           { headers: { Authorization: `Bearer ${sessionId}` } }
@@ -81,7 +81,6 @@ export default function PCLogs() {
           setStats(statsData);
         }
       } else {
-        // 加载操作日志
         const params = new URLSearchParams();
         params.append('page', '1');
         params.append('page_size', '50');
@@ -121,15 +120,11 @@ export default function PCLogs() {
     return new Date(time).toLocaleString('zh-CN');
   };
 
-  return (
-    <div className="pc-page-container">
-      <div className="pc-page-header">
-        <h1 className="pc-page-title">日志查询</h1>
-      </div>
-      
+  const renderContent = () => (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 统计卡片 */}
       {activeTab === 'login' && stats && (
-        <div className="pc-stats-grid">
+        <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{stats.total_logins}</Text>
             <Text style={styles.statLabel}>登录总次数</Text>
@@ -146,7 +141,7 @@ export default function PCLogs() {
             <Text style={styles.statValue}>{stats.operation_count}</Text>
             <Text style={styles.statLabel}>操作总次数</Text>
           </View>
-        </div>
+        </View>
       )}
       
       {/* 标签切换 */}
@@ -169,10 +164,9 @@ export default function PCLogs() {
       <View style={styles.toolbar}>
         <TextInput
           style={styles.searchInput}
-          placeholder={activeTab === 'login' ? '搜索用户名' : '搜索用户名'}
+          placeholder="搜索用户名"
           value={keyword}
           onChangeText={setKeyword}
-          onSubmitEditing={handleSearch}
         />
         {activeTab === 'operation' && (
           <TextInput
@@ -195,16 +189,15 @@ export default function PCLogs() {
       ) : (
         <View style={styles.tableContainer}>
           {activeTab === 'login' ? (
-            // 登录日志表格
             <View style={styles.table}>
               <View style={styles.tableHeader}>
-                <Text style={[styles.th, styles.thId]}>序号</Text>
-                <Text style={[styles.th, styles.thUser]}>用户名</Text>
-                <Text style={[styles.th, styles.thTime]}>登录时间</Text>
-                <Text style={[styles.th, styles.thTime]}>登出时间</Text>
-                <Text style={[styles.th, styles.thDuration]}>在线时长</Text>
-                <Text style={[styles.th, styles.thIp]}>IP地址</Text>
-                <Text style={[styles.th, styles.thDevice]}>设备信息</Text>
+                <Text style={styles.thSmall}>序号</Text>
+                <Text style={styles.th}>用户名</Text>
+                <Text style={styles.th}>登录时间</Text>
+                <Text style={styles.th}>登出时间</Text>
+                <Text style={styles.thSmall}>在线时长</Text>
+                <Text style={styles.thSmall}>IP地址</Text>
+                <Text style={styles.th}>设备信息</Text>
               </View>
               {loginLogs.length === 0 ? (
                 <View style={styles.emptyRow}>
@@ -213,27 +206,26 @@ export default function PCLogs() {
               ) : (
                 loginLogs.map((log, index) => (
                   <View key={log.id} style={styles.tableRow}>
-                    <Text style={[styles.td, styles.thId]}>{index + 1}</Text>
-                    <Text style={[styles.td, styles.thUser]}>{log.username}</Text>
-                    <Text style={[styles.td, styles.thTime]}>{formatTime(log.login_time)}</Text>
-                    <Text style={[styles.td, styles.thTime]}>{log.logout_time ? formatTime(log.logout_time) : '-'}</Text>
-                    <Text style={[styles.td, styles.thDuration]}>{formatDuration(log.duration)}</Text>
-                    <Text style={[styles.td, styles.thIp]}>{log.ip_address || '-'}</Text>
-                    <Text style={[styles.td, styles.thDevice]}>{log.device_info || '-'}</Text>
+                    <Text style={styles.tdSmall}>{index + 1}</Text>
+                    <Text style={styles.td}>{log.username}</Text>
+                    <Text style={styles.td}>{formatTime(log.login_time)}</Text>
+                    <Text style={styles.td}>{log.logout_time ? formatTime(log.logout_time) : '-'}</Text>
+                    <Text style={styles.tdSmall}>{formatDuration(log.duration)}</Text>
+                    <Text style={styles.tdSmall}>{log.ip_address || '-'}</Text>
+                    <Text style={styles.td}>{log.device_info || '-'}</Text>
                   </View>
                 ))
               )}
             </View>
           ) : (
-            // 操作日志表格
             <View style={styles.table}>
               <View style={styles.tableHeader}>
-                <Text style={[styles.th, styles.thId]}>序号</Text>
-                <Text style={[styles.th, styles.thUser]}>用户名</Text>
-                <Text style={[styles.th, styles.thAction]}>操作动作</Text>
-                <Text style={[styles.th, styles.thModule]}>模块</Text>
-                <Text style={[styles.th, styles.thDesc]}>描述</Text>
-                <Text style={[styles.th, styles.thIp]}>IP地址</Text>
+                <Text style={styles.thSmall}>序号</Text>
+                <Text style={styles.th}>用户名</Text>
+                <Text style={styles.thSmall}>操作动作</Text>
+                <Text style={styles.thSmall}>模块</Text>
+                <Text style={styles.th}>描述</Text>
+                <Text style={styles.thSmall}>IP地址</Text>
               </View>
               {operationLogs.length === 0 ? (
                 <View style={styles.emptyRow}>
@@ -242,12 +234,12 @@ export default function PCLogs() {
               ) : (
                 operationLogs.map((log, index) => (
                   <View key={log.id} style={styles.tableRow}>
-                    <Text style={[styles.td, styles.thId]}>{index + 1}</Text>
-                    <Text style={[styles.td, styles.thUser]}>{log.username}</Text>
-                    <Text style={[styles.td, styles.thAction]}>{log.action}</Text>
-                    <Text style={[styles.td, styles.thModule]}>{log.module || '-'}</Text>
-                    <Text style={[styles.td, styles.thDesc]}>{log.description || '-'}</Text>
-                    <Text style={[styles.td, styles.thIp]}>{log.ip_address || '-'}</Text>
+                    <Text style={styles.tdSmall}>{index + 1}</Text>
+                    <Text style={styles.td}>{log.username}</Text>
+                    <Text style={styles.tdSmall}>{log.action}</Text>
+                    <Text style={styles.tdSmall}>{log.module || '-'}</Text>
+                    <Text style={styles.td}>{log.description || '-'}</Text>
+                    <Text style={styles.tdSmall}>{log.ip_address || '-'}</Text>
                   </View>
                 ))
               )}
@@ -255,51 +247,72 @@ export default function PCLogs() {
           )}
         </View>
       )}
-    </div>
+    </ScrollView>
+  );
+
+  return (
+    <PCLayout title="日志查询" activePath="/logs">
+      {renderContent()}
+    </PCLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 12,
+  },
   statCard: {
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 8,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 8,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1677ff',
     marginBottom: 8,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
   },
   tabContainer: {
     flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 8,
     marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e8e8e8',
+    overflow: 'hidden',
   },
   tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
   tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#1677ff',
+    backgroundColor: '#1677ff',
   },
   tabText: {
     fontSize: 14,
     color: '#666',
+    fontWeight: '500',
   },
   tabTextActive: {
-    color: '#1677ff',
-    fontWeight: 'bold',
+    color: '#fff',
   },
   toolbar: {
     flexDirection: 'row',
@@ -311,30 +324,39 @@ const styles = StyleSheet.create({
     height: 36,
     borderWidth: 1,
     borderColor: '#d9d9d9',
-    borderRadius: 4,
+    borderRadius: 6,
     paddingHorizontal: 12,
     fontSize: 14,
+    backgroundColor: '#fff',
   },
   searchBtn: {
     height: 36,
     paddingHorizontal: 20,
     backgroundColor: '#1677ff',
-    borderRadius: 4,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
   searchBtnText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '500',
   },
   loadingContainer: {
-    padding: 40,
+    padding: 60,
     alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
   },
   tableContainer: {
     backgroundColor: '#fff',
     borderRadius: 8,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   table: {
     width: '100%',
@@ -348,19 +370,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   th: {
+    flex: 1,
     fontSize: 13,
     fontWeight: 'bold',
     color: '#333',
   },
-  thId: { width: 50, textAlign: 'center' },
-  thUser: { flex: 1 },
-  thTime: { width: 150 },
-  thDuration: { width: 100, textAlign: 'center' },
-  thIp: { width: 120 },
-  thDevice: { width: 150 },
-  thAction: { width: 100 },
-  thModule: { width: 100 },
-  thDesc: { flex: 1 },
+  thSmall: {
+    width: 80,
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -369,8 +390,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   td: {
+    flex: 1,
     fontSize: 13,
     color: '#666',
+  },
+  tdSmall: {
+    width: 80,
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
   },
   emptyRow: {
     padding: 40,

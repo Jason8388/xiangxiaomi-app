@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Platform, Alert, FlatList, Modal as RNModal, ScrollView } from 'react-native';
-import { getApiBaseUrl } from '@/utils/api';
+import { PCLayout } from '@/components/pc/PCLayout';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { storage } from '@/utils/storage';
+import { getApiBaseUrl } from '@/utils/api';
 import '@/assets/styles/pc-global.css';
 
 interface MediaItem {
@@ -34,13 +36,9 @@ export default function PCGallery() {
   const [selectedTag, setSelectedTag] = useState<number | null>(null);
   const [mediaType, setMediaType] = useState<string>('all');
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
+  const [searchText, setSearchText] = useState('');
 
-  useEffect(() => {
-    loadMediaList();
-    loadTags();
-  }, []);
-
-  const loadMediaList = async () => {
+  const loadMediaList = useCallback(async () => {
     try {
       setLoading(true);
       const sessionId = await storage.getItem('session_id');
@@ -67,9 +65,9 @@ export default function PCGallery() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedTag, mediaType]);
 
-  const loadTags = async () => {
+  const loadTags = useCallback(async () => {
     try {
       const sessionId = await storage.getItem('session_id');
       const response = await fetch(
@@ -86,16 +84,19 @@ export default function PCGallery() {
     } catch (error) {
       console.error('获取标签列表失败:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadMediaList();
+    loadTags();
+  }, [loadMediaList, loadTags]);
 
   const handleTagSelect = (tagId: number | null) => {
     setSelectedTag(tagId);
-    setTimeout(loadMediaList, 0);
   };
 
   const handleTypeSelect = (type: string) => {
     setMediaType(type);
-    setTimeout(loadMediaList, 0);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -104,21 +105,20 @@ export default function PCGallery() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const showAlert = (msg: string) => {
-    if (Platform.OS === 'web') {
-      alert(msg);
-    } else {
-      Alert.alert('提示', msg);
-    }
-  };
-
   const renderMediaItem = ({ item }: { item: MediaItem }) => (
-    <TouchableOpacity style={styles.mediaItem} onPress={() => setPreviewItem(item)}>
+    <TouchableOpacity 
+      style={styles.mediaItem} 
+      onPress={() => setPreviewItem(item)}
+    >
       {item.media_type === 'image' ? (
         <Image source={{ uri: item.file_url }} style={styles.mediaThumb} />
       ) : (
         <View style={styles.mediaPlaceholder}>
-          <Text>{item.media_type === 'video' ? '视频' : '文件'}</Text>
+          <FontAwesome6 
+            name={item.media_type === 'video' ? 'video' : 'file'} 
+            size={32} 
+            color="#999" 
+          />
         </View>
       )}
       <View style={styles.mediaInfo}>
@@ -128,20 +128,23 @@ export default function PCGallery() {
     </TouchableOpacity>
   );
 
-  return (
-    <div className="pc-page-container">
-      <div className="pc-page-header">
-        <h1 className="pc-page-title">相册管理</h1>
-      </div>
-      
-      <div className="pc-gallery-layout">
-        {/* 左侧标签栏 */}
-        <div className="pc-gallery-sidebar">
-          <h3 className="pc-sidebar-title">标签筛选</h3>
+  const filteredMediaList = mediaList.filter(item => 
+    item.original_name.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const content = (
+    <View style={styles.container}>
+      {/* 左侧标签栏 */}
+      <View style={styles.sidebar}>
+        <View style={styles.sidebarHeader}>
+          <Text style={styles.sidebarTitle}>标签筛选</Text>
+        </View>
+        <ScrollView style={styles.tagList}>
           <TouchableOpacity 
             style={[styles.tagItem, !selectedTag && styles.tagItemActive]}
             onPress={() => handleTagSelect(null)}
           >
+            <FontAwesome6 name="border-all" size={14} color={!selectedTag ? '#1677ff' : '#666'} />
             <Text style={[styles.tagText, !selectedTag && styles.tagTextActive]}>全部</Text>
           </TouchableOpacity>
           {tags.map(tag => (
@@ -154,58 +157,82 @@ export default function PCGallery() {
               <Text style={[styles.tagText, selectedTag === tag.id && styles.tagTextActive]}>{tag.name}</Text>
             </TouchableOpacity>
           ))}
-        </div>
-        
-        {/* 右侧内容区 */}
-        <div className="pc-gallery-content">
-          {/* 筛选工具栏 */}
-          <div className="pc-gallery-toolbar">
-            <View style={styles.typeFilter}>
-              {['all', 'image', 'video', 'file'].map(type => (
-                <TouchableOpacity
-                  key={type}
-                  style={[styles.typeBtn, mediaType === type && styles.typeBtnActive]}
-                  onPress={() => handleTypeSelect(type)}
-                >
-                  <Text style={[styles.typeBtnText, mediaType === type && styles.typeBtnTextActive]}>
-                    {type === 'all' ? '全部' : type === 'image' ? '图片' : type === 'video' ? '视频' : '文件'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </div>
-          
-          {/* 媒体网格 */}
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#1677ff" />
-            </View>
-          ) : mediaList.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>暂无媒体文件</Text>
-            </View>
-          ) : (
+        </ScrollView>
+      </View>
+
+      {/* 右侧内容区 */}
+      <View style={styles.content}>
+        {/* 筛选工具栏 */}
+        <View style={styles.toolbar}>
+          <View style={styles.typeFilter}>
+            {['all', 'image', 'video', 'file'].map(type => (
+              <TouchableOpacity
+                key={type}
+                style={[styles.typeBtn, mediaType === type && styles.typeBtnActive]}
+                onPress={() => handleTypeSelect(type)}
+              >
+                <FontAwesome6 
+                  name={type === 'all' ? 'border-all' : type === 'image' ? 'image' : type === 'video' ? 'video' : 'file'} 
+                  size={14} 
+                  color={mediaType === type ? '#fff' : '#666'} 
+                />
+                <Text style={[styles.typeBtnText, mediaType === type && styles.typeBtnTextActive]}>
+                  {type === 'all' ? '全部' : type === 'image' ? '图片' : type === 'video' ? '视频' : '文件'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.searchBox}>
+            <FontAwesome6 name="search" size={14} color="#999" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="搜索文件名..."
+              placeholderTextColor="#999"
+              value={searchText}
+              onChangeText={setSearchText}
+            />
+          </View>
+        </View>
+
+        {/* 媒体网格 */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#1677ff" />
+            <Text style={styles.loadingText}>加载中...</Text>
+          </View>
+        ) : filteredMediaList.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <FontAwesome6 name="images" size={64} color="#ddd" />
+            <Text style={styles.emptyText}>暂无媒体文件</Text>
+            <Text style={styles.emptySubText}>上传图片、视频或文件到相册</Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.mediaScrollView}>
             <View style={styles.mediaGrid}>
-              {mediaList.map(item => (
-                <View key={item.id}>
+              {filteredMediaList.map(item => (
+                <View key={item.id} style={styles.mediaItemWrapper}>
                   {renderMediaItem({ item })}
                 </View>
               ))}
             </View>
-          )}
-        </div>
-      </div>
+          </ScrollView>
+        )}
+      </View>
 
       {/* 预览弹窗 */}
       <RNModal visible={!!previewItem} transparent onRequestClose={() => setPreviewItem(null)}>
         <View style={styles.previewOverlay}>
           <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewItem(null)}>
-            <Text style={styles.previewCloseText}>关闭</Text>
+            <FontAwesome6 name="times" size={24} color="#fff" />
           </TouchableOpacity>
           {previewItem && (
             <View style={styles.previewContent}>
               {previewItem.media_type === 'image' && (
-                <Image source={{ uri: previewItem.file_url }} style={styles.previewImage} resizeMode="contain" />
+                <Image 
+                  source={{ uri: previewItem.file_url }} 
+                  style={styles.previewImage} 
+                  resizeMode="contain" 
+                />
               )}
               <View style={styles.previewInfo}>
                 <Text style={styles.previewName}>{previewItem.original_name}</Text>
@@ -217,15 +244,42 @@ export default function PCGallery() {
           )}
         </View>
       </RNModal>
-    </div>
+    </View>
   );
+
+  return <PCLayout>{content}</PCLayout>;
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+  },
+  sidebar: {
+    width: 200,
+    backgroundColor: '#fff',
+    borderRightWidth: 1,
+    borderRightColor: '#e8e8e8',
+  },
+  sidebarHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
+  },
+  sidebarTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  tagList: {
+    flex: 1,
+    padding: 8,
+  },
   tagItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     borderRadius: 4,
     marginBottom: 4,
   },
@@ -241,15 +295,69 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 14,
     color: '#666',
+    marginLeft: 8,
   },
   tagTextActive: {
     color: '#1677ff',
-    fontWeight: 'bold',
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  toolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  typeFilter: {
+    flexDirection: 'row',
+  },
+  typeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+    marginRight: 8,
+  },
+  typeBtnActive: {
+    backgroundColor: '#1677ff',
+  },
+  typeBtnText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  typeBtnTextActive: {
+    color: '#fff',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+    width: 200,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    marginLeft: 8,
+    color: '#333',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -259,25 +367,36 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#999',
+    marginTop: 16,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#ccc',
+    marginTop: 8,
+  },
+  mediaScrollView: {
+    flex: 1,
   },
   mediaGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+  },
+  mediaItemWrapper: {
+    marginRight: 16,
+    marginBottom: 16,
   },
   mediaItem: {
     width: 180,
     backgroundColor: '#fff',
     borderRadius: 8,
     overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
   },
   mediaThumb: {
-    width: '100%',
+    width: 180,
     height: 140,
   },
   mediaPlaceholder: {
-    width: '100%',
+    width: 180,
     height: 140,
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
@@ -289,31 +408,12 @@ const styles = StyleSheet.create({
   mediaName: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#333',
     marginBottom: 4,
   },
   mediaSize: {
     fontSize: 12,
     color: '#999',
-  },
-  typeFilter: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  typeBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-    backgroundColor: '#f5f5f5',
-  },
-  typeBtnActive: {
-    backgroundColor: '#1677ff',
-  },
-  typeBtnText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  typeBtnTextActive: {
-    color: '#fff',
   },
   previewOverlay: {
     flex: 1,
@@ -327,10 +427,6 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
     padding: 10,
-  },
-  previewCloseText: {
-    color: '#fff',
-    fontSize: 16,
   },
   previewContent: {
     width: '80%',
