@@ -108,6 +108,13 @@ export default function PCWorkOrderDetail() {
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // 照片上传相关状态
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [currentPhotoField, setCurrentPhotoField] = useState<string>('');
+  const [photoPreviewList, setPhotoPreviewList] = useState<string[]>([]);
+  const [tempPhotoUri, setTempPhotoUri] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   // 计算日期差
   const calculateDaysDiff = (startDate: string, endDate: string): number => {
     if (!startDate || !endDate) return 0;
@@ -167,6 +174,186 @@ export default function PCWorkOrderDetail() {
     setIsEditMode(false);
     setEditFormData({});
     setHasChanges(false);
+  };
+
+  // 上传需求照片
+  const handleUploadRequirementPhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const sessionId = await storage.getItem('session_id');
+          const res = await fetch(`${API_BASE}/api/v1/upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+            body: formData,
+          });
+          const result = await res.json();
+          if (result.url) {
+            const currentPhotos = editFormData.requirement_photos || order?.requirement_photos || '';
+            const newPhotos = currentPhotos ? `${currentPhotos},${result.url}` : result.url;
+            handleEditFieldChange('requirement_photos', newPhotos);
+          }
+        } catch (err) { console.error('上传失败', err); }
+      }
+    };
+    input.click();
+  };
+
+  // 删除需求照片
+  const handleDeleteRequirementPhoto = (photoUrl: string) => {
+    const currentPhotos = editFormData.requirement_photos || order?.requirement_photos || '';
+    const photos = currentPhotos.split(',').filter(p => p !== photoUrl);
+    handleEditFieldChange('requirement_photos', photos.join(','));
+  };
+
+  // 上传报价单照片
+  const handleUploadQuotedPricePhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const sessionId = await storage.getItem('session_id');
+          const res = await fetch(`${API_BASE}/api/v1/upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+            body: formData,
+          });
+          const result = await res.json();
+          if (result.url) {
+            const current = editFormData.quoted_price_photo || order?.quoted_price_photo || '';
+            const newVal = current ? `${current},${result.url}` : result.url;
+            handleEditFieldChange('quoted_price_photo', newVal);
+          }
+        } catch (err) { console.error('上传失败', err); }
+      }
+    };
+    input.click();
+  };
+
+  // 删除报价单照片
+  const handleDeleteQuotedPricePhoto = (photoUrl: string) => {
+    const current = editFormData.quoted_price_photo || order?.quoted_price_photo || '';
+    const photos = current.split(',').filter(p => p !== photoUrl);
+    handleEditFieldChange('quoted_price_photo', photos.join(','));
+  };
+
+  // 上传客户共识凭证
+  const handleUploadConsensusPhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const sessionId = await storage.getItem('session_id');
+          const res = await fetch(`${API_BASE}/api/v1/upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+            body: formData,
+          });
+          const result = await res.json();
+          if (result.url) {
+            const current = editFormData.consensus_photo || order?.consensus_photo || '';
+            const newVal = current ? `${current},${result.url}` : result.url;
+            handleEditFieldChange('consensus_photo', newVal);
+          }
+        } catch (err) { console.error('上传失败', err); }
+      }
+    };
+    input.click();
+  };
+
+  // 删除客户共识凭证
+  const handleDeleteConsensusPhoto = (photoUrl: string) => {
+    const current = editFormData.consensus_photo || order?.consensus_photo || '';
+    const photos = current.split(',').filter(p => p !== photoUrl);
+    handleEditFieldChange('consensus_photo', photos.join(','));
+  };
+
+  // 上传派工单照片
+  const handleUploadWorkOrderPhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const sessionId = await storage.getItem('session_id');
+          const res = await fetch(`${API_BASE}/api/v1/upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+            body: formData,
+          });
+          const result = await res.json();
+          if (result.url) {
+            const current = editFormData.work_order_photo || order?.work_order_photo || '';
+            const newVal = current ? `${current},${result.url}` : result.url;
+            handleEditFieldChange('work_order_photo', newVal);
+          }
+        } catch (err) { console.error('上传失败', err); }
+      }
+    };
+    input.click();
+  };
+
+  // 删除派工单照片
+  const handleDeleteWorkOrderPhoto = (photoUrl: string) => {
+    const current = editFormData.work_order_photo || order?.work_order_photo || '';
+    const photos = current.split(',').filter(p => p !== photoUrl);
+    handleEditFieldChange('work_order_photo', photos.join(','));
+  };
+
+  // 上传现场实施照片
+  const handleUploadImplementationPhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const sessionId = await storage.getItem('session_id');
+          const res = await fetch(`${API_BASE}/api/v1/upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+            body: formData,
+          });
+          const result = await res.json();
+          if (result.url) {
+            const current = editFormData.implementation_photos || order?.implementation_photos || '';
+            const newVal = current ? `${current},${result.url}` : result.url;
+            handleEditFieldChange('implementation_photos', newVal);
+          }
+        } catch (err) { console.error('上传失败', err); }
+      }
+    };
+    input.click();
+  };
+
+  // 删除现场实施照片
+  const handleDeleteImplementationPhoto = (photoUrl: string) => {
+    const current = editFormData.implementation_photos || order?.implementation_photos || '';
+    const photos = current.split(',').filter(p => p !== photoUrl);
+    handleEditFieldChange('implementation_photos', photos.join(','));
   };
 
   // 更新编辑字段
@@ -648,6 +835,25 @@ export default function PCWorkOrderDetail() {
               <Text style={styles.infoLabel}>需求说明</Text>
               <Text style={styles.multiLineValue}>{order.requirement_description || '-'}</Text>
             </View>
+            {isEditMode && (
+              <View style={styles.photosRow}>
+                <Text style={styles.infoLabel}>需求照片/视频</Text>
+                <View style={styles.photoList}>
+                  {(getEditValue('requirement_photos') as string[] || []).map((photo, index) => (
+                    <View key={index} style={styles.photoItem}>
+                      <Image source={{ uri: photo }} style={styles.thumbnail} />
+                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteRequirementPhoto(index)}>
+                        <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddRequirementPhoto}>
+                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                    <Text style={styles.addPhotoText}>添加</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             {order.requirement_photos && order.requirement_photos.length > 0 && (
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>需求照片/视频</Text>
@@ -800,6 +1006,76 @@ export default function PCWorkOrderDetail() {
                 <InfoRow label="ERP出库申请单号" value={order.erp_outbound_no} editable="erp_outbound_no" />
               </>
             )}
+            {/* 报价单照片 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>报价单照片</Text>
+              <View style={styles.photoUploadContainer}>
+                {quotePhotoUrls.length > 0 && (
+                  <View style={styles.photoPreviewList}>
+                    {quotePhotoUrls.map((url, index) => (
+                      <View key={index} style={styles.photoItem}>
+                        <Image source={{ uri: url }} style={styles.photoThumb} />
+                        <TouchableOpacity
+                          style={styles.photoRemoveBtn}
+                          onPress={() => handleRemoveQuotePhoto(index)}
+                        >
+                          <FontAwesome6 name="times-circle" size={16} color="#FF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {isEditMode && quotePhotoUrls.length < 5 && (
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddQuotePhoto}>
+                    <FontAwesome6 name="plus" size={20} color="#4F46E5" />
+                    <Text style={styles.addPhotoText}>添加照片</Text>
+                  </TouchableOpacity>
+                )}
+                <input
+                  ref={quotePhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleQuotePhotoChange}
+                />
+              </View>
+            </View>
+            {/* 客户共识凭证 */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>客户共识凭证</Text>
+              <View style={styles.photoUploadContainer}>
+                {consensusPhotoUrls.length > 0 && (
+                  <View style={styles.photoPreviewList}>
+                    {consensusPhotoUrls.map((url, index) => (
+                      <View key={index} style={styles.photoItem}>
+                        <Image source={{ uri: url }} style={styles.photoThumb} />
+                        <TouchableOpacity
+                          style={styles.photoRemoveBtn}
+                          onPress={() => handleRemoveConsensusPhoto(index)}
+                        >
+                          <FontAwesome6 name="times-circle" size={16} color="#FF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {isEditMode && consensusPhotoUrls.length < 5 && (
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddConsensusPhoto}>
+                    <FontAwesome6 name="plus" size={20} color="#4F46E5" />
+                    <Text style={styles.addPhotoText}>添加凭证</Text>
+                  </TouchableOpacity>
+                )}
+                <input
+                  ref={consensusPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleConsensusPhotoChange}
+                />
+              </View>
+            </View>
           </View>
         </PCCard>
 
@@ -852,6 +1128,44 @@ export default function PCWorkOrderDetail() {
                 <InfoRow label="实施完成日期" value={order.implementation_complete_date} editable="implementation_complete_date" />
                 <InfoRow label="实际工时投入" value={order.actual_hours} unit="天" editable="actual_hours" />
                 <InfoRow label="派工单签字人" value={order.work_order_signer} editable="work_order_signer" />
+              </>
+            )}
+            {isEditMode && (
+              <>
+                <View style={styles.photosRow}>
+                  <Text style={styles.infoLabel}>派工单照片</Text>
+                  <View style={styles.photoList}>
+                    {(getEditValue('work_order_docs') as string[] || []).map((doc, index) => (
+                      <View key={index} style={styles.photoItem}>
+                        <Image source={{ uri: doc }} style={styles.thumbnail} />
+                        <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteWorkOrderDoc(index)}>
+                          <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddWorkOrderDoc}>
+                      <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                      <Text style={styles.addPhotoText}>添加</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={styles.photosRow}>
+                  <Text style={styles.infoLabel}>现场实施照片</Text>
+                  <View style={styles.photoList}>
+                    {(getEditValue('site_completion_docs') as string[] || []).map((doc, index) => (
+                      <View key={index} style={styles.photoItem}>
+                        <Image source={{ uri: doc }} style={styles.thumbnail} />
+                        <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteSiteCompletionDoc(index)}>
+                          <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddSiteCompletionDoc}>
+                      <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                      <Text style={styles.addPhotoText}>添加</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </>
             )}
             {order.work_order_docs && order.work_order_docs.length > 0 && (
