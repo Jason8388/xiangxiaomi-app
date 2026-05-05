@@ -152,7 +152,7 @@ export default function PCContracts() {
                 <PCSearchBar placeholder="搜索合同名称、编号、客户或业务经理..." value={searchText} onChange={setSearchText} onSearch={() => {}} />
               </>
             }
-            right={<><button className="pc-btn pc-btn-default" style={{ marginRight: 8 }} onClick={() => setImportModalVisible(true)}>批量导入</button><button className="pc-btn pc-btn-primary" onClick={() => { setEditingContract(null); setFormData({ contract_number: '', contract_name: '', customer_name: '', business_manager: '', sign_date: '', acceptance_date: '', warranty_end_date: '', contract_amount: '', remarks: '' }); setModalVisible(true); }}>+ 新增合同</button></>}
+            right={<><button className="pc-btn pc-btn-default" style={{ marginRight: 8 }} onClick={() => setImportModalVisible(true)}>批量导入</button><button className="pc-btn pc-btn-default" style={{ marginRight: 8, background: '#E8F5E9', color: '#1E88E5', border: '1px solid #1E88E5' }} onClick={() => window.open(`${API_BASE}/api/v1/contracts/export/excel`, '_blank')}>批量导出</button><button className="pc-btn pc-btn-primary" onClick={() => { setEditingContract(null); setFormData({ contract_number: '', contract_name: '', customer_name: '', business_manager: '', sign_date: '', acceptance_date: '', warranty_end_date: '', contract_amount: '', remarks: '' }); setModalVisible(true); }}>+ 新增合同</button></>}
           />
 
           <PCTable columns={columns} data={filteredContracts} rowKey="id" loading={loading} selectedRowKeys={selectedRowKeys} onSelectChange={setSelectedRowKeys} />

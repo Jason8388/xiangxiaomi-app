@@ -307,6 +307,9 @@ export default function PCDevices() {
                 <button className="pc-btn" style={{ background: '#E8F5E9', color: '#1E88E5', border: '1px solid #1E88E5' }} onClick={() => setImportModalVisible(true)}>
                   📥 批量导入
                 </button>
+                <button className="pc-btn pc-btn-default" style={{ background: '#E8F5E9', color: '#1E88E5', border: '1px solid #1E88E5' }} onClick={() => window.open(`${API_BASE}/api/v1/devices/export`, '_blank')}>
+                  📤 批量导出
+                </button>
               </div>
             }
           />

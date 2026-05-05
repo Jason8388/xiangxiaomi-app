@@ -181,6 +181,10 @@ export default function PCMaterials() {
             <FontAwesome6 name="upload" size={14} style={{ marginRight: 6 }} />
             批量导入
           </button>
+          <button className="pc-btn pc-btn-default" style={{ marginRight: 8, background: '#E8F5E9', color: '#1E88E5', border: '1px solid #1E88E5' }} onClick={() => window.open(`${API_BASE}/api/v1/materials/batch-export`, '_blank')}>
+            <FontAwesome6 name="download" size={14} style={{ marginRight: 6 }} />
+            批量导出
+          </button>
           <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
           <FontAwesome6 name="plus" size={14} style={{ marginRight: 6 }} />
           新增物料
