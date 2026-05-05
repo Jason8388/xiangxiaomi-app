@@ -18,7 +18,7 @@ const routeMap: Record<string, { label: string; path: string }[]> = {
   '/pc/contracts': [{ label: '合同管理' }],
   '/pc/contract-detail': [{ label: '合同管理', path: '/pc/contracts' }, { label: '合同详情' }],
   '/pc/work-orders': [{ label: '工单管理' }],
-  '/pc/materials': [{ label: '仓库管理' }],
+  '/pc/materials': [{ label: '物料管理' }],
   '/pc/knowledge': [{ label: '知识库' }],
   '/pc/meeting-minutes': [{ label: '会议纪要' }],
   '/pc/files': [{ label: '文件管理' }],

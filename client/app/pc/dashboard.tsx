@@ -22,7 +22,7 @@ const quickLinks: QuickLink[] = [
   { icon: 'users', label: '客户管理', path: '/pc/customers', color: '#00B894', description: '客户信息管理' },
   { icon: 'file-signature', label: '合同管理', path: '/pc/contracts', color: '#F39C12', description: '合同文档管理' },
   { icon: 'microchip', label: '设备管理', path: '/pc/devices', color: '#9B59B6', description: '设备档案维护' },
-  { icon: 'box-open', label: '仓库管理', path: '/pc/materials', color: '#E74C3C', description: '物料仓储管理' },
+  { icon: 'box-open', label: '物料管理', path: '/pc/materials', color: '#E74C3C', description: '物料仓储管理' },
   { icon: 'magnifying-glass', label: '查询助手', path: '/pc/query-assistant', color: '#2ECC71', description: '多维度数据查询' },
   { icon: 'book', label: '知识库', path: '/pc/knowledge', color: '#F1C40F', description: '知识文档库' },
   { icon: 'chart-pie', label: '统计报表', path: '/pc/reports', color: '#3498DB', description: '数据统计分析' },

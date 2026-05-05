@@ -53,7 +53,7 @@ const adminNavItems: NavigationItem[] = [
   },
   {
     id: 'warehouses',
-    title: '仓库管理',
+    title: '物料管理',
     icon: 'box-open',
     color: '#E74C3C',
     route: '/materials',
