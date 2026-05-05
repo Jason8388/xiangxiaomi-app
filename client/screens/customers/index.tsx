@@ -65,10 +65,6 @@ export default function CustomerManagement() {
     remarks: '',
   });
 
-  // 服务看管部门选项
-  const serviceDepartmentOptions = ['技术服务一组', '技术服务二组', '技术服务三组'];
-  const [serviceDeptModalVisible, setServiceDeptModalVisible] = useState(false);
-  const [subGroupModalVisible, setSubGroupModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -495,18 +491,14 @@ export default function CustomerManagement() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>服务看管部门</Text>
-                <TouchableOpacity
-                  style={styles.selectInput}
-                  onPress={() => setSubGroupModalVisible(true)}
-                >
-                  <Text style={[
-                    styles.selectInputText,
-                    !formData.sub_group && styles.selectInputPlaceholder
-                  ]}>
-                    {formData.sub_group || '请选择服务看管部门'}
-                  </Text>
-                  <FontAwesome6 name="chevron-down" size={14} color="#95A5A6" />
-                </TouchableOpacity>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="请输入服务看管部门"
+                  value={formData.sub_group}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, sub_group: text })
+                  }
+                />
               </View>
 
               <View style={styles.formGroup}>
@@ -662,54 +654,6 @@ export default function CustomerManagement() {
             </View>
           </View>
         </View>
-      </Modal>
-
-      {/* 服务看管部门选择弹窗 */}
-      <Modal
-        visible={subGroupModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSubGroupModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setSubGroupModalVisible(false)}
-        >
-          <View style={styles.selectModalContent}>
-            <View style={styles.selectModalHeader}>
-              <Text style={styles.selectModalTitle}>选择服务看管部门</Text>
-              <TouchableOpacity onPress={() => setSubGroupModalVisible(false)}>
-                <FontAwesome6 name="xmark" size={20} color="#636E72" />
-              </TouchableOpacity>
-            </View>
-            {serviceDepartmentOptions.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.selectOptionItem,
-                  formData.sub_group === option && styles.selectOptionItemActive
-                ]}
-                onPress={() => {
-                  setFormData({ ...formData, sub_group: option });
-                  setSubGroupModalVisible(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.selectOptionText,
-                    formData.sub_group === option && styles.selectOptionTextActive
-                  ]}
-                >
-                  {option}
-                </Text>
-                {formData.sub_group === option && (
-                  <FontAwesome6 name="check" size={16} color="#1E88E5" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
       </Modal>
 
       {/* 删除确认 Modal */}

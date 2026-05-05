@@ -55,9 +55,6 @@ export default function PCCustomers() {
     total: 0,
   });
 
-  // 服务看管部门选项
-  const serviceDepartmentOptions = ['技术服务一组', '技术服务二组', '技术服务三组'];
-
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
@@ -380,16 +377,13 @@ export default function PCCustomers() {
             </div>
             <div className="pc-form-item">
               <label className="pc-form-label">服务看管部门</label>
-              <select
+              <input
+                type="text"
                 className="pc-form-control"
+                placeholder="请输入服务看管部门"
                 value={formData.sub_group}
                 onChange={e => setFormData(prev => ({ ...prev, sub_group: e.target.value }))}
-              >
-                <option value="">请选择服务看管部门</option>
-                {serviceDepartmentOptions.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
+              />
             </div>
             <div className="pc-form-item">
               <label className="pc-form-label">所属行业</label>
