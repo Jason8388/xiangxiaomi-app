@@ -859,25 +859,6 @@ export default function PCWorkOrderDetail() {
               <Text style={styles.infoLabel}>需求说明</Text>
               <Text style={styles.multiLineValue}>{order.requirement_description || '-'}</Text>
             </View>
-            {isEditMode && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>需求照片/视频</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(getEditValue('requirement_photos') as string | string[]).map((photo, index) => (
-                    <View key={index} style={styles.photoItem}>
-                      <Image source={{ uri: photo }} style={styles.thumbnail} />
-                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteRequirementPhoto(photo)}>
-                        <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddRequirementPhoto}>
-                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
-                    <Text style={styles.addPhotoText}>添加</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
             {/* 需求照片/视频 - 始终显示 */}
             <View style={styles.photosRow}>
               <Text style={styles.infoLabel}>需求照片/视频</Text>
@@ -1041,26 +1022,6 @@ export default function PCWorkOrderDetail() {
                 <InfoRow label="ERP出库申请单号" value={order.erp_outbound_no} editable="erp_outbound_no" />
               </>
             )}
-            {/* 报价单照片 */}
-            {isEditMode && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>报价单照片</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(getEditValue('quoted_price_doc') as string | string[]).map((photo, index) => (
-                    <View key={index} style={styles.photoItem}>
-                      <Image source={{ uri: photo }} style={styles.thumbnail} />
-                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteQuotedPricePhoto(photo)}>
-                        <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadQuotedPricePhoto}>
-                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
-                    <Text style={styles.addPhotoText}>添加</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
             {/* 报价单照片 - 始终显示 */}
             <View style={styles.photosRow}>
               <Text style={styles.infoLabel}>报价单照片</Text>
@@ -1191,48 +1152,10 @@ export default function PCWorkOrderDetail() {
                 </View>
               </>
             )}
-            {/* 派工单照片 - 始终显示 */}
-            <View style={styles.photosRow}>
-              <Text style={styles.infoLabel}>派工单照片</Text>
-              <View style={styles.photoList}>
-                {toPhotoArray(order?.work_order_docs).length > 0 ? (
-                  toPhotoArray(order?.work_order_docs).map((doc, index) => (
-                    <Image key={index} source={{ uri: doc }} style={styles.thumbnail} />
-                  ))
-                ) : (
-                  <Text style={styles.emptyText}>暂无照片</Text>
-                )}
-                {isEditMode && (
-                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddWorkOrderDoc}>
-                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
-                    <Text style={styles.addPhotoText}>上传</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-            {/* 现场实施照片 - 始终显示 */}
-            <View style={styles.photosRow}>
-              <Text style={styles.infoLabel}>现场实施照片</Text>
-              <View style={styles.photoList}>
-                {toPhotoArray(order?.site_completion_docs).length > 0 ? (
-                  toPhotoArray(order?.site_completion_docs).map((doc, index) => (
-                    <Image key={index} source={{ uri: doc }} style={styles.thumbnail} />
-                  ))
-                ) : (
-                  <Text style={styles.emptyText}>暂无照片</Text>
-                )}
-                {isEditMode && (
-                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddSiteCompletionDoc}>
-                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
-                    <Text style={styles.addPhotoText}>上传</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
           </View>
         </PCCard>
 
-        {/* 信息栏7：回款情况 */}
+        {/* 回款情况 */}
         <PCCard title="回款情况" icon="money-bill" iconColor="#27AE60" style={styles.card}>
           <View style={styles.infoGrid}>
             {isEditMode ? (

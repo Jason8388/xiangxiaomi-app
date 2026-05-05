@@ -1,1 +1,1 @@
-export { default } from "@/screens/work-order-reminders";
+export { default } from '@/screens/work-order-reminders';

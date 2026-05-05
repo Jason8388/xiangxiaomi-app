@@ -1,1 +1,1 @@
-export { default } from "@/screens/system-cleanup";
+export { default } from '@/screens/system-cleanup';

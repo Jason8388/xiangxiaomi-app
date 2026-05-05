@@ -1,1 +1,1 @@
-export { default } from "@/screens/version-management";
+export { default } from '@/screens/version-management';

@@ -1,1 +1,1 @@
-export { default } from "@/screens/standard-material-lists";
+export { default } from '@/screens/standard-material-lists';
