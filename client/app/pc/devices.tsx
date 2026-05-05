@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTable } from '@/components/pc/PCComponents';
 import { PCTag } from '@/components/pc/PCComponents';
@@ -27,10 +27,12 @@ interface Device {
   warranty_end_date?: string;
   status: string;
   contract_name?: string;
+  contract_number?: string;
   qr_code_id?: string;
   location?: string;
   remarks?: string;
   service_number?: string;
+  site_photos?: string[];
 }
 
 const DEVICE_TYPES = ['智能测温', '智能焊接', '智能测量', '外观品检', '尺寸测量', '角度定位', '数字化产品', '第三方设备', '其它'];
@@ -51,6 +53,17 @@ export default function PCDevices() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const [customerList, setCustomerList] = useState<any[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
+  const [contractList, setContractList] = useState<any[]>([]);
+  const [filteredContracts, setFilteredContracts] = useState<any[]>([]);
+  const [customerSearchKeyword, setCustomerSearchKeyword] = useState('');
+  const [contractSearchKeyword, setContractSearchKeyword] = useState('');
+  const [showDeviceTypeSelector, setShowDeviceTypeSelector] = useState(false);
+  const [showCustomerSelector, setShowCustomerSelector] = useState(false);
+  const [showContractSelector, setShowContractSelector] = useState(false);
+  const [sitePhotos, setSitePhotos] = useState<string[]>([]);
+  const [qrCode, setQrCode] = useState<string>('');
   const [formData, setFormData] = useState({
     device_number: '',
     device_name: '',
@@ -62,6 +75,7 @@ export default function PCDevices() {
     warranty_end_date: '',
     status: 'online' as string,
     contract_name: '',
+    contract_number: '',
     qr_code_id: '',
     location: '',
     remarks: '',
@@ -77,7 +91,6 @@ export default function PCDevices() {
         headers: sessionId ? { Authorization: `Bearer ${sessionId}` } : {},
       });
       const data = await response.json();
-      // 与APP端保持一致的数据解析逻辑
       const list: Device[] = Array.isArray(data) ? data : (data.data || []);
       setDevices(list);
       setPagination(prev => ({ ...prev, total: list.length }));
@@ -88,6 +101,71 @@ export default function PCDevices() {
       setLoading(false);
     }
   }, []);
+
+  // 加载客户列表
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/customers`);
+        const data = await response.json();
+        if (response.ok) {
+          const list = Array.isArray(data) ? data : (data.data || []);
+          setCustomerList(list);
+          setFilteredCustomers(list);
+        }
+      } catch (error) {
+        console.error('Load customers error:', error);
+      }
+    };
+    loadCustomers();
+  }, []);
+
+  // 加载合同列表
+  useEffect(() => {
+    const loadContracts = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/contracts`);
+        const data = await response.json();
+        if (response.ok) {
+          const list = Array.isArray(data) ? data : (data.data || []);
+          setContractList(list);
+          setFilteredContracts(list);
+        }
+      } catch (error) {
+        console.error('Load contracts error:', error);
+      }
+    };
+    loadContracts();
+  }, []);
+
+  // 客户名称搜索过滤
+  useEffect(() => {
+    if (customerSearchKeyword.trim()) {
+      const keyword = customerSearchKeyword.toLowerCase();
+      const filtered = customerList.filter((c) => {
+        const name = (c.name || '').toLowerCase();
+        return name.includes(keyword);
+      });
+      setFilteredCustomers(filtered);
+    } else {
+      setFilteredCustomers(customerList);
+    }
+  }, [customerSearchKeyword, customerList]);
+
+  // 合同名称/编号搜索过滤
+  useEffect(() => {
+    if (contractSearchKeyword.trim()) {
+      const keyword = contractSearchKeyword.toLowerCase();
+      const filtered = contractList.filter((c) => {
+        const contractNo = (c.contract_no || '').toLowerCase();
+        const title = (c.title || c.contract_name || '').toLowerCase();
+        return contractNo.includes(keyword) || title.includes(keyword);
+      });
+      setFilteredContracts(filtered);
+    } else {
+      setFilteredContracts(contractList);
+    }
+  }, [contractSearchKeyword, contractList]);
 
   useEffect(() => {
     fetchDevices();
@@ -120,11 +198,14 @@ export default function PCDevices() {
       warranty_end_date: '',
       status: 'online',
       contract_name: '',
+      contract_number: '',
       qr_code_id: '',
       location: '',
       remarks: '',
       service_number: '',
     });
+    setSitePhotos([]);
+    setQrCode('');
     setModalVisible(true);
   };
 
@@ -141,11 +222,20 @@ export default function PCDevices() {
       warranty_end_date: device.warranty_end_date || '',
       status: device.status || 'online',
       contract_name: device.contract_name || '',
+      contract_number: device.contract_number || '',
       qr_code_id: device.qr_code_id || '',
       location: device.location || '',
       remarks: device.remarks || '',
       service_number: device.service_number || '',
     });
+    // 加载现场照片
+    if (device.site_photos && Array.isArray(device.site_photos)) {
+      setSitePhotos(device.site_photos);
+    } else {
+      setSitePhotos([]);
+    }
+    // 生成二维码
+    setQrCode(`S${device.id}`);
     setModalVisible(true);
   };
 
@@ -188,8 +278,8 @@ export default function PCDevices() {
   };
 
   const handleSave = async () => {
-    if (!formData.device_number || !formData.device_name) {
-      Alert.alert('错误', '设备编号和设备名称不能为空');
+    if (!formData.device_number || !formData.device_name || !formData.device_type) {
+      Alert.alert('错误', '设备出厂编号、设备名称和设备类型不能为空');
       return;
     }
 
@@ -200,13 +290,36 @@ export default function PCDevices() {
         : `${API_BASE}/api/v1/devices`;
       const method = editingDevice ? 'PUT' : 'POST';
 
+      // 构建FormData以支持文件上传
+      const data = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (formData[key as keyof typeof formData]) {
+          data.append(key, formData[key as keyof typeof formData]);
+        }
+      });
+
+      // 上传照片
+      if (sitePhotos.length > 0) {
+        for (let i = 0; i < sitePhotos.length; i++) {
+          data.append(`site_photo_${i}`, {
+        uri: sitePhotos[i],
+        name: `site_photo_${i}.jpg`,
+        type: 'image/jpeg',
+      } as any);
+        }
+      }
+
+      // 生成设备二维码
+      const deviceId = editingDevice ? editingDevice.id : `temp_${Date.now()}`;
+      const qrCodeValue = qrCode || `S${deviceId}`;
+      data.append('qr_code', qrCodeValue);
+
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
           ...(sessionId ? { Authorization: `Bearer ${sessionId}` } : {}),
         },
-        body: JSON.stringify(formData),
+        body: data,
       });
 
       if (response.ok) {
@@ -228,6 +341,27 @@ export default function PCDevices() {
 
   const handleTypeFilter = (type: string) => {
     setTypeFilter(type === typeFilter ? '' : type);
+  };
+
+  const handlePickImage = () => {
+    Alert.alert('提示', '请选择照片上传功能', [
+      { text: '确定' }
+    ]);
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    const newPhotos = sitePhotos.filter((_, i) => i !== index);
+    setSitePhotos(newPhotos);
+  };
+
+  const generateQRCode = () => {
+    if (editingDevice) {
+      setQrCode(`S${editingDevice.id}`);
+    } else if (formData.device_number) {
+      setQrCode(`S${formData.device_number}`);
+    } else {
+      Alert.alert('提示', '请先输入设备出厂编号');
+    }
   };
 
   const filteredDevices = devices.filter(d => {
@@ -324,9 +458,7 @@ export default function PCDevices() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ backgroundColor: '#E8F5E9', borderWidth: 1, borderColor: '#1E88E5' }}
-                onPress={() => {
-                  Alert.alert('提示', '导入功能正在开发中');
-                }}
+                onPress={() => setImportModalVisible(true)}
               >
                 <FontAwesome6 name="upload" size={14} style={{ marginRight: 6 }} />
                 <Text style={{ color: '#1E88E5' }}>批量导入</Text>
@@ -366,7 +498,7 @@ export default function PCDevices() {
         visible={modalVisible}
         title={editingDevice ? '编辑设备' : '新增设备'}
         onClose={() => setModalVisible(false)}
-        width={700}
+        width={800}
         footer={
           <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
             <TouchableOpacity className="pc-btn pc-btn-default" onPress={() => setModalVisible(false)}>
@@ -378,144 +510,365 @@ export default function PCDevices() {
           </View>
         }
       >
-        <ScrollView style={{ maxHeight: 500 }}>
-          <View style={styles.formRow}>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>
-                设备编号 <Text style={{ color: '#ff4d4f' }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入设备编号"
-                value={formData.device_number}
-                onChangeText={text => setFormData(prev => ({ ...prev, device_number: text }))}
-              />
+        <ScrollView style={{ maxHeight: 600 }}>
+          {/* 基本信息 */}
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>基本信息</Text>
+            <View style={styles.formRow}>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>
+                  设备出厂编号 <Text style={{ color: '#ff4d4f' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="请输入设备出厂编号"
+                  value={formData.device_number}
+                  onChangeText={text => setFormData(prev => ({ ...prev, device_number: text }))}
+                />
+              </View>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>设备服务编号</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="请输入设备服务编号"
+                  value={formData.service_number}
+                  onChangeText={text => setFormData(prev => ({ ...prev, service_number: text }))}
+                />
+              </View>
             </View>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>
-                设备名称 <Text style={{ color: '#ff4d4f' }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入设备名称"
-                value={formData.device_name}
-                onChangeText={text => setFormData(prev => ({ ...prev, device_name: text }))}
-              />
+            <View style={styles.formRow}>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>
+                  设备名称 <Text style={{ color: '#ff4d4f' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="请输入设备名称"
+                  value={formData.device_name}
+                  onChangeText={text => setFormData(prev => ({ ...prev, device_name: text }))}
+                />
+              </View>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>
+                  设备型号 <Text style={{ color: '#ff4d4f' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="请输入设备型号"
+                  value={formData.device_model}
+                  onChangeText={text => setFormData(prev => ({ ...prev, device_model: text }))}
+                />
+              </View>
+            </View>
+            <View style={styles.formRow}>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>
+                  设备类型 <Text style={{ color: '#ff4d4f' }}>*</Text>
+                </Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setShowDeviceTypeSelector(!showDeviceTypeSelector)}
+                >
+                  <View style={styles.selectTrigger}>
+                    <Text style={formData.device_type ? styles.selectText : styles.selectPlaceholder}>
+                      {formData.device_type || '请选择设备类型'}
+                    </Text>
+                    <FontAwesome6
+                      name={showDeviceTypeSelector ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color="#95A5A6"
+                    />
+                  </View>
+                </TouchableOpacity>
+                {showDeviceTypeSelector && (
+                  <View style={styles.dropdownMenu}>
+                    {DEVICE_TYPES.map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[styles.dropdownItem, formData.device_type === type && styles.dropdownItemSelected]}
+                        onPress={() => {
+                          setFormData(prev => ({ ...prev, device_type: type }));
+                          setShowDeviceTypeSelector(false);
+                        }}
+                      >
+                        <Text style={[styles.dropdownItemText, formData.device_type === type && styles.dropdownItemTextSelected]}>
+                          {type}
+                        </Text>
+                        {formData.device_type === type && (
+                          <FontAwesome6 name="check" size={14} color="#2ECC71" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>
+                  归属客户 <Text style={{ color: '#ff4d4f' }}>*</Text>
+                </Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setShowCustomerSelector(!showCustomerSelector)}
+                >
+                  <View style={styles.selectTrigger}>
+                    <Text style={formData.customer_name ? styles.selectText : styles.selectPlaceholder}>
+                      {formData.customer_name || '请选择或搜索客户名称'}
+                    </Text>
+                    <FontAwesome6
+                      name={showCustomerSelector ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color="#95A5A6"
+                    />
+                  </View>
+                </TouchableOpacity>
+                {showCustomerSelector && (
+                  <View style={styles.dropdownMenu}>
+                    <View style={styles.searchContainer}>
+                      <FontAwesome6 name="magnifying-glass" size={14} color="#95A5A6" />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="搜索客户名称"
+                        value={customerSearchKeyword}
+                        onChangeText={setCustomerSearchKeyword}
+                        placeholderTextColor="#95A5A6"
+                      />
+                    </View>
+                    <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                      {filteredCustomers.length === 0 ? (
+                        <Text style={styles.noDataText}>未找到匹配的客户</Text>
+                      ) : (
+                        filteredCustomers.slice(0, 10).map((customer) => (
+                          <TouchableOpacity
+                            key={customer.id}
+                            style={[styles.dropdownItem, formData.customer_name === customer.name && styles.dropdownItemSelected]}
+                            onPress={() => {
+                              setFormData(prev => ({ ...prev, customer_name: customer.name || '' }));
+                              setShowCustomerSelector(false);
+                              setCustomerSearchKeyword('');
+                            }}
+                          >
+                            <View>
+                              <Text style={[styles.dropdownItemText, formData.customer_name === customer.name && styles.dropdownItemTextSelected]}>
+                                {customer.name || '未命名客户'}
+                              </Text>
+                              <Text style={styles.dropdownItemSub}>
+                                联系人: {customer.contact_person || customer.contact || '无'}
+                              </Text>
+                            </View>
+                            {formData.customer_name === customer.name && (
+                              <FontAwesome6 name="check" size={14} color="#2ECC71" />
+                            )}
+                          </TouchableOpacity>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
-          <View style={styles.formRow}>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>设备型号</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入设备型号"
-                value={formData.device_model}
-                onChangeText={text => setFormData(prev => ({ ...prev, device_model: text }))}
-              />
-            </View>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>设备类型</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入设备类型"
-                value={formData.device_type}
-                onChangeText={text => setFormData(prev => ({ ...prev, device_type: text }))}
-              />
-            </View>
-          </View>
-          <View style={styles.formRow}>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>所属客户</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入所属客户"
-                value={formData.customer_name}
-                onChangeText={text => setFormData(prev => ({ ...prev, customer_name: text }))}
-              />
-            </View>
-          </View>
-          <View style={styles.formRow}>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>出厂日期</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="2024-01-01"
-                value={formData.factory_date}
-                onChangeText={text => setFormData(prev => ({ ...prev, factory_date: text }))}
-              />
-            </View>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>验收日期</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="2024-01-01"
-                value={formData.acceptance_date}
-                onChangeText={text => setFormData(prev => ({ ...prev, acceptance_date: text }))}
-              />
-            </View>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>质保到期</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="2025-01-01"
-                value={formData.warranty_end_date}
-                onChangeText={text => setFormData(prev => ({ ...prev, warranty_end_date: text }))}
-              />
+
+          {/* 日期信息 */}
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>日期信息</Text>
+            <View style={styles.formRow}>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>进厂日期</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="2024-01-01"
+                  value={formData.factory_date}
+                  onChangeText={text => setFormData(prev => ({ ...prev, factory_date: text }))}
+                />
+              </View>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>验收日期</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="2024-01-01"
+                  value={formData.acceptance_date}
+                  onChangeText={text => setFormData(prev => ({ ...prev, acceptance_date: text }))}
+                />
+              </View>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>质保到期日期</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="2025-01-01"
+                  value={formData.warranty_end_date}
+                  onChangeText={text => setFormData(prev => ({ ...prev, warranty_end_date: text }))}
+                />
+              </View>
             </View>
           </View>
-          <View style={styles.formRow}>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>关联合同</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入关联合同"
-                value={formData.contract_name}
-                onChangeText={text => setFormData(prev => ({ ...prev, contract_name: text }))}
-              />
-            </View>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>二维码ID</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入二维码ID"
-                value={formData.qr_code_id}
-                onChangeText={text => setFormData(prev => ({ ...prev, qr_code_id: text }))}
-              />
+
+          {/* 合同信息 */}
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>合同信息</Text>
+            <View style={styles.formRow}>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>合同名称</Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setShowContractSelector(!showContractSelector)}
+                >
+                  <View style={styles.selectTrigger}>
+                    <Text style={formData.contract_name ? styles.selectText : styles.selectPlaceholder}>
+                      {formData.contract_name || '请选择或搜索合同名称'}
+                    </Text>
+                    <FontAwesome6
+                      name={showContractSelector ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color="#95A5A6"
+                    />
+                  </View>
+                </TouchableOpacity>
+                {showContractSelector && (
+                  <View style={styles.dropdownMenu}>
+                    <View style={styles.searchContainer}>
+                      <FontAwesome6 name="magnifying-glass" size={14} color="#95A5A6" />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="搜索合同名称或编号"
+                        value={contractSearchKeyword}
+                        onChangeText={setContractSearchKeyword}
+                        placeholderTextColor="#95A5A6"
+                      />
+                    </View>
+                    <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                      {filteredContracts.length === 0 ? (
+                        <Text style={styles.noDataText}>未找到匹配的合同</Text>
+                      ) : (
+                        filteredContracts.slice(0, 10).map((contract) => (
+                          <TouchableOpacity
+                            key={contract.id}
+                            style={[styles.dropdownItem, formData.contract_name === (contract.title || contract.contract_name) && styles.dropdownItemSelected]}
+                            onPress={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                contract_name: contract.title || contract.contract_name || '',
+                                contract_number: contract.contract_no || '',
+                              }));
+                              setShowContractSelector(false);
+                              setContractSearchKeyword('');
+                            }}
+                          >
+                            <View>
+                              <Text style={[styles.dropdownItemText, formData.contract_name === (contract.title || contract.contract_name) && styles.dropdownItemTextSelected]}>
+                                {contract.title || contract.contract_name || '未命名合同'}
+                              </Text>
+                              <Text style={styles.dropdownItemSub}>
+                                编号: {contract.contract_no || '无'} | 客户: {contract.customer_name || '无'}
+                              </Text>
+                            </View>
+                            {formData.contract_name === (contract.title || contract.contract_name) && (
+                              <FontAwesome6 name="check" size={14} color="#2ECC71" />
+                            )}
+                          </TouchableOpacity>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>合同编号</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="请输入或选择合同编号"
+                  value={formData.contract_number}
+                  onChangeText={text => setFormData(prev => ({ ...prev, contract_number: text }))}
+                />
+              </View>
             </View>
           </View>
-          <View style={styles.formRow}>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>安装位置</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入安装位置"
-                value={formData.location}
-                onChangeText={text => setFormData(prev => ({ ...prev, location: text }))}
-              />
+
+          {/* 位置与备注 */}
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>位置与备注</Text>
+            <View style={styles.formRow}>
+              <View style={styles.formCol}>
+                <Text style={styles.formLabel}>设备所在位置</Text>
+                <TextInput
+                  style={[styles.input, styles.textarea]}
+                  placeholder="请输入设备位置说明"
+                  value={formData.location}
+                  onChangeText={text => setFormData(prev => ({ ...prev, location: text }))}
+                  multiline
+                  numberOfLines={2}
+                  textAlignVertical="top"
+                />
+              </View>
             </View>
-            <View style={styles.formCol}>
-              <Text style={styles.formLabel}>服务编号</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入服务编号"
-                value={formData.service_number}
-                onChangeText={text => setFormData(prev => ({ ...prev, service_number: text }))}
-              />
+            <View style={styles.formRow}>
+              <View style={styles.formColFull}>
+                <Text style={styles.formLabel}>备注</Text>
+                <TextInput
+                  style={[styles.input, styles.textarea]}
+                  placeholder="请输入备注信息"
+                  value={formData.remarks}
+                  onChangeText={text => setFormData(prev => ({ ...prev, remarks: text }))}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
             </View>
           </View>
-          <View style={styles.formRow}>
-            <View style={styles.formColFull}>
-              <Text style={styles.formLabel}>备注</Text>
-              <TextInput
-                style={[styles.input, styles.textarea]}
-                placeholder="请输入备注信息"
-                value={formData.remarks}
-                onChangeText={text => setFormData(prev => ({ ...prev, remarks: text }))}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
+
+          {/* 设备现场照片 */}
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>设备现场照片</Text>
+            <View style={styles.photoContainer}>
+              {sitePhotos.map((photoUri, index) => (
+                <View key={index} style={styles.photoItem}>
+                  <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                  <TouchableOpacity
+                    style={styles.photoRemoveButton}
+                    onPress={() => handleRemovePhoto(index)}
+                  >
+                    <FontAwesome6 name="xmark" size={12} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {sitePhotos.length < 5 && (
+                <TouchableOpacity
+                  style={styles.photoAddButton}
+                  onPress={handlePickImage}
+                >
+                  <FontAwesome6 name="image" size={24} color="#1E88E5" />
+                  <Text style={styles.photoAddButtonText}>选择照片</Text>
+                </TouchableOpacity>
+              )}
             </View>
+          </View>
+
+          {/* 设备二维码 */}
+          <View style={styles.formSection}>
+            <Text style={styles.formSectionTitle}>设备二维码</Text>
+            <View style={styles.qrCodeContainer}>
+              {qrCode ? (
+                <View style={styles.qrCodeDisplay}>
+                  <FontAwesome6 name="qrcode" size={80} color="#2D3436" />
+                  <Text style={styles.qrCodeValue}>{qrCode}</Text>
+                  <Text style={styles.qrCodeHint}>扫码可查看设备详情</Text>
+                </View>
+              ) : (
+                <View style={styles.qrCodePlaceholder}>
+                  <FontAwesome6 name="qrcode" size={60} color="#B2BEC3" />
+                  <Text style={styles.qrCodePlaceholderText}>点击生成二维码</Text>
+                </View>
+              )}
+            </View>
+            {!qrCode && (
+              <TouchableOpacity
+                style={styles.generateQrButton}
+                onPress={generateQRCode}
+              >
+                <FontAwesome6 name="rotate" size={16} color="#FFFFFF" />
+                <Text style={styles.generateQrButtonText}>生成二维码</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </PCModal>
@@ -582,5 +935,187 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 6,
     fontWeight: 500,
+  },
+  formSection: {
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  formSectionTitle: {
+    fontSize: 15,
+    fontWeight: 600,
+    color: '#1E88E5',
+    marginBottom: 12,
+  },
+  selectTrigger: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  selectPlaceholder: {
+    fontSize: 14,
+    color: '#B2BEC3',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 44,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#d9d9d9',
+    borderRadius: 6,
+    zIndex: 1000,
+    maxHeight: 300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    padding: 0,
+  },
+  dropdownList: {
+    maxHeight: 250,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+  },
+  dropdownItemSelected: {
+    backgroundColor: '#E6F7FF',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  dropdownItemTextSelected: {
+    color: '#1E88E5',
+    fontWeight: 500,
+  },
+  dropdownItemSub: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  noDataText: {
+    padding: 12,
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 14,
+  },
+  photoContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  photoItem: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+  },
+  photoPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  photoRemoveButton: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FF4D4F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoAddButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E88E5',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F9FF',
+  },
+  photoAddButtonText: {
+    fontSize: 12,
+    color: '#1E88E5',
+    marginTop: 4,
+  },
+  qrCodeContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  qrCodeDisplay: {
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+  },
+  qrCodeValue: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#333',
+    marginTop: 8,
+  },
+  qrCodeHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  qrCodePlaceholder: {
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+    width: '100%',
+  },
+  qrCodePlaceholderText: {
+    fontSize: 13,
+    color: '#B2BEC3',
+    marginTop: 8,
+  },
+  generateQrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#1E88E5',
+    borderRadius: 6,
+    marginTop: 12,
+  },
+  generateQrButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    marginLeft: 6,
   },
 });
