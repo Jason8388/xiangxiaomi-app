@@ -38,9 +38,14 @@ export default function PCKnowledge() {
   const [editingItem, setEditingItem] = useState<Knowledge | null>(null);
   const [viewItem, setViewItem] = useState<Knowledge | null>(null);
   const [formData, setFormData] = useState({ title: '', category: '', tags: '', content: '' });
+  const [attachments, setAttachments] = useState<{ uri: string; name: string; type: string }[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTag, setCustomTag] = useState('');
+  const [tagInput, setTagInput] = useState<any>(null);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
   const categories = ['设备维护', '操作手册', '故障排除', '技术文档', '培训资料'];
+  const defaultTags = ['技术文档', '操作指南', '故障处理', '最佳实践', '经验总结', '项目经验', '常见问题', '培训材料', '流程规范', '工具使用'];
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -110,18 +115,32 @@ export default function PCKnowledge() {
         : `${API_BASE}/api/v1/knowledge`;
       const method = editingItem ? 'PUT' : 'POST';
 
+      // 使用FormData上传附件
+      const formDataObj = new FormData();
+      formDataObj.append('title', formData.title);
+      formDataObj.append('category', formData.category);
+      formDataObj.append('content', formData.content);
+      // 标签：优先使用selectedTags，如果没有则解析formData.tags
+      const tagsToSave = selectedTags.length > 0 ? selectedTags : (formData.tags ? formData.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t) : []);
+      formDataObj.append('tags', JSON.stringify(tagsToSave));
+
+      // 添加附件文件
+      for (const attachment of attachments) {
+        try {
+          // 从 blob URL 获取文件
+          const response = await fetch(attachment.uri);
+          const blob = await response.blob();
+          const file = new File([blob], attachment.name, { type: attachment.type });
+          formDataObj.append('files', file);
+        } catch (e) {
+          console.error('Error processing attachment:', e);
+        }
+      }
+
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {}),
-        },
-        body: JSON.stringify({
-          title: formData.title,
-          category: formData.category,
-          content: formData.content,
-          tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : [],
-        }),
+        body: formDataObj,
+        headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
       });
 
       if (!response.ok) {
@@ -167,6 +186,8 @@ export default function PCKnowledge() {
   const handleAdd = () => {
     setEditingItem(null);
     setFormData({ title: '', category: '', tags: '', content: '' });
+    setAttachments([]);
+    setSelectedTags([]);
     setModalVisible(true);
   };
 
@@ -178,7 +199,61 @@ export default function PCKnowledge() {
       content: item.content,
       tags: Array.isArray(item.tags) ? item.tags.join(', ') : '',
     });
+    // 解析已有标签
+    const tags = item.tags || [];
+    setSelectedTags(tags);
+    setAttachments([]);
     setModalVisible(true);
+  };
+
+  // 处理附件选择
+  const handleSelectAttachment = () => {
+    if (typeof window !== 'undefined' && tagInput) {
+      tagInput.click();
+    }
+  };
+
+  const handleFileChange = (e: any) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const remaining = 10 - attachments.length;
+      const filesToAdd = Array.from(files).slice(0, remaining);
+      const newAttachments = filesToAdd.map((file: any) => ({
+        uri: URL.createObjectURL(file),
+        name: file.name,
+        type: file.type,
+      }));
+      setAttachments(prev => [...prev, ...newAttachments]);
+    }
+    // 清空input以便重复选择同一文件
+    if (tagInput) {
+      tagInput.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 处理标签
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(prev => prev.filter(t => t !== tag));
+    } else if (selectedTags.length < 10) {
+      setSelectedTags(prev => [...prev, tag]);
+    }
+  };
+
+  const handleAddCustomTag = () => {
+    const tag = customTag.trim();
+    if (tag && !selectedTags.includes(tag) && selectedTags.length < 10) {
+      setSelectedTags(prev => [...prev, tag]);
+      setCustomTag('');
+    }
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setSelectedTags(prev => prev.filter(t => t !== tag));
   };
 
   const columns = [
@@ -387,7 +462,7 @@ export default function PCKnowledge() {
         visible={modalVisible}
         title={editingItem ? '编辑知识' : '新增知识'}
         onClose={() => setModalVisible(false)}
-        width={600}
+        width={700}
         footer={
           <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
             <TouchableOpacity className="pc-btn pc-btn-default" onPress={() => setModalVisible(false)}>
@@ -422,15 +497,111 @@ export default function PCKnowledge() {
               />
             </View>
           </View>
+
+          {/* 知识标签 */}
           <View className="pc-form-item">
-            <Text className="pc-form-label">标签</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="多个标签用逗号分隔，如：维修,保养,培训"
-              value={formData.tags}
-              onChangeText={text => setFormData(prev => ({ ...prev, tags: text }))}
-            />
+            <Text className="pc-form-label">知识标签</Text>
+            <View style={styles.tagContainer}>
+              {/* 预设标签 */}
+              <View style={styles.tagButtons}>
+                {defaultTags.map(tag => (
+                  <TouchableOpacity
+                    key={tag}
+                    style={[
+                      styles.tagButton,
+                      selectedTags.includes(tag) && styles.tagButtonActive,
+                    ]}
+                    onPress={() => toggleTag(tag)}
+                  >
+                    <Text
+                      style={[
+                        styles.tagButtonText,
+                        selectedTags.includes(tag) && styles.tagButtonTextActive,
+                      ]}
+                    >
+                      {tag}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {/* 自定义标签 */}
+              <View style={styles.customTagRow}>
+                <TextInput
+                  style={[styles.input, styles.customTagInput]}
+                  placeholder="添加自定义标签"
+                  value={customTag}
+                  onChangeText={setCustomTag}
+                  onSubmitEditing={handleAddCustomTag}
+                />
+                <TouchableOpacity className="pc-btn pc-btn-default" onPress={handleAddCustomTag}>
+                  <Text style={styles.btnDefaultText}>添加</Text>
+                </TouchableOpacity>
+              </View>
+              {/* 已选标签显示 */}
+              {selectedTags.length > 0 && (
+                <View style={styles.selectedTags}>
+                  {selectedTags.map(tag => (
+                    <View key={tag} style={styles.selectedTag}>
+                      <Text style={styles.selectedTagText}>{tag}</Text>
+                      <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
+                        <Text style={styles.tagRemove}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
+
+          {/* 附件信息 */}
+          <View className="pc-form-item">
+            <Text className="pc-form-label">附件信息</Text>
+            <View style={styles.attachmentArea}>
+              {/* 隐藏的文件输入 */}
+              <input
+                type="file"
+                multiple
+                accept="image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf"
+                ref={tagInput as any}
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+              {/* 已有附件列表 */}
+              {attachments.length > 0 && (
+                <View style={styles.attachmentList}>
+                  {attachments.map((file, index) => {
+                    const isImage = file.type?.startsWith('image');
+                    return (
+                      <View key={index} style={styles.attachmentItem}>
+                        {isImage ? (
+                          <img src={file.uri} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} />
+                        ) : (
+                          <View style={styles.fileIcon}>
+                            <FontAwesome6 name="file" size={20} color="#95A5A6" />
+                          </View>
+                        )}
+                        <Text style={styles.attachmentName} numberOfLines={1}>{file.name}</Text>
+                        <TouchableOpacity onPress={() => handleRemoveAttachment(index)} style={styles.removeBtn}>
+                          <Text style={{ color: '#FF4D4F' }}>×</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+              {/* 添加附件按钮 */}
+              {attachments.length < 10 && (
+                <TouchableOpacity style={styles.addAttachmentBtn} onPress={handleSelectAttachment}>
+                  <FontAwesome6 name="plus" size={16} color="#1E88E5" />
+                  <Text style={styles.addAttachmentText}>添加附件</Text>
+                </TouchableOpacity>
+              )}
+              <Text style={styles.attachmentHint}>
+                支持格式：JPG、PNG、GIF、Word(.doc/.docx)、Excel(.xls/.xlsx)、PPT(.ppt/.pptx)、PDF，最多10个附件
+              </Text>
+            </View>
+          </View>
+
           <View className="pc-form-item">
             <Text className="pc-form-label">
               内容 <Text style={{ color: '#ff4d4f' }}>*</Text>
@@ -491,5 +662,122 @@ const styles = StyleSheet.create({
   },
   selectWrapper: {
     position: 'relative',
+  },
+  // 标签相关样式
+  tagContainer: {
+    gap: 12,
+  },
+  tagButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#d9d9d9',
+    backgroundColor: '#fff',
+  },
+  tagButtonActive: {
+    backgroundColor: '#E6F7FF',
+    borderColor: '#1890FF',
+  },
+  tagButtonText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  tagButtonTextActive: {
+    color: '#1890FF',
+  },
+  customTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  customTagInput: {
+    flex: 1,
+  },
+  selectedTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  selectedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    backgroundColor: '#E6F7FF',
+    borderWidth: 1,
+    borderColor: '#1890FF',
+  },
+  selectedTagText: {
+    fontSize: 13,
+    color: '#1890FF',
+  },
+  tagRemove: {
+    fontSize: 16,
+    color: '#1890FF',
+    fontWeight: 'bold',
+  },
+  // 附件相关样式
+  attachmentArea: {
+    gap: 12,
+  },
+  attachmentList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 6,
+    maxWidth: 200,
+  },
+  fileIcon: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 4,
+  },
+  attachmentName: {
+    fontSize: 12,
+    color: '#666',
+    flex: 1,
+  },
+  removeBtn: {
+    padding: 4,
+  },
+  addAttachmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#1E88E5',
+    borderStyle: 'dashed',
+    alignSelf: 'flex-start',
+  },
+  addAttachmentText: {
+    fontSize: 13,
+    color: '#1E88E5',
+  },
+  attachmentHint: {
+    fontSize: 12,
+    color: '#999',
   },
 });

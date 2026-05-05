@@ -537,6 +537,88 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// 更新知识库（支持文件上传）
+router.put('/:id', upload.array('files', 10), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, content, tags, category } = req.body;
+    const files = req.files as Express.Multer.File[];
+
+    if (!title) {
+      return res.status(400).json({ code: 1, message: '标题不能为空' });
+    }
+
+    // 上传新文件到OSS并获取URL
+    let fileUrls: string[] = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const fileName = `${Date.now()}_${file.originalname}`;
+          const url = await uploadFileToOSS(file.buffer, fileName);
+          fileUrls.push(url);
+        } catch (uploadError) {
+          console.error('Upload file error:', uploadError);
+        }
+      }
+    }
+
+    try {
+      // 获取现有知识
+      const existingResult = await queryWithRetry(
+        'SELECT * FROM knowledge WHERE id = $1',
+        [id]
+      );
+
+      if (existingResult.rows.length === 0) {
+        return res.status(404).json({ code: 1, message: '知识不存在' });
+      }
+
+      const existingKnowledge = existingResult.rows[0];
+      // 合并已有文件和新增文件
+      const existingFiles = existingKnowledge.files ? JSON.parse(existingKnowledge.files) : [];
+      const allFiles = [...existingFiles, ...fileUrls];
+
+      // 更新数据库
+      const updateResult = await queryWithRetry(
+        'UPDATE knowledge SET title = $1, category = $2, content = $3, tags = $4, files = $5, updated_at = $6 WHERE id = $7 RETURNING *',
+        [
+          title,
+          category || existingKnowledge.category,
+          content,
+          tags || existingKnowledge.tags,
+          JSON.stringify(allFiles),
+          new Date().toISOString(),
+          id
+        ]
+      );
+
+      res.json({ code: 0, data: updateResult.rows[0], message: '更新成功' });
+    } catch (dbError: any) {
+      console.error('Database error:', dbError.message);
+      // 更新内存存储
+      const index = memoryKnowledgeList.findIndex(k => k.id === parseInt(id));
+      if (index > -1) {
+        const existingFiles = memoryKnowledgeList[index].files || [];
+        memoryKnowledgeList[index] = {
+          ...memoryKnowledgeList[index],
+          title,
+          category: category || memoryKnowledgeList[index].category,
+          content,
+          tags: tags || memoryKnowledgeList[index].tags,
+          files: [...existingFiles, ...fileUrls],
+          updated_at: new Date().toISOString()
+        };
+        res.json({ code: 0, data: memoryKnowledgeList[index], message: '更新成功' });
+      } else {
+        res.status(404).json({ code: 1, message: '知识不存在' });
+      }
+    }
+  } catch (error) {
+    console.error('Update knowledge error:', error);
+    res.status(500).json({ code: 1, message: '服务器错误' });
+  }
+});
+
 // 批量导入知识库
 router.post('/batch', upload.single('file'), async (req: any, res: any) => {
   try {
