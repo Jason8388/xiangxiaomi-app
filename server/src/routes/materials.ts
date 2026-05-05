@@ -127,16 +127,78 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 下载导入模板
+// 下载导入模板 - 与批量导出字段保持一致
 router.get('/template', (req, res) => {
-  // CSV 格式的物料导入模板
-  const template = `物料编号,物料名称,规格型号,单位,分类,当前库存,预警库存,供应商,单价,存放位置,备注
-MAT-001,示例物料1,M8*30mm,盒,紧固件,100,50,供应商名称,15.50,A区-01-01,这是示例数据
-MAT-002,示例物料2,5L/桶,桶,润滑剂,50,20,供应商名称,128.00,B区-02-03,这是示例数据`;
+  // Excel格式的物料导入模板，与批量导出字段保持一致
+  const templateData = [
+    {
+      '物料编号': 'MAT-001',
+      '物料名称': '示例物料1',
+      '规格型号': 'M8*30mm',
+      '单位': '盒',
+      '分类': '紧固件',
+      '当前库存': 100,
+      '预警库存': 50,
+      '供应商': '华东五金',
+      '单价': 15.50,
+      '存放位置': 'A区-01-01',
+      '备注': '这是示例数据'
+    },
+    {
+      '物料编号': 'MAT-002',
+      '物料名称': '示例物料2',
+      '规格型号': '5L/桶',
+      '单位': '桶',
+      '分类': '润滑剂',
+      '当前库存': 50,
+      '预警库存': 20,
+      '供应商': '石化物资',
+      '单价': 128.00,
+      '存放位置': 'B区-02-03',
+      '备注': '这是示例数据'
+    },
+    {
+      '物料编号': 'MAT-003',
+      '物料名称': '示例物料3',
+      '规格型号': '加厚耐磨款 L码',
+      '单位': '副',
+      '分类': '劳保用品',
+      '当前库存': 200,
+      '预警库存': 100,
+      '供应商': '劳保商城',
+      '单价': 8.00,
+      '存放位置': 'C区-03-02',
+      '备注': '这是示例数据'
+    }
+  ];
 
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="material_template.csv"');
-  res.send(template);
+  // 创建工作簿和工作表
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(templateData);
+
+  // 设置列宽
+  worksheet['!cols'] = [
+    { wch: 15 }, // 物料编号
+    { wch: 20 }, // 物料名称
+    { wch: 15 }, // 规格型号
+    { wch: 8 },  // 单位
+    { wch: 12 }, // 分类
+    { wch: 10 }, // 当前库存
+    { wch: 10 }, // 预警库存
+    { wch: 15 }, // 供应商
+    { wch: 10 }, // 单价
+    { wch: 15 }, // 存放位置
+    { wch: 25 }, // 备注
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, '物料导入模板');
+
+  // 生成Excel文件
+  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="material_template.xlsx"');
+  res.send(buffer);
 });
 
 // 批量导出物料
@@ -157,7 +219,6 @@ router.get('/batch-export', async (req, res) => {
 
     // 准备导出数据（包含所有字段）
     const exportData = materials.map((m: any) => ({
-      'ID': m.id,
       '物料编号': m.material_number || m.code || '',
       '物料名称': m.material_name || m.name || '',
       '规格型号': m.material_spec || m.spec || '',
@@ -167,12 +228,8 @@ router.get('/batch-export', async (req, res) => {
       '预警库存': m.warning_stock || m.min_stock || 0,
       '供应商': m.supplier || '',
       '单价': m.unit_price || m.price || 0,
-      '物料图片': m.material_photo || m.photo || '',
-      '二维码ID': m.qr_code_id || '',
-      '标签': m.tags && Array.isArray(m.tags) ? m.tags.join(', ') : '',
+      '存放位置': m.location || '',
       '备注': m.remarks || m.note || m.description || '',
-      '创建时间': m.created_at ? new Date(m.created_at).toLocaleString('zh-CN') : '',
-      '更新时间': m.updated_at ? new Date(m.updated_at).toLocaleString('zh-CN') : '',
     }));
 
     // 创建工作簿和工作表
@@ -181,7 +238,6 @@ router.get('/batch-export', async (req, res) => {
 
     // 设置列宽
     worksheet['!cols'] = [
-      { wch: 8 },  // ID
       { wch: 15 }, // 物料编号
       { wch: 20 }, // 物料名称
       { wch: 15 }, // 规格型号
@@ -191,12 +247,8 @@ router.get('/batch-export', async (req, res) => {
       { wch: 10 }, // 预警库存
       { wch: 15 }, // 供应商
       { wch: 10 }, // 单价
-      { wch: 25 }, // 物料图片
-      { wch: 15 }, // 二维码ID
-      { wch: 20 }, // 标签
+      { wch: 15 }, // 存放位置
       { wch: 25 }, // 备注
-      { wch: 20 }, // 创建时间
-      { wch: 20 }, // 更新时间
     ];
 
     // 添加工作表到工作簿
@@ -511,7 +563,7 @@ router.post('/:id/inventory/adjust', async (req, res) => {
 // 导出内存存储供其他路由使用
 export { memoryMaterials };
 
-// 批量导入物料
+// 批量导入物料 - 字段与模板保持一致
 router.post('/batch', upload.single('file'), async (req: any, res: any) => {
   try {
     if (!req.file) {
@@ -544,15 +596,16 @@ router.post('/batch', upload.single('file'), async (req: any, res: any) => {
         id: Date.now() + i,
         qr_code_id: row['二维码ID'] || `M${Date.now()}${i}`,
         name: row['物料名称'] || '',
-        code: row['物料编码'] || '',
+        code: row['物料编号'] || '',
         spec: row['规格型号'] || '',
         unit: row['单位'] || '',
         category: row['分类'] || '',
-        current_stock: parseInt(row['库存数量']) || 0,
-        min_stock: parseInt(row['最低库存']) || 0,
+        current_stock: parseInt(row['当前库存']) || 0,
+        min_stock: parseInt(row['预警库存']) || 0,
         price: parseFloat(row['单价']) || 0,
         supplier: row['供应商'] || '',
         location: row['存放位置'] || '',
+        description: row['备注'] || '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
