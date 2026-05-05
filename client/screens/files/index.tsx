@@ -442,10 +442,10 @@ export default function FilesScreen() {
         file.name,
         file.mimeType || 'application/octet-stream'
       );
-      formData.append('files', fileObj as any);
+      formData.append('file', fileObj as any);
       formData.append('uploader_id', user?.id || '1');
 
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/files/upload`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/files`, {
         method: 'POST',
         body: formData,
       });
@@ -507,7 +507,7 @@ export default function FilesScreen() {
       Alert.alert('提示', '开始下载文件...');
 
       // 下载文件到本地
-      const downloadUrl = `${getApiBaseUrl()}/api/v1/files/download/${file.id}`;
+      const downloadUrl = `${getApiBaseUrl()}/api/v1/files/${file.id}/download`;
       const fileUri = `${FileSystem.documentDirectory}${file.original_name}`;
 
       const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri);
@@ -515,7 +515,7 @@ export default function FilesScreen() {
       if (downloadResult.status === 200) {
         // 更新下载记录
         try {
-          await fetch(`${getApiBaseUrl()}/api/v1/files/download/${file.id}`, { method: 'POST' });
+          await fetch(`${getApiBaseUrl()}/api/v1/files/${file.id}/download`, { method: 'POST' });
         } catch (error) {
           console.error('Update download count error:', error);
         }

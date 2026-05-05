@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTable } from '@/components/pc/PCComponents';
@@ -18,11 +18,14 @@ interface FileItem {
   original_name: string;
   file_type: string;
   file_size: number;
-  file_url: string;
-  upload_time: string;
-  download_count: number;
-  uploader_name: string;
+  file_path?: string;
+  file_url?: string;
+  category: string;
+  description?: string;
   tags: string[];
+  uploader_name: string;
+  download_count: number;
+  created_at: string;
 }
 
 const fileTypeIcons: Record<string, { icon: string; color: string }> = {
@@ -41,30 +44,34 @@ const formatFileSize = (bytes: number) => {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 };
 
+const categories = ['项目文档', '会议记录', '技术资料', '合同文件', '培训资料', '其他'];
+
 export default function PCFiles() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [modalVisible, setModalVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [formData, setFormData] = useState({ category: '', description: '', tags: '' });
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/files`);
+      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const response = await fetch(`${API_BASE}/api/v1/files`, {
+        headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
+      });
       const data = await response.json();
       const list = Array.isArray(data) ? data : (data.files || []);
       setFiles(list);
       setPagination(prev => ({ ...prev, total: list.length }));
     } catch (error) {
-      setFiles([
-        { id: 1, file_name: '项目进度报告.xlsx', original_name: '项目进度报告.xlsx', file_type: 'xlsx', file_size: 1024000, file_url: '#', upload_time: '2024-03-20', download_count: 15, uploader_name: '张三', tags: ['报表', '项目'] },
-        { id: 2, file_name: '会议纪要.docx', original_name: '会议纪要.docx', file_type: 'docx', file_size: 512000, file_url: '#', upload_time: '2024-03-18', download_count: 8, uploader_name: '李四', tags: ['会议'] },
-        { id: 3, file_name: '技术方案.pdf', original_name: '技术方案.pdf', file_type: 'pdf', file_size: 2048000, file_url: '#', upload_time: '2024-03-15', download_count: 22, uploader_name: '王五', tags: ['技术'] },
-        { id: 4, file_name: '产品介绍.pptx', original_name: '产品介绍.pptx', file_type: 'pptx', file_size: 3584000, file_url: '#', upload_time: '2024-03-10', download_count: 35, uploader_name: '赵六', tags: ['产品'] },
-      ]);
-      setPagination(prev => ({ ...prev, total: 4 }));
+      console.error('Fetch files error:', error);
     } finally {
       setLoading(false);
     }
@@ -72,46 +79,315 @@ export default function PCFiles() {
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // 检查文件类型
+      const allowedTypes = ['.xlsx', '.xls', '.doc', '.docx', '.ppt', '.pptx', '.pdf'];
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      if (!allowedTypes.includes(ext)) {
+        alert('只允许上传 Excel、Word、PPT、PDF 格式文件');
+        return;
+      }
+      setSelectedFile(file);
+      setModalVisible(true);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      alert('请选择文件');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const formDataObj = new FormData();
+      formDataObj.append('file', selectedFile);
+      formDataObj.append('category', formData.category || '未分类');
+      formDataObj.append('description', formData.description || '');
+      formDataObj.append('tags', JSON.stringify(formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : []));
+
+      // 模拟上传进度
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const response = await fetch(`${API_BASE}/api/v1/files`, {
+        method: 'POST',
+        headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
+        body: formDataObj,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (!response.ok) {
+        throw new Error('上传失败');
+      }
+
+      alert('文件上传成功');
+      setModalVisible(false);
+      setSelectedFile(null);
+      setFormData({ category: '', description: '', tags: '' });
+      fetchFiles();
+    } catch (error: any) {
+      alert('上传失败: ' + error.message);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleDownload = async (file: FileItem) => {
+    try {
+      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      
+      // 获取文件下载链接
+      const response = await fetch(`${API_BASE}/api/v1/files/${file.id}/download`, {
+        headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
+      });
+
+      if (!response.ok) {
+        throw new Error('文件不存在');
+      }
+
+      // 获取文件名
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = file.original_name;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match) {
+          filename = match[1].replace(/['"]/g, '');
+        }
+      }
+
+      // 创建Blob并下载
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      // 更新下载次数
+      await fetch(`${API_BASE}/api/v1/files/${file.id}/download`, {
+        method: 'POST',
+        headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
+      });
+
+      fetchFiles();
+    } catch (error: any) {
+      alert('下载失败: ' + error.message);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('确定要删除此文件吗？')) return;
+
+    try {
+      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const response = await fetch(`${API_BASE}/api/v1/files/${id}`, {
+        method: 'DELETE',
+        headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
+      });
+
+      if (!response.ok) {
+        throw new Error('删除失败');
+      }
+
+      alert('文件删除成功');
+      fetchFiles();
+    } catch (error: any) {
+      alert('删除失败: ' + error.message);
+    }
+  };
+
   const columns = [
-    { key: 'original_name', title: '文件名', width: 250, render: (val: string, record: FileItem) => (
+    { key: 'original_name', title: '文件名', width: 280, render: (val: string, record: FileItem) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 20 }}>{fileTypeIcons[record.file_type]?.icon || '📁'}</span>
-        <span>{val}</span>
+        <div>
+          <div style={{ fontWeight: 500, color: '#333' }}>{val}</div>
+          <div style={{ fontSize: 12, color: '#999' }}>{formatFileSize(record.file_size)}</div>
+        </div>
       </div>
     )},
-    { key: 'file_type', title: '类型', width: 60, render: (val: string) => <span style={{ textTransform: 'uppercase', color: '#999' }}>{val}</span> },
-    { key: 'file_size', title: '大小', width: 80, render: (val: number) => formatFileSize(val) },
-    { key: 'tags', title: '标签', width: 150, render: (val: string[]) => val?.slice(0, 2).map(t => <PCTag key={t} style={{ marginRight: 4 }}>{t}</PCTag>) },
-    { key: 'uploader_name', title: '上传人', width: 80 },
-    { key: 'upload_time', title: '上传时间', width: 100 },
-    { key: 'download_count', title: '下载', width: 60, render: (val: number) => <span style={{ color: '#4F8EF7' }}>{val}</span> },
-    { key: 'actions', title: '操作', width: 160, render: (_: any, record: FileItem) => (
+    { key: 'file_type', title: '类型', width: 70, render: (val: string) => (
+      <span style={{ textTransform: 'uppercase', color: '#999', fontSize: 12 }}>{val}</span>
+    )},
+    { key: 'category', title: '分类', width: 90, render: (val: string) => val ? <PCTag type="primary">{val}</PCTag> : '-' },
+    { key: 'tags', title: '标签', width: 150, render: (val: string[]) => val?.slice(0, 2).map((t, i) => <PCTag key={i} style={{ marginRight: 4, marginBottom: 2 }}>{t}</PCTag>) },
+    { key: 'uploader_name', title: '上传人', width: 80, render: (val: string) => val || '未知' },
+    { key: 'created_at', title: '上传时间', width: 110, render: (val: string) => val ? val.split('T')[0] : '-' },
+    { key: 'download_count', title: '下载', width: 60, render: (val: number) => <span style={{ color: '#4F8EF7' }}>{val || 0}</span> },
+    { key: 'actions', title: '操作', width: 160, fixed: 'right' as const, render: (_: any, record: FileItem) => (
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="pc-btn pc-btn-text pc-btn-sm" onClick={() => window.open(record.file_url, '_blank')}>下载</button>
-        <button className="pc-btn pc-btn-text pc-btn-sm" style={{ color: '#FF4D4F' }} onClick={() => { if (confirm('确定删除吗？')) setFiles(prev => prev.filter(f => f.id !== record.id)); }}>删除</button>
+        <button className="pc-btn pc-btn-text pc-btn-sm" onClick={() => handleDownload(record)}>下载</button>
+        <button className="pc-btn pc-btn-text pc-btn-sm" style={{ color: '#FF4D4F' }} onClick={() => handleDelete(record.id)}>删除</button>
       </div>
-    ) },
+    )},
   ];
 
   const filteredFiles = files.filter(f => {
-    const matchSearch = !searchText || f.original_name.includes(searchText);
-    const matchType = !typeFilter || f.file_type === typeFilter;
-    return matchSearch && matchType;
+    const matchSearch = !searchText || f.original_name.toLowerCase().includes(searchText.toLowerCase()) || f.description?.toLowerCase().includes(searchText.toLowerCase());
+    const matchCategory = !categoryFilter || f.category === categoryFilter;
+    return matchSearch && matchCategory;
   });
-
-  const fileTypes = [...new Set(files.map(f => f.file_type))];
 
   return (
     <>
-      
       <PCLayout>
-        <div className="pc-page-header"><h1 className="pc-page-title">文件管理</h1><p className="pc-page-description">统一管理项目文件，包括合同、文档、报表等资料</p></div>
+        <div className="pc-page-header">
+          <h1 className="pc-page-title">文件管理</h1>
+          <p className="pc-page-description">统一管理项目文件，包括合同、文档、报表等资料</p>
+        </div>
         <PCCard>
-          <PCToolbar left={<><PCSearchBar placeholder="搜索文件名..." value={searchText} onChange={setSearchText} onSearch={() => {}} /><div style={{ display: 'flex', gap: 8 }}><button className={`pc-btn pc-btn-sm ${!typeFilter ? 'pc-btn-primary' : 'pc-btn-default'}`} onClick={() => setTypeFilter('')}>全部</button>{fileTypes.map(type => (<button key={type} className={`pc-btn pc-btn-sm ${typeFilter === type ? 'pc-btn-primary' : 'pc-btn-default'}`} onClick={() => setTypeFilter(typeFilter === type ? '' : type)}>{type.toUpperCase()}</button>))}</div></>} right={<button className="pc-btn pc-btn-primary">+ 上传文件</button>} />
-          <PCTable columns={columns} data={filteredFiles} rowKey="id" loading={loading} selectedRowKeys={selectedRowKeys} onSelectChange={setSelectedRowKeys} />
-          <PCPagination current={pagination.current} pageSize={pagination.pageSize} total={pagination.total} onChange={(page) => setPagination(prev => ({ ...prev, current: page }))} />
+          <PCToolbar 
+            left={
+              <>
+                <PCSearchBar 
+                  placeholder="搜索文件名或描述..." 
+                  value={searchText} 
+                  onChange={setSearchText} 
+                  onSearch={() => {}}
+                />
+                <div style={{ display: 'flex', gap: 8, marginLeft: 16 }}>
+                  <button 
+                    className={`pc-btn pc-btn-sm ${!categoryFilter ? 'pc-btn-primary' : 'pc-btn-default'}`} 
+                    onClick={() => setCategoryFilter('')}
+                  >
+                    全部
+                  </button>
+                  {categories.map(cat => (
+                    <button 
+                      key={cat} 
+                      className={`pc-btn pc-btn-sm ${categoryFilter === cat ? 'pc-btn-primary' : 'pc-btn-default'}`} 
+                      onClick={() => setCategoryFilter(categoryFilter === cat ? '' : cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </>
+            } 
+            right={
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  accept=".xlsx,.xls,.doc,.docx,.ppt,.pptx,.pdf"
+                  onChange={handleFileSelect}
+                />
+                <button className="pc-btn pc-btn-primary" onClick={() => fileInputRef.current?.click()}>
+                  + 上传文件
+                </button>
+              </>
+            } 
+          />
+          <PCTable 
+            columns={columns} 
+            data={filteredFiles} 
+            rowKey="id" 
+            loading={loading} 
+          />
+          <PCPagination 
+            current={pagination.current} 
+            pageSize={pagination.pageSize} 
+            total={pagination.total} 
+            onChange={(page) => setPagination(prev => ({ ...prev, current: page }))} 
+          />
         </PCCard>
       </PCLayout>
+
+      {/* 上传弹窗 */}
+      <PCModal 
+        visible={modalVisible} 
+        title="上传文件" 
+        onClose={() => { setModalVisible(false); setSelectedFile(null); }} 
+        width={500}
+        footer={
+          <>
+            <button className="pc-btn pc-btn-default" onClick={() => { setModalVisible(false); setSelectedFile(null); }}>取消</button>
+            <button className="pc-btn pc-btn-primary" onClick={handleUpload} disabled={uploading || !selectedFile}>
+              {uploading ? '上传中...' : '开始上传'}
+            </button>
+          </>
+        }
+      >
+        <div className="pc-form">
+          <div className="pc-form-item">
+            <label className="pc-form-label">已选文件</label>
+            <div style={{ padding: '12px', background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 24 }}>
+                {selectedFile ? fileTypeIcons[selectedFile.name.split('.').pop()?.toLowerCase() || '']?.icon || '📁' : '📁'}
+              </span>
+              <div>
+                <div style={{ fontWeight: 500 }}>{selectedFile?.name}</div>
+                <div style={{ fontSize: 12, color: '#999' }}>{selectedFile ? formatFileSize(selectedFile.size) : ''}</div>
+              </div>
+            </div>
+          </div>
+
+          {uploading && (
+            <div className="pc-form-item">
+              <label className="pc-form-label">上传进度</label>
+              <div style={{ padding: '12px', background: '#f5f5f5', borderRadius: 8 }}>
+                <div style={{ height: 8, background: '#e0e0e0', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ 
+                    width: `${uploadProgress}%`, 
+                    height: '100%', 
+                    background: 'linear-gradient(90deg, #667eea, #764ba2)', 
+                    transition: 'width 0.2s' 
+                  }} />
+                </div>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 8, textAlign: 'center' }}>{uploadProgress}%</div>
+              </div>
+            </div>
+          )}
+
+          <div className="pc-form-item">
+            <label className="pc-form-label">文件分类</label>
+            <select 
+              className="pc-form-control pc-form-select"
+              value={formData.category}
+              onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
+            >
+              <option value="">请选择分类</option>
+              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+          </div>
+
+          <div className="pc-form-item">
+            <label className="pc-form-label">文件描述</label>
+            <textarea 
+              className="pc-form-control pc-form-textarea"
+              rows={3}
+              placeholder="请输入文件描述（可选）"
+              value={formData.description}
+              onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            />
+          </div>
+
+          <div className="pc-form-item">
+            <label className="pc-form-label">文件标签</label>
+            <input 
+              type="text" 
+              className="pc-form-control"
+              placeholder="多个标签用逗号分隔，如：报表,项目,2024"
+              value={formData.tags}
+              onChange={e => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+            />
+          </div>
+        </div>
+      </PCModal>
     </>
   );
 }
