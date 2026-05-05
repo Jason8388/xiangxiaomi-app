@@ -501,6 +501,75 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 获取待填写工单列表（工单待填提醒）- 必须放在 /:id 之前
+router.get('/pending-fill', async (req, res) => {
+  try {
+    // 查找未填写关键信息的工单
+    const pendingFillOrders = memoryWorkOrders.filter(w => {
+      // 条件1：缺少需求描述
+      const missingDescription = !w.requirement_description || w.requirement_description.trim() === '';
+      // 条件2：缺少联系人信息
+      const missingContacts = !w.contacts || w.contacts.length === 0 || !w.contacts[0]?.name;
+      // 条件3：缺少计划完成日期
+      const missingPlanDate = !w.planned_completion_date;
+      // 条件4：缺少处理人
+      const missingAssignee = !w.assignee_id && !w.assignee_name;
+      
+      // 返回至少满足2个条件的工单
+      const conditions = [missingDescription, missingContacts, missingPlanDate, missingAssignee];
+      const satisfiedCount = conditions.filter(Boolean).length;
+      
+      return satisfiedCount >= 2;
+    });
+
+    // 按紧急程度排序
+    const sortedOrders = pendingFillOrders.map(order => {
+      let urgencyLevel: 'urgent' | 'normal' | 'low' = 'low';
+      let urgencyLabel = '一般';
+      let urgencyColor = '#27AE60'; // 绿色
+
+      // 判断紧急程度
+      if (order.status === 'pending' || order.priority === 'high' || order.priority === 'urgent') {
+        urgencyLevel = 'urgent';
+        urgencyLabel = '紧急';
+        urgencyColor = '#E74C3C'; // 红色
+      } else if (order.status === 'processing') {
+        urgencyLevel = 'normal';
+        urgencyLabel = '待处理';
+        urgencyColor = '#F39C12'; // 橙色
+      }
+
+      return {
+        ...order,
+        urgencyLevel,
+        urgencyLabel,
+        urgencyColor,
+        missingFields: [
+          !order.requirement_description ? '需求描述' : null,
+          !order.contacts?.length ? '联系人' : null,
+          !order.planned_completion_date ? '计划完成日期' : null,
+          !order.assignee_id ? '处理人' : null,
+        ].filter(Boolean),
+      };
+    }).sort((a, b) => {
+      // 紧急 > 待处理 > 一般
+      const order = { urgent: 0, normal: 1, low: 2 };
+      return order[a.urgencyLevel] - order[b.urgencyLevel];
+    });
+
+    res.json({
+      orders: sortedOrders,
+      total: sortedOrders.length,
+    });
+  } catch (error) {
+    console.error('Get pending fill orders error:', error);
+    res.json({
+      orders: [],
+      total: 0,
+    });
+  }
+});
+
 // 获取工单详情
 router.get('/:id', async (req, res) => {
   try {

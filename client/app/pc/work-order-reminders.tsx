@@ -7,12 +7,15 @@ const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9
 
 interface WorkOrderReminder {
   id: number;
-  work_order_no: string;
+  order_no: string;
   customer_name: string;
-  contact_person: string;
-  contact_phone: string;
-  created_at: string;
-  days_pending: number;
+  assignee_name: string | null;
+  status: string;
+  priority: string;
+  urgencyLevel: 'urgent' | 'normal' | 'low';
+  urgencyLabel: string;
+  urgencyColor: string;
+  missingFields: string[];
 }
 
 export default function PCWorkOrderReminders() {
@@ -29,16 +32,16 @@ export default function PCWorkOrderReminders() {
       setLoading(true);
       const response = await fetch(`${API_BASE}/api/v1/work-orders/pending-fill`);
       const data = await response.json();
-      if (data.code === 0 && data.data) {
-        setReminders(data.data);
+      if (data.orders && Array.isArray(data.orders)) {
+        setReminders(data.orders);
       }
     } catch (error) {
       console.error('获取待填写工单失败:', error);
       // 使用模拟数据
       setReminders([
-        { id: 1, work_order_no: 'WO20240601001', customer_name: '某某公司', contact_person: '张三', contact_phone: '13800138000', created_at: '2024-06-01', days_pending: 5 },
-        { id: 2, work_order_no: 'WO20240602002', customer_name: '另一家公司', contact_person: '李四', contact_phone: '13900139000', created_at: '2024-06-02', days_pending: 3 },
-        { id: 3, work_order_no: 'WO20240603003', customer_name: '测试客户', contact_person: '王五', contact_phone: '13700137000', created_at: '2024-06-03', days_pending: 7 },
+        { id: 1, order_no: 'WO20240601001', customer_name: '某某公司', assignee_name: '张三', status: 'pending', priority: 'high', urgencyLevel: 'urgent', urgencyLabel: '紧急', urgencyColor: '#E74C3C', missingFields: ['需求描述', '联系人'] },
+        { id: 2, order_no: 'WO20240602002', customer_name: '另一家公司', assignee_name: '李四', status: 'pending', priority: 'normal', urgencyLevel: 'normal', urgencyLabel: '待处理', urgencyColor: '#F39C12', missingFields: ['处理人', '计划完成日期'] },
+        { id: 3, order_no: 'WO20240603003', customer_name: '测试客户', assignee_name: null, status: 'pending', priority: 'normal', urgencyLevel: 'low', urgencyLabel: '一般', urgencyColor: '#27AE60', missingFields: ['联系人', '计划完成日期'] },
       ]);
     } finally {
       setLoading(false);
@@ -47,26 +50,20 @@ export default function PCWorkOrderReminders() {
 
   const filteredData = reminders.filter(item => {
     if (filter === 'all') return true;
-    if (filter === 'urgent') return item.days_pending >= 5;
-    return item.days_pending < 5;
+    if (filter === 'urgent') return item.urgencyLevel === 'urgent';
+    return item.urgencyLevel === 'normal';
   });
-
-  const getUrgencyColor = (days: number) => {
-    if (days >= 7) return '#E74C3C';
-    if (days >= 5) return '#F39C12';
-    return '#27AE60';
-  };
 
   const renderItem = ({ item }: { item: WorkOrderReminder }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.orderNo}>
           <FontAwesome6 name="file-alt" size={14} color="#3498DB" />
-          <Text style={styles.orderNoText}>{item.work_order_no}</Text>
+          <Text style={styles.orderNoText}>{item.order_no}</Text>
         </View>
-        <View style={[styles.urgencyBadge, { backgroundColor: getUrgencyColor(item.days_pending) + '20' }]}>
-          <Text style={[styles.urgencyText, { color: getUrgencyColor(item.days_pending) }]}>
-            {item.days_pending}天未填写
+        <View style={[styles.urgencyBadge, { backgroundColor: item.urgencyColor + '20' }]}>
+          <Text style={[styles.urgencyText, { color: item.urgencyColor }]}>
+            {item.urgencyLabel}
           </Text>
         </View>
       </View>
@@ -78,15 +75,11 @@ export default function PCWorkOrderReminders() {
         </View>
         <View style={styles.infoRow}>
           <FontAwesome6 name="user" size={14} color="#95A5A6" />
-          <Text style={styles.infoText}>{item.contact_person}</Text>
+          <Text style={styles.infoText}>{item.assignee_name || '未分配'}</Text>
         </View>
         <View style={styles.infoRow}>
-          <FontAwesome6 name="phone" size={14} color="#95A5A6" />
-          <Text style={styles.infoText}>{item.contact_phone}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <FontAwesome6 name="calendar-alt" size={14} color="#95A5A6" />
-          <Text style={styles.infoText}>创建于 {item.created_at}</Text>
+          <FontAwesome6 name="exclamation-circle" size={14} color="#F39C12" />
+          <Text style={styles.infoText}>缺失字段: {item.missingFields.join(', ')}</Text>
         </View>
       </View>
 

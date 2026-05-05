@@ -68,7 +68,9 @@ export default function PCLogs() {
         
         if (response.ok) {
           const data = await response.json();
-          setLoginLogs(data.logs || data.items || []);
+          // 支持多种响应格式
+          const logs = data.data?.list || data.logs || data.items || data.data || [];
+          setLoginLogs(Array.isArray(logs) ? logs : []);
         }
         
         const statsResponse = await fetch(
@@ -78,7 +80,14 @@ export default function PCLogs() {
         
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
-          setStats(statsData);
+          // 兼容多种响应格式
+          const stats = statsData.data || statsData;
+          setStats({
+            total_logins: stats.total_logins || 0,
+            active_users: stats.unique_users || 0,
+            avg_duration: stats.avg_duration || 0,
+            operation_count: 0,
+          });
         }
       } else {
         const params = new URLSearchParams();
@@ -94,7 +103,9 @@ export default function PCLogs() {
         
         if (response.ok) {
           const data = await response.json();
-          setOperationLogs(data.logs || data.items || []);
+          // 支持多种响应格式
+          const logs = data.data?.list || data.logs || data.items || data.data || [];
+          setOperationLogs(Array.isArray(logs) ? logs : []);
         }
       }
     } catch (error) {
