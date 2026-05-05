@@ -72,15 +72,14 @@ export default function PCDevices() {
   const fetchDevices = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/devices`);
+      const sessionId = await storage.getItem('session_id');
+      const response = await fetch(`${API_BASE}/api/v1/devices?page=1&page_size=100`, {
+        headers: { Authorization: `Bearer ${sessionId}` },
+      });
       const data = await response.json();
-      const list = Array.isArray(data) ? data : (data.devices || []);
-      // 按出厂日期排序
-      const sorted = list.sort((a: Device, b: Device) => 
-        new Date(a.factory_date || 0).getTime() - new Date(b.factory_date || 0).getTime()
-      );
-      setDevices(sorted);
-      setPagination(prev => ({ ...prev, total: sorted.length }));
+      const list = Array.isArray(data) ? data : (data.devices || data.data?.devices || []);
+      setDevices(list);
+      setPagination(prev => ({ ...prev, total: list.length }));
     } catch (error) {
       console.error('获取设备列表失败:', error);
       setDevices([

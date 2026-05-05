@@ -61,15 +61,14 @@ export default function PCCustomers() {
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/customers`);
+      const sessionId = await storage.getItem('session_id');
+      const response = await fetch(`${API_BASE}/api/v1/customers?page=${pagination.page}&page_size=${pagination.pageSize}`, {
+        headers: { Authorization: `Bearer ${sessionId}` },
+      });
       const data = await response.json();
-      const list = Array.isArray(data) ? data : (data.customers || []);
-      // 按名称排序
-      const sorted = list.sort((a: Customer, b: Customer) => 
-        a.name.toUpperCase().localeCompare(b.name.toUpperCase())
-      );
-      setCustomers(sorted);
-      setPagination(prev => ({ ...prev, total: sorted.length }));
+      const list = Array.isArray(data) ? data : (data.data || data.customers || []);
+      setCustomers(list);
+      setPagination(prev => ({ ...prev, total: data.total || list.length }));
     } catch (error) {
       console.error('获取客户列表失败:', error);
       setCustomers([
@@ -81,7 +80,7 @@ export default function PCCustomers() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     fetchCustomers();
