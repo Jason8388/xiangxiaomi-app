@@ -125,6 +125,14 @@ export default function PCWorkOrderDetail() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // 将照片字段（可能是字符串或数组）转换为数组
+  const toPhotoArray = (photos: string | string[] | undefined): string[] => {
+    if (!photos) return [];
+    if (Array.isArray(photos)) return photos;
+    // 如果是字符串，按逗号分隔
+    return photos.split(',').filter(p => p.trim() !== '');
+  };
+
   const getDemandPeriod = () => calculateDaysDiff(order?.demand_date || '', order?.consensus_date || '');
   const getServicePeriod = () => calculateDaysDiff(order?.consensus_date || '', order?.implementation_complete_date || '');
   const getPaymentPeriod = () => calculateDaysDiff(order?.implementation_complete_date || '', order?.actual_payment_date || '');
@@ -208,8 +216,10 @@ export default function PCWorkOrderDetail() {
   // 删除需求照片
   const handleDeleteRequirementPhoto = (photoUrl: string) => {
     const currentPhotos = editFormData.requirement_photos || order?.requirement_photos || '';
-    const photos = currentPhotos.split(',').filter(p => p !== photoUrl);
-    handleEditFieldChange('requirement_photos', photos.join(','));
+    // 将字符串或数组转换为数组处理
+    const photosArray = toPhotoArray(currentPhotos);
+    const filteredPhotos = photosArray.filter(p => p !== photoUrl);
+    handleEditFieldChange('requirement_photos', filteredPhotos.join(','));
   };
 
   // 上传报价单照片
@@ -839,10 +849,10 @@ export default function PCWorkOrderDetail() {
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>需求照片/视频</Text>
                 <View style={styles.photoList}>
-                  {(getEditValue('requirement_photos') as string[] || []).map((photo, index) => (
+                  {toPhotoArray(getEditValue('requirement_photos') as string | string[]).map((photo, index) => (
                     <View key={index} style={styles.photoItem}>
                       <Image source={{ uri: photo }} style={styles.thumbnail} />
-                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteRequirementPhoto(index)}>
+                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteRequirementPhoto(photo)}>
                         <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
                       </TouchableOpacity>
                     </View>
@@ -854,11 +864,11 @@ export default function PCWorkOrderDetail() {
                 </View>
               </View>
             )}
-            {order.requirement_photos && order.requirement_photos.length > 0 && (
+            {toPhotoArray(order.requirement_photos).length > 0 && (
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>需求照片/视频</Text>
                 <View style={styles.photoList}>
-                  {order.requirement_photos.map((photo, index) => (
+                  {toPhotoArray(order.requirement_photos).map((photo, index) => (
                     <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
                   ))}
                 </View>
