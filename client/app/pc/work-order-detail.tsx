@@ -33,7 +33,7 @@ interface WorkOrderDetail {
   demand_date?: string;
   requirement_date?: string;
   requirement_description?: string;
-  requirement_photos?: string[];
+  requirement_photos?: string | string[];
   service_plan?: string;
   plan_hours?: number;
   planned_completion_date?: string;
@@ -41,8 +41,9 @@ interface WorkOrderDetail {
   warranty_status?: string;
   is_charged?: boolean;
   quoted_price?: number;
-  service_docs?: string[];
-  consensus_docs?: string[];
+  quoted_price_doc?: string | string[];
+  service_docs?: string | string[];
+  consensus_docs?: string | string[];
   consensus_date?: string;
   sales_sub_project_no?: string;
   material_code?: string;
@@ -55,8 +56,8 @@ interface WorkOrderDetail {
   implementer?: string;
   implementation_complete_date?: string;
   actual_hours?: number;
-  work_order_docs?: string[];
-  site_completion_docs?: string[];
+  work_order_docs?: string | string[];
+  site_completion_docs?: string | string[];
   work_order_signer?: string;
   invoice_application?: string;
   invoice_completed?: string;
@@ -241,9 +242,9 @@ export default function PCWorkOrderDetail() {
           });
           const result = await res.json();
           if (result.url) {
-            const current = editFormData.quoted_price_photo || order?.quoted_price_photo || '';
+            const current = editFormData.quoted_price_doc || order?.quoted_price_doc || '';
             const newVal = current ? `${current},${result.url}` : result.url;
-            handleEditFieldChange('quoted_price_photo', newVal);
+            handleEditFieldChange('quoted_price_doc', newVal);
           }
         } catch (err) { console.error('上传失败', err); }
       }
@@ -253,9 +254,9 @@ export default function PCWorkOrderDetail() {
 
   // 删除报价单照片
   const handleDeleteQuotedPricePhoto = (photoUrl: string) => {
-    const current = editFormData.quoted_price_photo || order?.quoted_price_photo || '';
-    const photos = current.split(',').filter(p => p !== photoUrl);
-    handleEditFieldChange('quoted_price_photo', photos.join(','));
+    const current = editFormData.quoted_price_doc || order?.quoted_price_doc || '';
+    const photos = toPhotoArray(current).filter(p => p !== photoUrl);
+    handleEditFieldChange('quoted_price_doc', photos.join(','));
   };
 
   // 上传客户共识凭证
@@ -277,9 +278,9 @@ export default function PCWorkOrderDetail() {
           });
           const result = await res.json();
           if (result.url) {
-            const current = editFormData.consensus_photo || order?.consensus_photo || '';
+            const current = editFormData.consensus_docs || order?.consensus_docs || '';
             const newVal = current ? `${current},${result.url}` : result.url;
-            handleEditFieldChange('consensus_photo', newVal);
+            handleEditFieldChange('consensus_docs', newVal);
           }
         } catch (err) { console.error('上传失败', err); }
       }
@@ -289,9 +290,9 @@ export default function PCWorkOrderDetail() {
 
   // 删除客户共识凭证
   const handleDeleteConsensusPhoto = (photoUrl: string) => {
-    const current = editFormData.consensus_photo || order?.consensus_photo || '';
-    const photos = current.split(',').filter(p => p !== photoUrl);
-    handleEditFieldChange('consensus_photo', photos.join(','));
+    const current = editFormData.consensus_docs || order?.consensus_docs || '';
+    const photos = toPhotoArray(current).filter(p => p !== photoUrl);
+    handleEditFieldChange('consensus_docs', photos.join(','));
   };
 
   // 上传派工单照片
@@ -313,9 +314,9 @@ export default function PCWorkOrderDetail() {
           });
           const result = await res.json();
           if (result.url) {
-            const current = editFormData.work_order_photo || order?.work_order_photo || '';
+            const current = editFormData.work_order_docs || order?.work_order_docs || '';
             const newVal = current ? `${current},${result.url}` : result.url;
-            handleEditFieldChange('work_order_photo', newVal);
+            handleEditFieldChange('work_order_docs', newVal);
           }
         } catch (err) { console.error('上传失败', err); }
       }
@@ -325,9 +326,9 @@ export default function PCWorkOrderDetail() {
 
   // 删除派工单照片
   const handleDeleteWorkOrderPhoto = (photoUrl: string) => {
-    const current = editFormData.work_order_photo || order?.work_order_photo || '';
-    const photos = current.split(',').filter(p => p !== photoUrl);
-    handleEditFieldChange('work_order_photo', photos.join(','));
+    const current = editFormData.work_order_docs || order?.work_order_docs || '';
+    const photos = toPhotoArray(current).filter(p => p !== photoUrl);
+    handleEditFieldChange('work_order_docs', photos.join(','));
   };
 
   // 上传现场实施照片
@@ -349,9 +350,9 @@ export default function PCWorkOrderDetail() {
           });
           const result = await res.json();
           if (result.url) {
-            const current = editFormData.implementation_photos || order?.implementation_photos || '';
+            const current = editFormData.site_completion_docs || order?.site_completion_docs || '';
             const newVal = current ? `${current},${result.url}` : result.url;
-            handleEditFieldChange('implementation_photos', newVal);
+            handleEditFieldChange('site_completion_docs', newVal);
           }
         } catch (err) { console.error('上传失败', err); }
       }
@@ -361,9 +362,9 @@ export default function PCWorkOrderDetail() {
 
   // 删除现场实施照片
   const handleDeleteImplementationPhoto = (photoUrl: string) => {
-    const current = editFormData.implementation_photos || order?.implementation_photos || '';
-    const photos = current.split(',').filter(p => p !== photoUrl);
-    handleEditFieldChange('implementation_photos', photos.join(','));
+    const current = editFormData.site_completion_docs || order?.site_completion_docs || '';
+    const photos = toPhotoArray(current).filter(p => p !== photoUrl);
+    handleEditFieldChange('site_completion_docs', photos.join(','));
   };
 
   // 更新编辑字段
@@ -1021,7 +1022,7 @@ export default function PCWorkOrderDetail() {
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>报价单照片</Text>
                 <View style={styles.photoList}>
-                  {toPhotoArray(getEditValue('quoted_price_photo') as string | string[]).map((photo, index) => (
+                  {toPhotoArray(getEditValue('quoted_price_doc') as string | string[]).map((photo, index) => (
                     <View key={index} style={styles.photoItem}>
                       <Image source={{ uri: photo }} style={styles.thumbnail} />
                       <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteQuotedPricePhoto(photo)}>
@@ -1036,11 +1037,11 @@ export default function PCWorkOrderDetail() {
                 </View>
               </View>
             )}
-            {toPhotoArray(order?.quoted_price_photo).length > 0 && (
+            {toPhotoArray(order?.quoted_price_doc).length > 0 && (
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>报价单照片</Text>
                 <View style={styles.photoList}>
-                  {toPhotoArray(order?.quoted_price_photo).map((photo, index) => (
+                  {toPhotoArray(order?.quoted_price_doc).map((photo, index) => (
                     <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
                   ))}
                 </View>
@@ -1051,7 +1052,7 @@ export default function PCWorkOrderDetail() {
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>客户共识凭证</Text>
                 <View style={styles.photoList}>
-                  {toPhotoArray(getEditValue('consensus_photo') as string | string[]).map((photo, index) => (
+                  {toPhotoArray(getEditValue('consensus_docs') as string | string[]).map((photo, index) => (
                     <View key={index} style={styles.photoItem}>
                       <Image source={{ uri: photo }} style={styles.thumbnail} />
                       <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteConsensusPhoto(photo)}>
@@ -1066,11 +1067,11 @@ export default function PCWorkOrderDetail() {
                 </View>
               </View>
             )}
-            {toPhotoArray(order?.consensus_photo).length > 0 && (
+            {toPhotoArray(order?.consensus_docs).length > 0 && (
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>客户共识凭证</Text>
                 <View style={styles.photoList}>
-                  {toPhotoArray(order?.consensus_photo).map((photo, index) => (
+                  {toPhotoArray(order?.consensus_docs).map((photo, index) => (
                     <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
                   ))}
                 </View>
@@ -1135,15 +1136,15 @@ export default function PCWorkOrderDetail() {
                 <View style={styles.photosRow}>
                   <Text style={styles.infoLabel}>派工单照片</Text>
                   <View style={styles.photoList}>
-                    {(getEditValue('work_order_docs') as string[] || []).map((doc, index) => (
+                    {toPhotoArray(getEditValue('work_order_docs') as string | string[]).map((doc, index) => (
                       <View key={index} style={styles.photoItem}>
                         <Image source={{ uri: doc }} style={styles.thumbnail} />
-                        <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteWorkOrderDoc(index)}>
+                        <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteWorkOrderPhoto(doc)}>
                           <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
                         </TouchableOpacity>
                       </View>
                     ))}
-                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddWorkOrderDoc}>
+                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadWorkOrderPhoto}>
                       <FontAwesome6 name="plus" size={20} color="#3498DB" />
                       <Text style={styles.addPhotoText}>添加</Text>
                     </TouchableOpacity>
@@ -1152,15 +1153,15 @@ export default function PCWorkOrderDetail() {
                 <View style={styles.photosRow}>
                   <Text style={styles.infoLabel}>现场实施照片</Text>
                   <View style={styles.photoList}>
-                    {(getEditValue('site_completion_docs') as string[] || []).map((doc, index) => (
+                    {toPhotoArray(getEditValue('site_completion_docs') as string | string[]).map((doc, index) => (
                       <View key={index} style={styles.photoItem}>
                         <Image source={{ uri: doc }} style={styles.thumbnail} />
-                        <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteSiteCompletionDoc(index)}>
+                        <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteImplementationPhoto(doc)}>
                           <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
                         </TouchableOpacity>
                       </View>
                     ))}
-                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddSiteCompletionDoc}>
+                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadImplementationPhoto}>
                       <FontAwesome6 name="plus" size={20} color="#3498DB" />
                       <Text style={styles.addPhotoText}>添加</Text>
                     </TouchableOpacity>
@@ -1168,21 +1169,21 @@ export default function PCWorkOrderDetail() {
                 </View>
               </>
             )}
-            {order.work_order_docs && order.work_order_docs.length > 0 && (
+            {toPhotoArray(order?.work_order_docs).length > 0 && (
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>派工单照片</Text>
                 <View style={styles.photoList}>
-                  {order.work_order_docs.map((doc, index) => (
+                  {toPhotoArray(order?.work_order_docs).map((doc, index) => (
                     <Image key={index} source={{ uri: doc }} style={styles.thumbnail} />
                   ))}
                 </View>
               </View>
             )}
-            {order.site_completion_docs && order.site_completion_docs.length > 0 && (
+            {toPhotoArray(order?.site_completion_docs).length > 0 && (
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>现场实施照片</Text>
                 <View style={styles.photoList}>
-                  {order.site_completion_docs.map((doc, index) => (
+                  {toPhotoArray(order?.site_completion_docs).map((doc, index) => (
                     <Image key={index} source={{ uri: doc }} style={styles.thumbnail} />
                   ))}
                 </View>
