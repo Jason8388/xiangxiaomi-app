@@ -23,7 +23,8 @@ const navItems: NavItem[] = [
   { key: 'reports', icon: 'chart-pie', label: '统计报表', path: '/pc/reports' },
   { key: 'gallery', icon: 'images', label: '相册管理', path: '/pc/gallery' },
   { key: 'logs', icon: 'clock-rotate-left', label: '日志查询', path: '/pc/logs' },
-  { key: 'account-settings', icon: '-user-gear', label: '账号管理', path: '/pc/account-settings' },
+  { key: 'account-settings', icon: 'user-gear', label: '账号设置', path: '/pc/account-settings' },
+  { key: 'employee-management', icon: '-users-rectangle', label: '账号管理', path: '/pc/employee-management' },
 ];
 
 const systemItems: NavItem[] = [
