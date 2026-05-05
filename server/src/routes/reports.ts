@@ -369,39 +369,116 @@ router.get('/work-orders', async (req, res) => {
 /**
  * 服务端文件：server/src/routes/reports.ts
  * 接口：GET /api/v1/reports/work-orders/export
- * 描述：导出工单统计Excel
+ * 描述：导出工单详情Excel，包含完整工单信息
  */
 router.get('/work-orders/export', async (req, res) => {
   try {
-    // 获取所有工单数据
+    // 获取所有工单数据，包含完整详情
     const workOrders = memoryWorkOrders.map(workOrder => ({
-      工单编号: workOrder.order_no,
-      工单标题: workOrder.title,
-      工单类型: workOrder.type,
-      状态: workOrder.status === 'pending' ? '待处理'
+      // 基本信息
+      '工单编号': workOrder.order_no,
+      '工单标题': workOrder.title,
+      '工单类型': workOrder.type,
+      '状态': workOrder.status === 'pending' ? '待处理'
             : workOrder.status === 'processing' ? '进行中'
             : workOrder.status === 'completed' ? '已完成'
             : workOrder.status,
-      客户名称: workOrder.customer_name || '',
-      设备名称: workOrder.device_name || '',
-      优先级: workOrder.priority || '',
-      创建时间: workOrder.created_at ? new Date(workOrder.created_at).toLocaleString() : '',
-      更新时间: workOrder.updated_at ? new Date(workOrder.updated_at).toLocaleString() : '',
+      '客户名称': workOrder.customer_name || '',
+      '设备名称': workOrder.device_name || '',
+      '优先级': workOrder.priority || '',
+      // 需求信息
+      '接到需求日期': workOrder.requirement_date || '',
+      '需求说明': workOrder.requirement_description || '',
+      '需求照片': Array.isArray(workOrder.requirement_photos) ? workOrder.requirement_photos.join(', ') : (workOrder.requirement_photos || ''),
+      '需求视频': Array.isArray(workOrder.requirement_videos) ? workOrder.requirement_videos.join(', ') : (workOrder.requirement_videos || ''),
+      // 服务方案
+      '服务方案说明': workOrder.service_description || '',
+      '计划工时': workOrder.planned_hours ? `${workOrder.planned_hours}天` : '',
+      '计划完成日期': workOrder.planned_completion_date || '',
+      '物料需求': workOrder.material_requirements || '',
+      '质保期状态': workOrder.warranty_status || '',
+      '是否收费': workOrder.is_chargeable === 1 ? '收费' : '免费',
+      '收费金额': workOrder.charge_amount ? `${workOrder.charge_amount}元` : '',
+      '服务方案客户共识日期': workOrder.consensus_date || '',
+      '报价单照片': Array.isArray(workOrder.quoted_price_doc) ? workOrder.quoted_price_doc.join(', ') : (workOrder.quoted_price_doc || ''),
+      '客户共识凭证': Array.isArray(workOrder.consensus_docs) ? workOrder.consensus_docs.join(', ') : (workOrder.consensus_docs || ''),
+      '物料编码': workOrder.material_code || '',
+      'OA系统工单编号': workOrder.oa_order_no || '',
+      'ERP出库申请单号': workOrder.erp_outbound_no || '',
+      // 实施情况
+      '实施人': workOrder.implementation_staff || '',
+      '派工单签字人': workOrder.work_order_signer || '',
+      '实施完成日期': workOrder.implementation_date || '',
+      '派工单照片': Array.isArray(workOrder.work_order_docs) ? workOrder.work_order_docs.join(', ') : (workOrder.work_order_docs || ''),
+      '派工单视频': Array.isArray(workOrder.work_order_videos) ? workOrder.work_order_videos.join(', ') : (workOrder.work_order_videos || ''),
+      '实际工时投入': workOrder.actual_hours ? `${workOrder.actual_hours}天` : '',
+      '现场实施照片': Array.isArray(workOrder.site_completion_docs) ? workOrder.site_completion_docs.join(', ') : (workOrder.site_completion_docs || ''),
+      // 回款情况
+      '是否申请开票': workOrder.invoice_requested === 1 ? '是' : (workOrder.invoice_requested === 0 ? '否' : ''),
+      '开票是否完成': workOrder.invoice_completed === 1 ? '是' : (workOrder.invoice_completed === 0 ? '否' : ''),
+      '发票是否送达客户': workOrder.invoice_delivered === 1 ? '是' : (workOrder.invoice_delivered === 0 ? '否' : ''),
+      '计划回款日期': workOrder.planned_payment_date || '',
+      '实际回款日期': workOrder.actual_payment_date || '',
+      // 时间信息
+      '创建时间': workOrder.created_at ? new Date(workOrder.created_at).toLocaleString('zh-CN') : '',
+      '更新时间': workOrder.updated_at ? new Date(workOrder.updated_at).toLocaleString('zh-CN') : '',
     }));
 
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(workOrders);
-    XLSX.utils.book_append_sheet(workbook, worksheet, '工单统计');
+    XLSX.utils.book_append_sheet(workbook, worksheet, '工单详情');
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    const fileName = encodeURIComponent('工单统计.xlsx');
+    const fileName = encodeURIComponent('工单详情.xlsx');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${fileName}`);
     res.send(buffer);
   } catch (error) {
     console.error('Export work orders error:', error);
-    res.status(500).json({ error: '导出工单统计失败' });
+    res.status(500).json({ error: '导出工单详情失败' });
+  }
+});
+
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/work-orders/template
+ * 描述：下载工单导入模板Excel
+ */
+router.get('/work-orders/template', async (req, res) => {
+  try {
+    // 工单导入模板字段
+    const templateData = [{
+      '工单编号': '',
+      '工单标题': '',
+      '工单类型': '维修/巡检/培训/咨询/其他',
+      '客户名称': '',
+      '设备名称': '',
+      '优先级': '高/中/低',
+      '接到需求日期': '2024-01-01',
+      '需求说明': '',
+      '服务方案说明': '',
+      '计划工时': '1',
+      '计划完成日期': '2024-01-10',
+      '物料需求': '',
+      '是否收费': '是/否',
+      '收费金额': '0',
+      '备注': '',
+    }];
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    XLSX.utils.book_append_sheet(workbook, worksheet, '工单导入模板');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileName = encodeURIComponent('工单导入模板.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${fileName}`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Download work order template error:', error);
+    res.status(500).json({ error: '下载工单导入模板失败' });
   }
 });
 

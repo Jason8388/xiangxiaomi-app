@@ -400,7 +400,15 @@ export default function PCWorkOrders() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.toolbarBtnPrimary}
-                onPress={() => window.open(`${API_BASE}/api/v1/reports/work-orders/export`, '_blank')}
+                onPress={() => {
+                  // 使用a标签触发下载，避免被浏览器拦截
+                  const link = document.createElement('a');
+                  link.href = `${API_BASE}/api/v1/reports/work-orders/export`;
+                  link.download = '工单详情.xlsx';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
               >
                 <FontAwesome6 name="download" size={14} color="#1E88E5" />
                 <Text style={{ color: '#1E88E5', marginLeft: 4 }}>批量导出</Text>
@@ -837,7 +845,7 @@ export default function PCWorkOrders() {
         }}
         apiPath="/api/v1/work-orders/batch"
         title="工单"
-        templateFields={['工单名称*', '客户名称*', '任务负责人*', '实施主体*', '任务号', '需求日期']}
+        templateUrl={`${API_BASE}/api/v1/reports/work-orders/template`}
       />
     </PCLayout>
   );

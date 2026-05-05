@@ -442,6 +442,44 @@ export function PCImportModal({ visible, onClose, title, apiUrl, templateUrl, te
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [xlsxReady, setXlsxReady] = useState(false);
+
+  // 动态加载xlsx库
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const loadXlsx = async () => {
+      if ((window as any).XLSX) {
+        setXlsxReady(true);
+        return;
+      }
+      
+      return new Promise<void>((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        
+        // 设置超时
+        const timeout = setTimeout(() => {
+          console.error('xlsx library load timeout');
+          resolve();
+        }, 5000);
+        
+        script.onload = () => {
+          clearTimeout(timeout);
+          setXlsxReady(true);
+          resolve();
+        };
+        script.onerror = () => {
+          clearTimeout(timeout);
+          console.error('Failed to load xlsx library');
+          resolve();
+        };
+        document.head.appendChild(script);
+      });
+    };
+    
+    loadXlsx();
+  }, []);
 
   if (!visible) return null;
 
@@ -452,7 +490,7 @@ export function PCImportModal({ visible, onClose, title, apiUrl, templateUrl, te
     setResult(null);
     
     // 预览Excel文件
-    if (selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
+    if (xlsxReady && (selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls'))) {
       const data = await selectedFile.arrayBuffer();
       const workbook = new (window as any).XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -494,22 +532,35 @@ export function PCImportModal({ visible, onClose, title, apiUrl, templateUrl, te
   };
 
   const downloadTemplate = () => {
-    if (templateUrl) {
-      // 直接从URL下载模板
-      const link = document.createElement('a');
-      link.href = templateUrl;
-      link.download = 'import_template.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else if (templateFields && templateFields.length > 0) {
-      // 使用XLSX库生成模板
-      const worksheet = (window as any).XLSX.utils.json_to_sheet(
-        templateFields.map(field => ({ '字段名': field.replace('*', '') }))
-      );
-      const workbook = (window as any).XLSX.utils.book_new();
-      (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板');
-      (window as any).XLSX.writeFile(workbook, 'import_template.xlsx');
+    try {
+      if (templateUrl) {
+        // 直接从URL下载模板
+        const link = document.createElement('a');
+        link.href = templateUrl;
+        link.download = 'import_template.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (xlsxReady && templateFields && templateFields.length > 0) {
+        // 使用XLSX库生成模板
+        try {
+          const worksheet = (window as any).XLSX.utils.json_to_sheet(
+            templateFields.map(field => ({ '字段名': field.replace('*', '') }))
+          );
+          const workbook = (window as any).XLSX.utils.book_new();
+          (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板');
+          (window as any).XLSX.writeFile(workbook, 'import_template.xlsx');
+        } catch (xlsxError) {
+          console.error('Error generating template with xlsx:', xlsxError);
+          alert('生成模板失败，请稍后重试');
+        }
+      } else {
+        console.warn('xlsx ready:', xlsxReady, 'templateFields:', templateFields);
+        alert('模板生成库未就绪，请刷新页面后重试');
+      }
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      alert('下载模板失败，请稍后重试');
     }
   };
 
