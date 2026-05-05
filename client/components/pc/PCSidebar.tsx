@@ -21,6 +21,9 @@ const navItems: NavItem[] = [
   { key: 'meeting-minutes', icon: 'address-card', label: '会议纪要', path: '/pc/meeting-minutes' },
   { key: 'files', icon: 'folder-open', label: '文件管理', path: '/pc/files' },
   { key: 'reports', icon: 'chart-pie', label: '统计报表', path: '/pc/reports' },
+  { key: 'gallery', icon: 'images', label: '相册管理', path: '/pc/gallery' },
+  { key: 'logs', icon: 'clock-rotate-left', label: '日志查询', path: '/pc/logs' },
+  { key: 'account-settings', icon: '-user-gear', label: '账号管理', path: '/pc/account-settings' },
 ];
 
 const systemItems: NavItem[] = [
