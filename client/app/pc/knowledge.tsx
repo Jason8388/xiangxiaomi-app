@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTag } from '@/components/pc/PCComponents';
@@ -40,8 +40,8 @@ export default function PCKnowledge() {
   const [attachments, setAttachments] = useState<{ uri: string; name: string; type: string }[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState('');
-  const [tagInput, setTagInput] = useState<any>(null);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 12, total: 0 });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const categories = ['设备维护', '操作手册', '故障排除', '技术文档', '培训资料'];
   const defaultTags = ['技术文档', '操作指南', '故障处理', '最佳实践', '经验总结', '项目经验', '常见问题', '培训材料', '流程规范', '工具使用'];
@@ -207,8 +207,8 @@ export default function PCKnowledge() {
 
   // 处理附件选择
   const handleSelectAttachment = () => {
-    if (typeof window !== 'undefined' && tagInput) {
-      tagInput.click();
+    if (typeof window !== 'undefined' && fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -225,8 +225,8 @@ export default function PCKnowledge() {
       setAttachments(prev => [...prev, ...newAttachments]);
     }
     // 清空input以便重复选择同一文件
-    if (tagInput) {
-      tagInput.value = '';
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -632,7 +632,7 @@ export default function PCKnowledge() {
                 type="file"
                 multiple
                 accept="image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf"
-                ref={tagInput as any}
+                ref={fileInputRef as any}
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
