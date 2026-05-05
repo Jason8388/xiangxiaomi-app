@@ -44,12 +44,15 @@ export default function PCMaterials() {
     warning_stock: '',
     supplier: '',
     unit_price: '',
+    material_photo: '',
     qr_code_id: '',
     remarks: '',
     tags: [] as string[],
   });
   const [tempTags, setTempTags] = useState('');
+  const [tempPhotoUri, setTempPhotoUri] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // 统计信息
   const totalMaterials = materials.length;
@@ -107,6 +110,29 @@ export default function PCMaterials() {
     alert(`二维码ID生成成功: ${qrId}`);
   };
 
+  // 选择物料照片
+  const handlePickImage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setTempPhotoUri(result);
+        setFormData({ ...formData, material_photo: result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 移除物料照片
+  const handleRemovePhoto = () => {
+    setTempPhotoUri('');
+    setFormData({ ...formData, material_photo: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleAdd = () => {
     setEditingMaterial(null);
     // 自动生成二维码ID
@@ -123,11 +149,13 @@ export default function PCMaterials() {
       warning_stock: '',
       supplier: '',
       unit_price: '',
+      material_photo: '',
       qr_code_id: qrId,
       remarks: '',
       tags: [],
     });
     setTempTags('');
+    setTempPhotoUri('');
     setModalVisible(true);
   };
 
@@ -143,11 +171,13 @@ export default function PCMaterials() {
       warning_stock: material.warning_stock?.toString() || '',
       supplier: material.supplier || '',
       unit_price: material.unit_price?.toString() || '',
+      material_photo: material.material_photo || '',
       qr_code_id: material.qr_code_id || '',
       remarks: material.remarks || '',
       tags: material.tags || [],
     });
     setTempTags(material.tags?.join(', ') || '');
+    setTempPhotoUri(material.material_photo || '');
     setModalVisible(true);
   };
 
@@ -166,6 +196,30 @@ export default function PCMaterials() {
       // 处理标签
       const tagsArray = tempTags.split(',').map(t => t.trim()).filter(t => t);
 
+      // 处理照片：如果照片是base64格式，需要先上传
+      let materialPhotoUrl = formData.material_photo;
+      if (tempPhotoUri && tempPhotoUri.startsWith('data:')) {
+        try {
+          const formDataPhoto = new FormData();
+          // 将base64转换为blob
+          const response = await fetch(tempPhotoUri);
+          const blob = await response.blob();
+          const file = new File([blob], `material_photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          formDataPhoto.append('file', file);
+
+          const uploadRes = await fetch(`${API_BASE}/api/v1/upload`, {
+            method: 'POST',
+            body: formDataPhoto,
+          });
+          const uploadData = await uploadRes.json();
+          if (uploadRes.ok && uploadData.url) {
+            materialPhotoUrl = uploadData.url;
+          }
+        } catch (uploadError) {
+          console.error('Photo upload error:', uploadError);
+        }
+      }
+
       const payload = {
         code: formData.material_number,
         name: formData.material_name,
@@ -176,6 +230,7 @@ export default function PCMaterials() {
         min_stock: formData.warning_stock ? parseInt(formData.warning_stock) : 0,
         supplier: formData.supplier,
         price: formData.unit_price ? parseFloat(formData.unit_price) : null,
+        material_photo: materialPhotoUrl,
         qr_code_id: formData.qr_code_id,
         remarks: formData.remarks,
         tags: tagsArray,
@@ -522,7 +577,7 @@ export default function PCMaterials() {
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#9C27B0', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #E0E0E0' }}>
                     其他信息
                   </div>
-                  
+
                   <div className="pc-form-item">
                     <label className="pc-form-label">二维码ID</label>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -542,6 +597,69 @@ export default function PCMaterials() {
                         <FontAwesome6 name="qrcode" size={14} style={{ marginRight: 6 }} />
                         自动生成
                       </button>
+                    </div>
+                  </div>
+
+                  {/* 物料照片上传 */}
+                  <div className="pc-form-item">
+                    <label className="pc-form-label">物料照片</label>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      {tempPhotoUri ? (
+                        <div style={{ position: 'relative' }}>
+                          <img 
+                            src={tempPhotoUri} 
+                            alt="物料照片" 
+                            style={{ 
+                              width: 120, 
+                              height: 120, 
+                              objectFit: 'cover',
+                              borderRadius: 8,
+                              border: '1px solid #E0E0E0'
+                            }} 
+                          />
+                          <button
+                            onClick={handleRemovePhoto}
+                            style={{
+                              position: 'absolute',
+                              top: -8,
+                              right: -8,
+                              width: 24,
+                              height: 24,
+                              borderRadius: '50%',
+                              background: '#E74C3C',
+                              color: '#fff',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 14,
+                              lineHeight: 1
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : null}
+                      <div>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/*"
+                          onChange={handlePickImage}
+                          style={{ display: 'none' }}
+                        />
+                        <button 
+                          className="pc-btn pc-btn-default"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <FontAwesome6 name="image" size={14} style={{ marginRight: 6 }} />
+                          选择照片
+                        </button>
+                        <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                          支持 JPG、PNG 格式，建议尺寸 1:1
+                        </div>
+                      </div>
                     </div>
                   </div>
 
