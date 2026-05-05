@@ -497,9 +497,6 @@ export default function WorkOrdersScreen() {
           <Text style={styles.headerSubtitle}>共 {stats.totalWorkOrders} 条工单</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton} onPress={handleImport}>
-            <FontAwesome6 name="file-import" size={20} color="#6B7280" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => handleExport('excel')}>
             <FontAwesome6 name="file-export" size={20} color="#6B7280" />
           </TouchableOpacity>
