@@ -387,9 +387,8 @@ export default function PCMaterials() {
                 <th>计量单位</th>
                 <th>分类</th>
                 <th>库存</th>
-                <th>预警库存</th>
-                <th>单价(元)</th>
-                <th>供应商</th>
+                <th>物料照片</th>
+                <th>标签</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -420,9 +419,35 @@ export default function PCMaterials() {
                   }}>
                     {material.stock_quantity ?? '-'}
                   </td>
-                  <td>{material.warning_stock ?? '-'}</td>
-                  <td>{material.unit_price ? `¥${material.unit_price.toFixed(2)}` : '-'}</td>
-                  <td>{material.supplier || '-'}</td>
+                  <td>
+                    {material.material_photo ? (
+                      <img 
+                        src={material.material_photo} 
+                        alt="物料照片" 
+                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} 
+                      />
+                    ) : (
+                      <span style={{ color: '#ccc', fontSize: 20 }}>-</span>
+                    )}
+                  </td>
+                  <td>
+                    {material.tags ? (
+                      <span style={{ 
+                        display: 'inline-block',
+                        padding: '2px 8px',
+                        background: '#E3F2FD',
+                        borderRadius: 4,
+                        fontSize: 12,
+                        color: '#1E88E5',
+                        maxWidth: 120,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {material.tags}
+                      </span>
+                    ) : '-'}
+                  </td>
                   <td>
                     <button className="pc-btn pc-btn-text pc-btn-sm" onClick={() => handleEdit(material)}>
                       编辑
