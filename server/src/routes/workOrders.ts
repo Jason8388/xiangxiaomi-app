@@ -736,6 +736,8 @@ router.put('/:id', async (req, res) => {
     // 客户信息
     if (updates.contacts !== undefined) { fields.push(`contacts = $${paramCount++}`); values.push(JSON.stringify(updates.contacts)); }
     if (updates.demand_date !== undefined) { fields.push(`demand_date = $${paramCount++}`); values.push(updates.demand_date); }
+    if (updates.requirement_photos !== undefined) { fields.push(`requirement_photos = $${paramCount++}`); values.push(updates.requirement_photos); }
+    if (updates.requirement_videos !== undefined) { fields.push(`requirement_videos = $${paramCount++}`); values.push(updates.requirement_videos); }
     
     // 服务方案
     if (updates.service_plan !== undefined) { fields.push(`service_plan = $${paramCount++}`); values.push(updates.service_plan); }
@@ -745,6 +747,7 @@ router.put('/:id', async (req, res) => {
     if (updates.warranty_status !== undefined) { fields.push(`warranty_status = $${paramCount++}`); values.push(updates.warranty_status); }
     if (updates.is_charged !== undefined) { fields.push(`is_charged = $${paramCount++}`); values.push(updates.is_charged); }
     if (updates.quoted_price !== undefined) { fields.push(`quoted_price = $${paramCount++}`); values.push(updates.quoted_price); }
+    if (updates.quoted_price_doc !== undefined) { fields.push(`quoted_price_doc = $${paramCount++}`); values.push(updates.quoted_price_doc); }
     if (updates.service_docs !== undefined) { fields.push(`service_docs = $${paramCount++}`); values.push(updates.service_docs); }
     if (updates.consensus_docs !== undefined) { fields.push(`consensus_docs = $${paramCount++}`); values.push(updates.consensus_docs); }
     if (updates.consensus_date !== undefined) { fields.push(`consensus_date = $${paramCount++}`); values.push(updates.consensus_date); }

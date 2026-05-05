@@ -399,7 +399,9 @@ export default function PCWorkOrderDetail() {
         'is_charged', 'quoted_price', 'consensus_date', 'sales_sub_project_no',
         'oa_work_order_no', 'erp_outbound_no', 'implementer', 'implementation_complete_date',
         'actual_hours', 'work_order_signer', 'invoice_application', 'invoice_completed',
-        'invoice_delivered', 'planned_payment_date', 'actual_payment_date'
+        'invoice_delivered', 'planned_payment_date', 'actual_payment_date',
+        'requirement_photos', 'quoted_price_doc', 'consensus_docs',
+        'work_order_docs', 'site_completion_docs'
       ];
 
       fieldsToCheck.forEach(field => {
