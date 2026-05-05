@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
-import Screen from '@/components/Screen';
+import { PCLayout } from '@/components/pc/PCLayout';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 interface Reminder {
@@ -78,7 +78,7 @@ export default function PCReminders() {
   );
 
   return (
-    <Screen>
+    <PCLayout title="工作提醒" activePath="/reminders">
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>工作提醒</Text>
@@ -119,7 +119,7 @@ export default function PCReminders() {
           }
         />
       </View>
-    </Screen>
+    </PCLayout>
   );
 }
 

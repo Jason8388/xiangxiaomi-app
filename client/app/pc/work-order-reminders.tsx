@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import Screen from '@/components/Screen';
+import { PCLayout } from '@/components/pc/PCLayout';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
@@ -97,7 +97,7 @@ export default function PCWorkOrderReminders() {
   );
 
   return (
-    <Screen>
+    <PCLayout title="工单待填提醒" activePath="/work-order-reminders">
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>工单待填提醒</Text>
@@ -146,7 +146,7 @@ export default function PCWorkOrderReminders() {
           />
         )}
       </View>
-    </Screen>
+    </PCLayout>
   );
 }
 

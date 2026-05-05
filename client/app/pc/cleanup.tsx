@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Screen from '@/components/Screen';
+import { PCLayout } from '@/components/pc/PCLayout';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 export default function PCCleanup() {
@@ -24,7 +24,7 @@ export default function PCCleanup() {
   const totalSize = results.reduce((acc, r) => acc + parseFloat(r.size), 0);
 
   return (
-    <Screen>
+    <PCLayout title="系统清理" activePath="/cleanup">
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>系统清理</Text>
@@ -70,7 +70,7 @@ export default function PCCleanup() {
           </View>
         )}
       </View>
-    </Screen>
+    </PCLayout>
   );
 }
 
