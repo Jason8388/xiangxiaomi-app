@@ -865,7 +865,7 @@ export default function PCWorkOrderDetail() {
                 </View>
               </View>
             )}
-            {/* 需求照片/视频 - 非编辑模式始终显示 */}
+            {/* 需求照片/视频 - 始终显示 */}
             <View style={styles.photosRow}>
               <Text style={styles.infoLabel}>需求照片/视频</Text>
               <View style={styles.photoList}>
@@ -875,6 +875,14 @@ export default function PCWorkOrderDetail() {
                   ))
                 ) : (
                   <Text style={styles.emptyText}>暂无照片</Text>
+                )}
+                {isEditMode && (
+                  <>
+                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddRequirementPhoto}>
+                      <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                      <Text style={styles.addPhotoText}>上传</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
               </View>
             </View>
@@ -1040,7 +1048,7 @@ export default function PCWorkOrderDetail() {
                 </View>
               </View>
             )}
-            {/* 报价单照片 - 非编辑模式始终显示 */}
+            {/* 报价单照片 - 始终显示 */}
             <View style={styles.photosRow}>
               <Text style={styles.infoLabel}>报价单照片</Text>
               <View style={styles.photoList}>
@@ -1051,9 +1059,15 @@ export default function PCWorkOrderDetail() {
                 ) : (
                   <Text style={styles.emptyText}>暂无照片</Text>
                 )}
+                {isEditMode && (
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadQuotedPricePhoto}>
+                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                    <Text style={styles.addPhotoText}>上传</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-            {/* 客户共识凭证 - 非编辑模式始终显示 */}
+            {/* 客户共识凭证 - 始终显示 */}
             <View style={styles.photosRow}>
               <Text style={styles.infoLabel}>客户共识凭证</Text>
               <View style={styles.photoList}>
@@ -1063,6 +1077,12 @@ export default function PCWorkOrderDetail() {
                   ))
                 ) : (
                   <Text style={styles.emptyText}>暂无凭证</Text>
+                )}
+                {isEditMode && (
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadConsensusPhoto}>
+                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                    <Text style={styles.addPhotoText}>上传</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
@@ -1158,7 +1178,7 @@ export default function PCWorkOrderDetail() {
                 </View>
               </>
             )}
-            {/* 派工单照片 - 非编辑模式始终显示 */}
+            {/* 派工单照片 - 始终显示 */}
             <View style={styles.photosRow}>
               <Text style={styles.infoLabel}>派工单照片</Text>
               <View style={styles.photoList}>
@@ -1169,9 +1189,15 @@ export default function PCWorkOrderDetail() {
                 ) : (
                   <Text style={styles.emptyText}>暂无照片</Text>
                 )}
+                {isEditMode && (
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddWorkOrderDoc}>
+                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                    <Text style={styles.addPhotoText}>上传</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-            {/* 现场实施照片 - 非编辑模式始终显示 */}
+            {/* 现场实施照片 - 始终显示 */}
             <View style={styles.photosRow}>
               <Text style={styles.infoLabel}>现场实施照片</Text>
               <View style={styles.photoList}>
@@ -1181,6 +1207,12 @@ export default function PCWorkOrderDetail() {
                   ))
                 ) : (
                   <Text style={styles.emptyText}>暂无照片</Text>
+                )}
+                {isEditMode && (
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddSiteCompletionDoc}>
+                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                    <Text style={styles.addPhotoText}>上传</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
