@@ -475,20 +475,77 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// 删除用户（仅用于测试，生产环境禁用）
+// 删除用户
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 检查是否尝试删除账号（生产环境不允许删除，只能禁用）
-    const userResult = await pool.query('SELECT is_disabled FROM users WHERE id = $1', [id]);
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: '用户不存在' });
-    }
+    if (USE_MEMORY_STORAGE) {
+      // 使用内存存储
+      // 尝试用字符串 key 查找（如 "admin"）
+      let user = memoryUsers[id];
+      // 如果没找到，尝试用数字 key 查找
+      if (!user && !isNaN(parseInt(id))) {
+        user = memoryUsers[parseInt(id)];
+      }
+      // 如果还没找到，遍历查找
+      if (!user) {
+        user = Object.values(memoryUsers).find((u: any) => 
+          String(u.id) === id || u.username === id
+        );
+      }
+      if (!user) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      // 从内存存储中删除
+      const keys = Object.keys(memoryUsers);
+      for (const key of keys) {
+        if (memoryUsers[key].id === user.id) {
+          delete memoryUsers[key];
+          break;
+        }
+      }
+      res.json({ success: true, message: `员工 ${user.name} 已删除` });
+    } else {
+      // 使用数据库
+      try {
+        // 检查用户是否存在
+        const userResult = await queryWithRetry('SELECT id, name FROM users WHERE id = $1 OR username = $1', [id]);
+        if (userResult.rows.length === 0) {
+          return res.status(404).json({ error: '用户不存在' });
+        }
 
-    res.status(403).json({
-      error: '不允许删除用户账号，如需停用账号请使用禁用功能'
-    });
+        const userName = userResult.rows[0].name;
+
+        // 执行删除操作
+        await queryWithRetry('DELETE FROM users WHERE id = $1', [userResult.rows[0].id]);
+
+        res.json({ success: true, message: `员工 ${userName} 已删除` });
+      } catch (dbError: any) {
+        console.error('Database delete failed, falling back to memory storage:', dbError.message);
+        // 如果数据库失败，使用内存存储
+        let user = memoryUsers[id];
+        if (!user && !isNaN(parseInt(id))) {
+          user = memoryUsers[parseInt(id)];
+        }
+        if (!user) {
+          user = Object.values(memoryUsers).find((u: any) => 
+            String(u.id) === id || u.username === id
+          );
+        }
+        if (!user) {
+          return res.status(404).json({ error: '用户不存在' });
+        }
+        const keys = Object.keys(memoryUsers);
+        for (const key of keys) {
+          if (memoryUsers[key].id === user.id) {
+            delete memoryUsers[key];
+            break;
+          }
+        }
+        res.json({ success: true, message: `员工 ${user.name} 已删除` });
+      }
+    }
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: '服务器错误' });
