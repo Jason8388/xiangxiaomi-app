@@ -11,6 +11,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { key: 'dashboard', icon: 'gauge-high', label: '工作台', path: '/pc/dashboard' },
+  { key: 'query-assistant', icon: 'magnifying-glass', label: '查询助手', path: '/pc/query-assistant' },
   { key: 'customers', icon: 'users', label: '客户管理', path: '/pc/customers' },
   { key: 'devices', icon: 'mobile-screen', label: '设备管理', path: '/pc/devices' },
   { key: 'contracts', icon: 'file-contract', label: '合同管理', path: '/pc/contracts' },
