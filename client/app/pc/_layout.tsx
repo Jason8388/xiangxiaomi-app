@@ -22,6 +22,9 @@ export default function PCLayout() {
       <Stack.Screen name="gallery" />
       <Stack.Screen name="account-settings" />
       <Stack.Screen name="logs" />
+      <Stack.Screen name="cleanup" />
+      <Stack.Screen name="reminders" />
+      <Stack.Screen name="work-order-reminders" />
       <Stack.Screen name="query-assistant" />
       <Stack.Screen name="query-customer" />
       <Stack.Screen name="query-device" />
