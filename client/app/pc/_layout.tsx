@@ -39,6 +39,7 @@ export default function PCLayout() {
       <Stack.Screen name="report-after-sales" />
       <Stack.Screen name="employee-management" />
       <Stack.Screen name="organization" />
+      <Stack.Screen name="version-management" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="help" />
     </Stack>
