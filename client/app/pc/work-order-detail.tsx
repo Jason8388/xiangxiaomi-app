@@ -813,16 +813,18 @@ export default function PCWorkOrderDetail() {
           </View>
           {order.progress_notes && order.progress_notes.length > 0 ? (
             <View style={styles.progressHistory}>
-              {[...order.progress_notes].reverse().map((note, index) => (
-                <View key={note.id || index} style={styles.progressNoteItem}>
-                  <View style={styles.progressNoteHeader}>
-                    <Text style={styles.progressNoteDate}>
-                      {new Date(note.created_at).toLocaleString('zh-CN')}
-                    </Text>
+              {[...order.progress_notes].reverse().map((note, index) => {
+                const date = note.created_at ? new Date(note.created_at) : null;
+                const dateStr = date && !isNaN(date.getTime()) ? date.toLocaleString('zh-CN') : '-';
+                return (
+                  <View key={note.id || index} style={styles.progressNoteItem}>
+                    <View style={styles.progressNoteHeader}>
+                      <Text style={styles.progressNoteDate}>{dateStr}</Text>
+                    </View>
+                    <Text style={styles.progressNoteContent}>{note.content}</Text>
                   </View>
-                  <Text style={styles.progressNoteContent}>{note.content}</Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : (
             <Text style={styles.emptyText}>暂无进度记录</Text>

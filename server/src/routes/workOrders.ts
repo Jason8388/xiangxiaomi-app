@@ -900,6 +900,42 @@ router.post('/:id/payment-progress', async (req, res) => {
   }
 });
 
+// 添加进度记录
+router.post('/:id/progress-notes', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ error: '进度内容不能为空' });
+    }
+
+    const newNote = {
+      id: Date.now(),
+      content,
+      created_at: new Date().toISOString(),
+    };
+
+    if (!USE_DATABASE) {
+      const order = memoryWorkOrders.find(w => w.id === parseInt(id));
+      if (!order) {
+        return res.status(404).json({ error: '工单不存在' });
+      }
+      // 确保 progress_notes 是数组
+      if (!Array.isArray(order.progress_notes)) {
+        order.progress_notes = [];
+      }
+      order.progress_notes.push(newNote);
+      return res.json(newNote);
+    }
+
+    res.json(newNote);
+  } catch (error) {
+    console.error('Add progress note error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
 // 删除工单
 router.delete('/:id', async (req, res) => {
   try {
