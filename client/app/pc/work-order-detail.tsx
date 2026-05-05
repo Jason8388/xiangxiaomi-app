@@ -1017,75 +1017,65 @@ export default function PCWorkOrderDetail() {
               </>
             )}
             {/* 报价单照片 */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>报价单照片</Text>
-              <View style={styles.photoUploadContainer}>
-                {quotePhotoUrls.length > 0 && (
-                  <View style={styles.photoPreviewList}>
-                    {quotePhotoUrls.map((url, index) => (
-                      <View key={index} style={styles.photoItem}>
-                        <Image source={{ uri: url }} style={styles.photoThumb} />
-                        <TouchableOpacity
-                          style={styles.photoRemoveBtn}
-                          onPress={() => handleRemoveQuotePhoto(index)}
-                        >
-                          <FontAwesome6 name="times-circle" size={16} color="#FF4444" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-                {isEditMode && quotePhotoUrls.length < 5 && (
-                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddQuotePhoto}>
-                    <FontAwesome6 name="plus" size={20} color="#4F46E5" />
-                    <Text style={styles.addPhotoText}>添加照片</Text>
+            {isEditMode && (
+              <View style={styles.photosRow}>
+                <Text style={styles.infoLabel}>报价单照片</Text>
+                <View style={styles.photoList}>
+                  {toPhotoArray(getEditValue('quoted_price_photo') as string | string[]).map((photo, index) => (
+                    <View key={index} style={styles.photoItem}>
+                      <Image source={{ uri: photo }} style={styles.thumbnail} />
+                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteQuotedPricePhoto(photo)}>
+                        <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadQuotedPricePhoto}>
+                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                    <Text style={styles.addPhotoText}>添加</Text>
                   </TouchableOpacity>
-                )}
-                <input
-                  ref={quotePhotoInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style={{ display: 'none' }}
-                  onChange={handleQuotePhotoChange}
-                />
+                </View>
               </View>
-            </View>
+            )}
+            {toPhotoArray(order?.quoted_price_photo).length > 0 && (
+              <View style={styles.photosRow}>
+                <Text style={styles.infoLabel}>报价单照片</Text>
+                <View style={styles.photoList}>
+                  {toPhotoArray(order?.quoted_price_photo).map((photo, index) => (
+                    <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
+                  ))}
+                </View>
+              </View>
+            )}
             {/* 客户共识凭证 */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>客户共识凭证</Text>
-              <View style={styles.photoUploadContainer}>
-                {consensusPhotoUrls.length > 0 && (
-                  <View style={styles.photoPreviewList}>
-                    {consensusPhotoUrls.map((url, index) => (
-                      <View key={index} style={styles.photoItem}>
-                        <Image source={{ uri: url }} style={styles.photoThumb} />
-                        <TouchableOpacity
-                          style={styles.photoRemoveBtn}
-                          onPress={() => handleRemoveConsensusPhoto(index)}
-                        >
-                          <FontAwesome6 name="times-circle" size={16} color="#FF4444" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-                {isEditMode && consensusPhotoUrls.length < 5 && (
-                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddConsensusPhoto}>
-                    <FontAwesome6 name="plus" size={20} color="#4F46E5" />
-                    <Text style={styles.addPhotoText}>添加凭证</Text>
+            {isEditMode && (
+              <View style={styles.photosRow}>
+                <Text style={styles.infoLabel}>客户共识凭证</Text>
+                <View style={styles.photoList}>
+                  {toPhotoArray(getEditValue('consensus_photo') as string | string[]).map((photo, index) => (
+                    <View key={index} style={styles.photoItem}>
+                      <Image source={{ uri: photo }} style={styles.thumbnail} />
+                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteConsensusPhoto(photo)}>
+                        <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadConsensusPhoto}>
+                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
+                    <Text style={styles.addPhotoText}>添加</Text>
                   </TouchableOpacity>
-                )}
-                <input
-                  ref={consensusPhotoInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style={{ display: 'none' }}
-                  onChange={handleConsensusPhotoChange}
-                />
+                </View>
               </View>
-            </View>
+            )}
+            {toPhotoArray(order?.consensus_photo).length > 0 && (
+              <View style={styles.photosRow}>
+                <Text style={styles.infoLabel}>客户共识凭证</Text>
+                <View style={styles.photoList}>
+                  {toPhotoArray(order?.consensus_photo).map((photo, index) => (
+                    <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         </PCCard>
 
