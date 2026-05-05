@@ -8,6 +8,78 @@ import { memoryWorkOrders } from './workOrders';
 
 const router = express.Router();
 
+// 扫码查询接口
+router.get('/scan', async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    if (!code || typeof code !== 'string') {
+      return res.status(200).json({
+        type: 'unknown',
+        message: '请提供有效的二维码编号'
+      });
+    }
+
+    const codeStr = code.toLowerCase();
+
+    // 先在设备中搜索
+    const device = memoryDevices.find((d) => {
+      const deviceId = (d.device_id || '').toLowerCase();
+      const deviceNumber = (d.device_number || '').toLowerCase();
+      const deviceName = (d.device_name || '').toLowerCase();
+      return deviceId === codeStr || deviceNumber === codeStr || deviceName.includes(codeStr);
+    });
+
+    if (device) {
+      return res.status(200).json({
+        type: 'device',
+        id: device.id,
+        data: {
+          id: device.id,
+          device_name: device.device_name,
+          device_number: device.device_number,
+          device_id: device.device_id || device.factory_serial_number || '',
+          device_model: device.device_model,
+          customer_name: device.customer_name || null,
+          project_name: device.project_name || null,
+          status: device.status || '正常',
+        }
+      });
+    }
+
+    // 再在物料中搜索
+    const material = memoryMaterials.find((m) => {
+      const materialCode = (m.code || m.material_code || '').toLowerCase();
+      const materialName = (m.name || m.material_name || '').toLowerCase();
+      return materialCode === codeStr || materialName.includes(codeStr);
+    });
+
+    if (material) {
+      return res.status(200).json({
+        type: 'material',
+        id: material.id,
+        data: {
+          id: material.id,
+          material_name: material.name || material.material_name || '',
+          material_code: material.code || material.material_code || '',
+          material_model: material.spec || material.material_model || '',
+          unit: material.unit || '',
+          quantity: material.current_stock || material.quantity || 0,
+        }
+      });
+    }
+
+    // 未找到匹配
+    return res.status(200).json({
+      type: 'unknown',
+      message: '未找到匹配的设备或物料'
+    });
+  } catch (error) {
+    console.error('Scan query error:', error);
+    res.status(500).json({ type: 'unknown', message: '查询失败，请重试' });
+  }
+});
+
 // 通用查询接口
 router.get('/search', async (req, res) => {
   try {
