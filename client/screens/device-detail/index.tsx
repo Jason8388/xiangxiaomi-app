@@ -482,7 +482,11 @@ export default function DeviceDetailPage() {
           <View style={styles.photosGrid}>
             {(device.photos || []).map((photo, index) => (
               <View key={index} style={styles.photoContainer}>
-                <Image source={{ uri: photo }} style={styles.photo} />
+                <Image 
+                  source={{ uri: photo }} 
+                  style={styles.photo}
+                  onError={(e) => console.log('[设备详情] 照片加载失败:', photo, e.nativeEvent.error)}
+                />
               </View>
             ))}
             <TouchableOpacity

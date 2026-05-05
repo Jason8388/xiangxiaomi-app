@@ -900,7 +900,11 @@ export default function PCDevices() {
             <View style={styles.photoContainer}>
               {sitePhotos.map((photoUri, index) => (
                 <View key={index} style={styles.photoItem}>
-                  <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                  <Image 
+                    source={{ uri: photoUri }} 
+                    style={styles.photoPreview}
+                    onError={(e) => console.log('[设备照片] 加载失败:', photoUri, e.nativeEvent.error)}
+                  />
                   <TouchableOpacity
                     style={styles.photoRemoveButton}
                     onPress={() => handleRemovePhoto(index)}
