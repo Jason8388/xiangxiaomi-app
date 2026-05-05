@@ -177,11 +177,7 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View style={{ marginTop: 32 }}>
-            <Text style={{ fontSize: 14, color: '#666666', textAlign: 'center' }}>
-              测试账号：admin / admin123
-            </Text>
-          </View>
+          
         </View>
       </KeyboardAvoidingView>
     </Screen>

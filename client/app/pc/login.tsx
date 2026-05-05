@@ -209,12 +209,7 @@ export default function PCLogin() {
             </button>
           </form>
 
-          <div className="pc-login-footer">
-            <p className="pc-login-tips">
-              默认账号：admin / admin123<br />
-              演示账号：demo / demo123
-            </p>
-          </div>
+          
         </div>
       </div>
     </div>
