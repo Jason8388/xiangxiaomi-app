@@ -102,6 +102,40 @@ export default function PCDevices() {
     }
   }, []);
 
+  // 批量导出设备
+  const handleExportDevices = async () => {
+    try {
+      const sessionId = await storage.getItem('session_id');
+      const ids = selectedRowKeys.length > 0 ? selectedRowKeys.join(',') : '';
+      const url = ids 
+        ? `${API_BASE}/api/v1/devices/export?ids=${ids}`
+        : `${API_BASE}/api/v1/devices/export`;
+      
+      const response = await fetch(url, {
+        headers: sessionId ? { Authorization: `Bearer ${sessionId}` } : {},
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `设备信息导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+        Alert.alert('成功', '导出成功');
+      } else {
+        const data = await response.json();
+        Alert.alert('错误', data.error || '导出失败');
+      }
+    } catch (error) {
+      console.error('导出设备失败:', error);
+      Alert.alert('错误', '导出失败');
+    }
+  };
+
   // 加载客户列表
   useEffect(() => {
     const loadCustomers = async () => {
@@ -465,9 +499,7 @@ export default function PCDevices() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ backgroundColor: '#E8F5E9', borderWidth: 1, borderColor: '#1E88E5' }}
-                onPress={() => {
-                  Alert.alert('提示', '导出功能正在开发中');
-                }}
+                onPress={handleExportDevices}
               >
                 <FontAwesome6 name="download" size={14} style={{ marginRight: 6 }} />
                 <Text style={{ color: '#1E88E5' }}>批量导出</Text>

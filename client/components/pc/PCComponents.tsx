@@ -428,12 +428,13 @@ export function PCConfirm(options: {
 }
 
 // PC批量导入弹窗组件
-export function PCImportModal({ visible, onClose, title, apiUrl, templateFields, onSuccess }: {
+export function PCImportModal({ visible, onClose, title, apiUrl, templateUrl, templateFields, onSuccess }: {
   visible: boolean;
   onClose: () => void;
   title: string;
   apiUrl: string;
-  templateFields: string[];
+  templateUrl?: string;
+  templateFields?: string[];
   onSuccess?: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -493,12 +494,23 @@ export function PCImportModal({ visible, onClose, title, apiUrl, templateFields,
   };
 
   const downloadTemplate = () => {
-    const worksheet = (window as any).XLSX.utils.json_to_sheet(
-      templateFields.map(field => ({ '字段名': field.replace('*', '') }))
-    );
-    const workbook = (window as any).XLSX.utils.book_new();
-    (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板');
-    (window as any).XLSX.writeFile(workbook, 'import_template.xlsx');
+    if (templateUrl) {
+      // 直接从URL下载模板
+      const link = document.createElement('a');
+      link.href = templateUrl;
+      link.download = 'import_template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (templateFields && templateFields.length > 0) {
+      // 使用XLSX库生成模板
+      const worksheet = (window as any).XLSX.utils.json_to_sheet(
+        templateFields.map(field => ({ '字段名': field.replace('*', '') }))
+      );
+      const workbook = (window as any).XLSX.utils.book_new();
+      (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板');
+      (window as any).XLSX.writeFile(workbook, 'import_template.xlsx');
+    }
   };
 
   const overlay = document.createElement('div');
