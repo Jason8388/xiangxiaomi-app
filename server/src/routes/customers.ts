@@ -380,6 +380,166 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 下载客户导入模板
+router.get('/import-template', async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('客户导入模板');
+
+    // 设置表头
+    worksheet.addRow([
+      '客户名称*', '联系人', '联系电话', '地址', '邮箱',
+      '所属行业', '客户等级', '客户来源', '业务经理', '服务看管部门', '备注'
+    ]);
+
+    // 添加示例数据
+    worksheet.addRow([
+      '示例科技有限公司', '张三', '13800138001', '北京市朝阳区', 'zhangsan@example.com',
+      'IT行业', 'A', '线上推广', '张三', '技术服务一组', '优质客户'
+    ]);
+
+    // 设置表头样式
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E88E5' },
+    };
+
+    // 设置列宽
+    worksheet.columns.forEach((column) => {
+      column.width = 20;
+    });
+
+    // 生成Excel文件
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=customer_import_template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Download template error:', error);
+    res.status(500).json({ error: '下载模板失败' });
+  }
+});
+
+// 导出客户信息
+router.get('/export', async (req, res) => {
+  try {
+    const { ids } = req.query;
+    let customers = [];
+
+    // 优先从数据库获取数据
+    if (USE_DATABASE) {
+      try {
+        let query = 'SELECT * FROM customers ORDER BY id';
+        let params: any[] = [];
+        
+        if (ids) {
+          const idArray = (ids as string).split(',').map(id => parseInt(id.trim()));
+          query = 'SELECT * FROM customers WHERE id = ANY($1) ORDER BY id';
+          params = [idArray];
+        }
+        
+        const result = await pool.query(query, params);
+        customers = result.rows;
+      } catch (dbError) {
+        console.error('Database export error, falling back to memory:', dbError);
+        // 如果数据库失败，使用内存存储
+        customers = memoryCustomers;
+        if (ids) {
+          const idArray = (ids as string).split(',').map(id => parseInt(id.trim()));
+          customers = memoryCustomers.filter((c: any) => idArray.includes(c.id));
+        }
+      }
+    } else {
+      // 使用内存存储
+      customers = memoryCustomers;
+      if (ids) {
+        const idArray = (ids as string).split(',').map(id => parseInt(id.trim()));
+        customers = memoryCustomers.filter((c: any) => idArray.includes(c.id));
+      }
+    }
+
+    if (customers.length === 0) {
+      return res.status(400).json({ error: '没有可导出的数据' });
+    }
+
+    // 创建Excel工作簿
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('客户信息');
+
+    // 设置表头
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: '客户名称', key: 'name', width: 25 },
+      { header: '联系人', key: 'contact', width: 15 },
+      { header: '联系电话', key: 'phone', width: 15 },
+      { header: '地址', key: 'address', width: 30 },
+      { header: '邮箱', key: 'email', width: 20 },
+      { header: '所属行业', key: 'industry', width: 15 },
+      { header: '客户等级', key: 'level', width: 10 },
+      { header: '客户来源', key: 'source', width: 15 },
+      { header: '业务经理', key: 'business_manager', width: 15 },
+      { header: '服务看管部门', key: 'sub_group', width: 18 },
+      { header: '备注', key: 'remarks', width: 30 },
+      { header: '状态', key: 'status', width: 10 },
+      { header: '创建时间', key: 'created_at', width: 20 },
+    ];
+
+    // 设置表头样式
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E88E5' },
+    };
+
+    // 添加数据
+    customers.forEach((customer: any) => {
+      worksheet.addRow({
+        id: customer.id,
+        name: customer.name || '',
+        contact: customer.contact_person || customer.contact || '',
+        phone: customer.contact_phone || customer.phone || '',
+        address: customer.address || '',
+        email: customer.email || '',
+        industry: customer.industry || '',
+        level: customer.level || 'A',
+        source: customer.source || '',
+        business_manager: customer.business_manager || '',
+        sub_group: customer.sub_group || '',
+        remarks: customer.remarks || customer.remark || '',
+        status: customer.status || '正常',
+        created_at: customer.created_at ? new Date(customer.created_at).toLocaleString('zh-CN') : '',
+      });
+    });
+
+    // 设置数据行样式
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.alignment = { vertical: 'middle' };
+        if (rowNumber % 2 === 0) {
+          row.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FF' },
+          };
+        }
+      }
+    });
+
+    // 生成文件
+    const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `客户信息_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Export customers error:', error);
+    res.status(500).json({ error: '导出失败' });
+  }
+});
+
 // 获取客户详情
 router.get('/:id', async (req, res) => {
   try {
@@ -800,98 +960,6 @@ router.post('/import', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('Import customers error:', error);
     res.status(500).json({ error: '批量导入失败' });
-  }
-});
-
-// 导出客户信息
-router.get('/export', async (req, res) => {
-  try {
-    const { ids } = req.query;
-    let customers = memoryCustomers;
-
-    // 如果指定了客户ID，则筛选
-    if (ids) {
-      const idArray = (ids as string).split(',').map(id => parseInt(id.trim()));
-      customers = memoryCustomers.filter(c => idArray.includes(c.id));
-    }
-
-    if (customers.length === 0) {
-      return res.status(400).json({ error: '没有可导出的数据' });
-    }
-
-    // 创建Excel工作簿
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('客户信息');
-
-    // 设置表头
-    worksheet.columns = [
-      { header: 'ID', key: 'id', width: 10 },
-      { header: '客户名称', key: 'name', width: 25 },
-      { header: '联系人', key: 'contact', width: 15 },
-      { header: '联系电话', key: 'phone', width: 15 },
-      { header: '地址', key: 'address', width: 30 },
-      { header: '邮箱', key: 'email', width: 20 },
-      { header: '所属行业', key: 'industry', width: 15 },
-      { header: '客户等级', key: 'level', width: 10 },
-      { header: '客户来源', key: 'source', width: 15 },
-      { header: '业务经理', key: 'business_manager', width: 15 },
-      { header: '服务看管部门', key: 'sub_group', width: 18 },
-      { header: '备注', key: 'remarks', width: 30 },
-      { header: '状态', key: 'status', width: 10 },
-      { header: '创建时间', key: 'created_at', width: 20 },
-    ];
-
-    // 设置表头样式
-    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    worksheet.getRow(1).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF1E88E5' },
-    };
-
-    // 添加数据
-    customers.forEach((customer: any) => {
-      worksheet.addRow({
-        id: customer.id,
-        name: customer.name || '',
-        contact: customer.contact || '',
-        phone: customer.phone || '',
-        address: customer.address || '',
-        email: customer.email || '',
-        industry: customer.industry || '',
-        level: customer.level || 'A',
-        source: customer.source || '',
-        business_manager: customer.business_manager || '',
-        sub_group: customer.sub_group || '',
-        remarks: customer.remarks || '',
-        status: customer.status || '正常',
-        created_at: customer.created_at ? new Date(customer.created_at).toLocaleString('zh-CN') : '',
-      });
-    });
-
-    // 设置数据行样式
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber > 1) {
-        row.alignment = { vertical: 'middle' };
-        if (rowNumber % 2 === 0) {
-          row.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFF8F9FF' },
-          };
-        }
-      }
-    });
-
-    // 生成文件
-    const buffer = await workbook.xlsx.writeBuffer();
-    const filename = `客户信息_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
-    res.send(Buffer.from(buffer));
-  } catch (error) {
-    console.error('Export customers error:', error);
-    res.status(500).json({ error: '导出失败' });
   }
 });
 
