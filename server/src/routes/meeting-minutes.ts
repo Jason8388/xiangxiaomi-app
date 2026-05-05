@@ -266,7 +266,7 @@ router.get('/template', async (req, res) => {
   }
 });
 
-// Export meeting minutes to Excel
+// Export meeting minutes to Excel - 与模板字段保持一致
 router.get('/export', async (req, res) => {
   try {
     let meetingMinutes: any[] = [];
@@ -291,7 +291,6 @@ router.get('/export', async (req, res) => {
     }
 
     const exportData = meetingMinutes.map(mm => ({
-      'ID': mm.id,
       '会议主题': mm.meeting_name || '',
       '会议类型': mm.meeting_type || '',
       '会议日期': mm.meeting_date || '',
@@ -303,9 +302,7 @@ router.get('/export', async (req, res) => {
       '关键点': mm.key_points || '',
       '会议总结': mm.summary || '',
       '客户名称': mm.customer_name || '',
-      '标签': Array.isArray(mm.tags) ? mm.tags.map((t: any) => t.tag).join(', ') : '',
-      '创建时间': mm.created_at ? new Date(mm.created_at).toLocaleString('zh-CN') : '',
-      '更新时间': mm.updated_at ? new Date(mm.updated_at).toLocaleString('zh-CN') : ''
+      '标签': Array.isArray(mm.tags) ? mm.tags.map((t: any) => typeof t === 'string' ? t : t.tag).join(', ') : (mm.tags || ''),
     }));
 
     const workbook = XLSX.utils.book_new();
@@ -315,7 +312,6 @@ router.get('/export', async (req, res) => {
 
     // Set column widths
     worksheet['!cols'] = [
-      { wch: 8 },   // ID
       { wch: 30 },  // 会议主题
       { wch: 15 },  // 会议类型
       { wch: 15 },  // 会议日期
@@ -328,8 +324,6 @@ router.get('/export', async (req, res) => {
       { wch: 50 },  // 会议总结
       { wch: 20 },  // 客户名称
       { wch: 40 },  // 标签
-      { wch: 20 },  // 创建时间
-      { wch: 20 },  // 更新时间
     ];
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
@@ -641,7 +635,7 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// 批量导入会议纪要
+// 批量导入会议纪要 - 与模板字段保持一致
 router.post('/batch', upload.single('file'), async (req: any, res: any) => {
   try {
     if (!req.file) {
@@ -664,22 +658,25 @@ router.post('/batch', upload.single('file'), async (req: any, res: any) => {
       const row = data[i] as any;
       const rowNum = i + 2;
 
-      if (!row['会议名称']) {
-        errors.push(`第${rowNum}行：会议名称不能为空`);
+      // 验证必填字段
+      if (!row['会议主题']) {
+        errors.push(`第${rowNum}行：会议主题不能为空`);
         continue;
       }
 
       const newMinute: any = {
         id: Date.now() + i,
-        meeting_name: row['会议名称'] || '',
+        meeting_name: row['会议主题'] || '',
+        meeting_type: row['会议类型'] || 'other',
         meeting_date: row['会议日期'] || '',
         meeting_location: row['会议地点'] || '',
         attendees: row['参会人员'] || '',
         host: row['主持人'] || '',
         recorder: row['记录人'] || '',
-        topics: row['议题'] || '',
+        topics: row['会议议题'] || '',
+        key_points: row['关键点'] || '',
         summary: row['会议总结'] || '',
-        tags: row['标签'] ? row['标签'].toString().split(',').map((t: string) => t.trim()) : [],
+        tags: row['标签'] ? row['标签'].toString().split(',').map((t: string) => t.trim()).filter((t: string) => t) : [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
