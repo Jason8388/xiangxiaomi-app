@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Input, Button, Select, Table, Tag, Card, message, Spin, Tabs, DatePicker, Modal } from 'antd';
-import { SearchOutlined, UserOutlined, CalendarOutlined, DesktopOutlined, GlobalOutlined } from '@ant-design/icons';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Alert, ScrollView } from 'react-native';
 import { getApiBaseUrl } from '@/utils/api';
-
-const { Option } = Select;
-const { RangePicker } = DatePicker;
+import { storage } from '@/utils/storage';
+import '@/assets/styles/pc-global.css';
 
 interface LoginLog {
   id: number;
@@ -28,588 +26,358 @@ interface OperationLog {
   module: string | null;
   description: string | null;
   ip_address: string | null;
-  platform: string | null;
-  created_at: string;
 }
 
-interface LogStats {
+interface LoginStats {
   total_logins: number;
-  total_operations: number;
   active_users: number;
-  avg_login_duration: number;
+  avg_duration: number;
+  operation_count: number;
 }
 
 export default function PCLogs() {
   const [activeTab, setActiveTab] = useState<'login' | 'operation'>('login');
-  const [loading, setLoading] = useState(false);
-  
-  // 登录日志
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
-  const [loginPage, setLoginPage] = useState(1);
-  const [loginTotal, setLoginTotal] = useState(0);
-  const [loginFilter, setLoginFilter] = useState({
-    username: '',
-    startDate: '',
-    endDate: '',
-  });
-  
-  // 操作日志
   const [operationLogs, setOperationLogs] = useState<OperationLog[]>([]);
-  const [operationPage, setOperationPage] = useState(1);
-  const [operationTotal, setOperationTotal] = useState(0);
-  const [operationFilter, setOperationFilter] = useState({
-    username: '',
-    module: '',
-    action: '',
-    startDate: '',
-    endDate: '',
-  });
-  
-  // 统计数据
-  const [stats, setStats] = useState<LogStats>({
-    total_logins: 0,
-    total_operations: 0,
-    active_users: 0,
-    avg_login_duration: 0,
-  });
-
-  // 用户列表
-  const [userList, setUserList] = useState<{id: number; username: string; name: string; phone: string}[]>([]);
-  const [userModalVisible, setUserModalVisible] = useState(false);
-  const [searchKeyword, setSearchKeyword] = useState('');
-
-  // 模块列表
-  const moduleList = [
-    {id: 'user', name: '用户管理'},
-    {id: 'device', name: '设备管理'},
-    {id: 'contract', name: '合同管理'},
-    {id: 'workorder', name: '工单管理'},
-    {id: 'after_sales', name: '售后服务'},
-    {id: 'inventory', name: '库存管理'},
-    {id: 'report', name: '报表分析'},
-    {id: 'file', name: '文件管理'},
-    {id: 'log', name: '日志管理'},
-  ];
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<LoginStats | null>(null);
+  const [keyword, setKeyword] = useState('');
+  const [module, setModule] = useState('');
 
   useEffect(() => {
-    fetchUserList();
-    fetchLoginLogs();
-    fetchStats();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'login') {
-      fetchLoginLogs();
-      fetchStats();
-    } else {
-      fetchOperationLogs();
-    }
+    loadData();
   }, [activeTab]);
 
-  const getApiBaseUrlFunc = () => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:9091';
-      }
-    }
-    return process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
-  };
-
-  const fetchUserList = async () => {
-    try {
-      const baseUrl = getApiBaseUrlFunc();
-      const response = await fetch(`${baseUrl}/api/v1/users`);
-      const data = await response.json();
-
-      if (Array.isArray(data)) {
-        setUserList(data.map((u: any) => ({
-          id: u.id,
-          username: u.username || '',
-          name: u.name || '',
-          phone: u.phone || '',
-        })));
-      }
-    } catch (error) {
-      console.error('获取用户列表错误:', error);
-    }
-  };
-
-  const fetchLoginLogs = async (page = 1) => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const baseUrl = getApiBaseUrlFunc();
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20',
-      });
+      const sessionId = await storage.getItem('session_id');
       
-      if (loginFilter.username) params.append('username', loginFilter.username);
-      if (loginFilter.startDate) params.append('start_date', loginFilter.startDate);
-      if (loginFilter.endDate) params.append('end_date', loginFilter.endDate);
-      
-      const response = await fetch(
-        `${baseUrl}/api/v1/logs/login?${params.toString()}`
-      );
-      const data = await response.json();
-      
-      if (data.code === 200) {
-        setLoginLogs(data.data.list || []);
-        setLoginTotal(data.data.total || 0);
-        setLoginPage(page);
+      if (activeTab === 'login') {
+        // 加载登录日志
+        const params = new URLSearchParams();
+        params.append('page', '1');
+        params.append('page_size', '50');
+        if (keyword) params.append('username', keyword);
+        
+        const response = await fetch(
+          `${getApiBaseUrl()}/api/v1/logs/login?${params.toString()}`,
+          { headers: { Authorization: `Bearer ${sessionId}` } }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setLoginLogs(data.logs || data.items || []);
+        }
+        
+        // 加载统计数据
+        const statsResponse = await fetch(
+          `${getApiBaseUrl()}/api/v1/logs/login/stats`,
+          { headers: { Authorization: `Bearer ${sessionId}` } }
+        );
+        
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData);
+        }
       } else {
-        message.error(data.message || '获取登录日志失败');
+        // 加载操作日志
+        const params = new URLSearchParams();
+        params.append('page', '1');
+        params.append('page_size', '50');
+        if (keyword) params.append('username', keyword);
+        if (module) params.append('module', module);
+        
+        const response = await fetch(
+          `${getApiBaseUrl()}/api/v1/logs/operation?${params.toString()}`,
+          { headers: { Authorization: `Bearer ${sessionId}` } }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setOperationLogs(data.logs || data.items || []);
+        }
       }
     } catch (error) {
-      console.error('获取登录日志错误:', error);
-      message.error('网络请求失败');
+      console.error('加载日志失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchOperationLogs = async (page = 1) => {
-    try {
-      setLoading(true);
-      const baseUrl = getApiBaseUrlFunc();
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20',
-      });
-      
-      if (operationFilter.username) params.append('username', operationFilter.username);
-      if (operationFilter.module) params.append('module', operationFilter.module);
-      if (operationFilter.action) params.append('action', operationFilter.action);
-      if (operationFilter.startDate) params.append('start_date', operationFilter.startDate);
-      if (operationFilter.endDate) params.append('end_date', operationFilter.endDate);
-      
-      const response = await fetch(
-        `${baseUrl}/api/v1/logs/operation?${params.toString()}`
-      );
-      const data = await response.json();
-      
-      if (data.code === 200) {
-        setOperationLogs(data.data.list || []);
-        setOperationTotal(data.data.total || 0);
-        setOperationPage(page);
-      } else {
-        message.error(data.message || '获取操作日志失败');
-      }
-    } catch (error) {
-      console.error('获取操作日志错误:', error);
-      message.error('网络请求失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const baseUrl = getApiBaseUrlFunc();
-      const response = await fetch(`${baseUrl}/api/v1/logs/login/stats`);
-      const data = await response.json();
-
-      if (data.code === 200 && data.data) {
-        setStats({
-          total_logins: data.data.total_logins || 0,
-          total_operations: 0,
-          active_users: data.data.unique_users || 0,
-          avg_login_duration: data.data.avg_duration || 0,
-        });
-      }
-    } catch (error) {
-      console.error('获取统计数据错误:', error);
-    }
+  const handleSearch = () => {
+    loadData();
   };
 
   const formatDuration = (minutes: number | null) => {
     if (!minutes) return '-';
+    if (minutes < 60) return `${minutes}分钟`;
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    if (hours > 0) {
-      return `${hours}小时${mins}分钟`;
-    }
-    return `${mins}分钟`;
+    return `${hours}小时${mins > 0 ? mins + '分钟' : ''}`;
   };
 
-  const getModuleColor = (module: string | null) => {
-    const colors: Record<string, string> = {
-      user: 'blue',
-      device: 'green',
-      contract: 'orange',
-      workorder: 'purple',
-      after_sales: 'cyan',
-      inventory: 'magenta',
-      report: 'gold',
-      file: 'volcano',
-      log: 'lime',
-    };
-    return colors[module || ''] || 'default';
+  const formatTime = (time: string) => {
+    return new Date(time).toLocaleString('zh-CN');
   };
-
-  const getModuleName = (module: string | null) => {
-    const item = moduleList.find(m => m.id === module);
-    return item ? item.name : module || '-';
-  };
-
-  const loginColumns = [
-    {
-      title: '用户名',
-      dataIndex: 'username',
-      key: 'username',
-      width: 120,
-    },
-    {
-      title: '登录时间',
-      dataIndex: 'login_time',
-      key: 'login_time',
-      width: 180,
-    },
-    {
-      title: '退出时间',
-      dataIndex: 'logout_time',
-      key: 'logout_time',
-      width: 180,
-    },
-    {
-      title: '在线时长',
-      dataIndex: 'duration',
-      key: 'duration',
-      width: 120,
-      render: (val: number | null) => formatDuration(val),
-    },
-    {
-      title: 'IP地址',
-      dataIndex: 'ip_address',
-      key: 'ip_address',
-      width: 140,
-    },
-    {
-      title: '设备信息',
-      dataIndex: 'device_info',
-      key: 'device_info',
-      width: 150,
-      ellipsis: true,
-    },
-    {
-      title: '平台',
-      dataIndex: 'platform',
-      key: 'platform',
-      width: 100,
-      render: (val: string | null) => val || '-',
-    },
-  ];
-
-  const operationColumns = [
-    {
-      title: '用户名',
-      dataIndex: 'username',
-      key: 'username',
-      width: 120,
-    },
-    {
-      title: '操作类型',
-      dataIndex: 'action',
-      key: 'action',
-      width: 100,
-    },
-    {
-      title: '模块',
-      dataIndex: 'module',
-      key: 'module',
-      width: 120,
-      render: (val: string | null) => (
-        <Tag color={getModuleColor(val)}>{getModuleName(val)}</Tag>
-      ),
-    },
-    {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true,
-    },
-    {
-      title: 'IP地址',
-      dataIndex: 'ip_address',
-      key: 'ip_address',
-      width: 140,
-    },
-    {
-      title: '时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 180,
-    },
-  ];
-
-  const filteredUsers = userList.filter(u => 
-    u.username.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-    u.name.toLowerCase().includes(searchKeyword.toLowerCase())
-  );
 
   return (
-    <div className="pc-container">
-      <div className="pc-header">
-        <h1 className="pc-title">日志查询</h1>
+    <div className="pc-page-container">
+      <div className="pc-page-header">
+        <h1 className="pc-page-title">日志查询</h1>
       </div>
-
-      <div className="pc-content">
-        {/* 统计卡片 */}
+      
+      {/* 统计卡片 */}
+      {activeTab === 'login' && stats && (
         <div className="pc-stats-grid">
-          <Card size="small">
-            <div className="pc-stat-item">
-              <UserOutlined className="pc-stat-icon" style={{ color: '#1890ff' }} />
-              <div>
-                <Text className="pc-stat-value">{stats.total_logins}</Text>
-                <Text className="pc-stat-label">登录总次数</Text>
-              </div>
-            </div>
-          </Card>
-          <Card size="small">
-            <div className="pc-stat-item">
-              <DesktopOutlined className="pc-stat-icon" style={{ color: '#52c41a' }} />
-              <div>
-                <Text className="pc-stat-value">{stats.active_users}</Text>
-                <Text className="pc-stat-label">活跃用户</Text>
-              </div>
-            </div>
-          </Card>
-          <Card size="small">
-            <div className="pc-stat-item">
-              <CalendarOutlined className="pc-stat-icon" style={{ color: '#faad14' }} />
-              <div>
-                <Text className="pc-stat-value">{formatDuration(stats.avg_login_duration)}</Text>
-                <Text className="pc-stat-label">平均在线时长</Text>
-              </div>
-            </div>
-          </Card>
-          <Card size="small">
-            <div className="pc-stat-item">
-              <GlobalOutlined className="pc-stat-icon" style={{ color: '#722ed1' }} />
-              <div>
-                <Text className="pc-stat-value">{stats.total_operations}</Text>
-                <Text className="pc-stat-label">操作总次数</Text>
-              </div>
-            </div>
-          </Card>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.total_logins}</Text>
+            <Text style={styles.statLabel}>登录总次数</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.active_users}</Text>
+            <Text style={styles.statLabel}>活跃用户</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{formatDuration(stats.avg_duration)}</Text>
+            <Text style={styles.statLabel}>平均在线时长</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.operation_count}</Text>
+            <Text style={styles.statLabel}>操作总次数</Text>
+          </View>
         </div>
-
-        {/* 标签页 */}
-        <div className="pc-card" style={{ marginTop: 16 }}>
-          <Tabs
-            activeKey={activeTab}
-            onChange={(key) => setActiveTab(key as 'login' | 'operation')}
-            items={[
-              {
-                key: 'login',
-                label: '登录日志',
-                children: (
-                  <div>
-                    {/* 筛选区域 */}
-                    <div className="pc-filter-bar">
-                      <div className="pc-filter-item">
-                        <Text>用户名：</Text>
-                        <Select
-                          placeholder="选择用户"
-                          style={{ width: 150 }}
-                          value={loginFilter.username || undefined}
-                          onChange={(val) => setLoginFilter({...loginFilter, username: val || ''})}
-                          allowClear
-                          showSearch
-                          filterOption={(input, option) =>
-                            (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                          }
-                        >
-                          {userList.map((u) => (
-                            <Option key={u.id} value={u.username}>{u.name || u.username}</Option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div className="pc-filter-item">
-                        <Text>日期范围：</Text>
-                        <RangePicker
-                          onChange={(dates, dateStrings) => {
-                            setLoginFilter({
-                              ...loginFilter,
-                              startDate: dateStrings[0] || '',
-                              endDate: dateStrings[1] || '',
-                            });
-                          }}
-                        />
-                      </div>
-                      <Button type="primary" icon={<SearchOutlined />} onClick={() => fetchLoginLogs(1)}>
-                        查询
-                      </Button>
-                      <Button onClick={() => {
-                        setLoginFilter({ username: '', startDate: '', endDate: '' });
-                        fetchLoginLogs(1);
-                      }}>
-                        重置
-                      </Button>
-                    </div>
-
-                    {/* 登录日志表格 */}
-                    <Table
-                      columns={loginColumns}
-                      dataSource={loginLogs}
-                      rowKey="id"
-                      loading={loading}
-                      pagination={{
-                        current: loginPage,
-                        total: loginTotal,
-                        pageSize: 20,
-                        showTotal: (total) => `共 ${total} 条`,
-                        onChange: (page) => fetchLoginLogs(page),
-                      }}
-                      scroll={{ x: 900 }}
-                    />
-                  </div>
-                ),
-              },
-              {
-                key: 'operation',
-                label: '操作日志',
-                children: (
-                  <div>
-                    {/* 筛选区域 */}
-                    <div className="pc-filter-bar">
-                      <div className="pc-filter-item">
-                        <Text>用户名：</Text>
-                        <Select
-                          placeholder="选择用户"
-                          style={{ width: 150 }}
-                          value={operationFilter.username || undefined}
-                          onChange={(val) => setOperationFilter({...operationFilter, username: val || ''})}
-                          allowClear
-                          showSearch
-                          filterOption={(input, option) =>
-                            (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-                          }
-                        >
-                          {userList.map((u) => (
-                            <Option key={u.id} value={u.username}>{u.name || u.username}</Option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div className="pc-filter-item">
-                        <Text>模块：</Text>
-                        <Select
-                          placeholder="选择模块"
-                          style={{ width: 150 }}
-                          value={operationFilter.module || undefined}
-                          onChange={(val) => setOperationFilter({...operationFilter, module: val || ''})}
-                          allowClear
-                        >
-                          {moduleList.map((m) => (
-                            <Option key={m.id} value={m.id}>{m.name}</Option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div className="pc-filter-item">
-                        <Text>日期范围：</Text>
-                        <RangePicker
-                          onChange={(dates, dateStrings) => {
-                            setOperationFilter({
-                              ...operationFilter,
-                              startDate: dateStrings[0] || '',
-                              endDate: dateStrings[1] || '',
-                            });
-                          }}
-                        />
-                      </div>
-                      <Button type="primary" icon={<SearchOutlined />} onClick={() => fetchOperationLogs(1)}>
-                        查询
-                      </Button>
-                      <Button onClick={() => {
-                        setOperationFilter({ username: '', module: '', action: '', startDate: '', endDate: '' });
-                        fetchOperationLogs(1);
-                      }}>
-                        重置
-                      </Button>
-                    </div>
-
-                    {/* 操作日志表格 */}
-                    <Table
-                      columns={operationColumns}
-                      dataSource={operationLogs}
-                      rowKey="id"
-                      loading={loading}
-                      pagination={{
-                        current: operationPage,
-                        total: operationTotal,
-                        pageSize: 20,
-                        showTotal: (total) => `共 ${total} 条`,
-                        onChange: (page) => fetchOperationLogs(page),
-                      }}
-                      scroll={{ x: 900 }}
-                    />
-                  </div>
-                ),
-              },
-            ]}
+      )}
+      
+      {/* 标签切换 */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'login' && styles.tabActive]}
+          onPress={() => setActiveTab('login')}
+        >
+          <Text style={[styles.tabText, activeTab === 'login' && styles.tabTextActive]}>登录日志</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'operation' && styles.tabActive]}
+          onPress={() => setActiveTab('operation')}
+        >
+          <Text style={[styles.tabText, activeTab === 'operation' && styles.tabTextActive]}>操作日志</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* 筛选工具栏 */}
+      <View style={styles.toolbar}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder={activeTab === 'login' ? '搜索用户名' : '搜索用户名'}
+          value={keyword}
+          onChangeText={setKeyword}
+          onSubmitEditing={handleSearch}
+        />
+        {activeTab === 'operation' && (
+          <TextInput
+            style={styles.searchInput}
+            placeholder="搜索模块"
+            value={module}
+            onChangeText={setModule}
           />
-        </div>
-      </div>
-
-      <style>{`
-        .pc-container {
-          padding: 24px;
-          max-width: 1400px;
-          margin: 0 auto;
-        }
-        .pc-header {
-          margin-bottom: 24px;
-        }
-        .pc-title {
-          font-size: 24px;
-          font-weight: 600;
-          color: #1a1a1a;
-          margin: 0;
-        }
-        .pc-card {
-          background: #fff;
-          border-radius: 8px;
-          padding: 20px;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .pc-stats-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
-        }
-        .pc-stat-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .pc-stat-icon {
-          font-size: 32px;
-        }
-        .pc-stat-value {
-          display: block;
-          font-size: 24px;
-          font-weight: 600;
-          color: #333;
-        }
-        .pc-stat-label {
-          display: block;
-          font-size: 14px;
-          color: #999;
-        }
-        .pc-filter-bar {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 16px;
-          margin-bottom: 16px;
-          padding-bottom: 16px;
-          border-bottom: 1px solid #f0f0f0;
-        }
-        .pc-filter-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-      `}</style>
+        )}
+        <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
+          <Text style={styles.searchBtnText}>搜索</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* 日志列表 */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1677ff" />
+        </View>
+      ) : (
+        <View style={styles.tableContainer}>
+          {activeTab === 'login' ? (
+            // 登录日志表格
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.th, styles.thId]}>序号</Text>
+                <Text style={[styles.th, styles.thUser]}>用户名</Text>
+                <Text style={[styles.th, styles.thTime]}>登录时间</Text>
+                <Text style={[styles.th, styles.thTime]}>登出时间</Text>
+                <Text style={[styles.th, styles.thDuration]}>在线时长</Text>
+                <Text style={[styles.th, styles.thIp]}>IP地址</Text>
+                <Text style={[styles.th, styles.thDevice]}>设备信息</Text>
+              </View>
+              {loginLogs.length === 0 ? (
+                <View style={styles.emptyRow}>
+                  <Text style={styles.emptyText}>暂无数据</Text>
+                </View>
+              ) : (
+                loginLogs.map((log, index) => (
+                  <View key={log.id} style={styles.tableRow}>
+                    <Text style={[styles.td, styles.thId]}>{index + 1}</Text>
+                    <Text style={[styles.td, styles.thUser]}>{log.username}</Text>
+                    <Text style={[styles.td, styles.thTime]}>{formatTime(log.login_time)}</Text>
+                    <Text style={[styles.td, styles.thTime]}>{log.logout_time ? formatTime(log.logout_time) : '-'}</Text>
+                    <Text style={[styles.td, styles.thDuration]}>{formatDuration(log.duration)}</Text>
+                    <Text style={[styles.td, styles.thIp]}>{log.ip_address || '-'}</Text>
+                    <Text style={[styles.td, styles.thDevice]}>{log.device_info || '-'}</Text>
+                  </View>
+                ))
+              )}
+            </View>
+          ) : (
+            // 操作日志表格
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.th, styles.thId]}>序号</Text>
+                <Text style={[styles.th, styles.thUser]}>用户名</Text>
+                <Text style={[styles.th, styles.thAction]}>操作动作</Text>
+                <Text style={[styles.th, styles.thModule]}>模块</Text>
+                <Text style={[styles.th, styles.thDesc]}>描述</Text>
+                <Text style={[styles.th, styles.thIp]}>IP地址</Text>
+              </View>
+              {operationLogs.length === 0 ? (
+                <View style={styles.emptyRow}>
+                  <Text style={styles.emptyText}>暂无数据</Text>
+                </View>
+              ) : (
+                operationLogs.map((log, index) => (
+                  <View key={log.id} style={styles.tableRow}>
+                    <Text style={[styles.td, styles.thId]}>{index + 1}</Text>
+                    <Text style={[styles.td, styles.thUser]}>{log.username}</Text>
+                    <Text style={[styles.td, styles.thAction]}>{log.action}</Text>
+                    <Text style={[styles.td, styles.thModule]}>{log.module || '-'}</Text>
+                    <Text style={[styles.td, styles.thDesc]}>{log.description || '-'}</Text>
+                    <Text style={[styles.td, styles.thIp]}>{log.ip_address || '-'}</Text>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+        </View>
+      )}
     </div>
   );
 }
+
+const styles = StyleSheet.create({
+  statCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 8,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1677ff',
+    marginBottom: 8,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
+  },
+  tab: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  tabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#1677ff',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#1677ff',
+    fontWeight: 'bold',
+  },
+  toolbar: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    height: 36,
+    borderWidth: 1,
+    borderColor: '#d9d9d9',
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  searchBtn: {
+    height: 36,
+    paddingHorizontal: 20,
+    backgroundColor: '#1677ff',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchBtnText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  tableContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  table: {
+    width: '100%',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#fafafa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  th: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  thId: { width: 50, textAlign: 'center' },
+  thUser: { flex: 1 },
+  thTime: { width: 150 },
+  thDuration: { width: 100, textAlign: 'center' },
+  thIp: { width: 120 },
+  thDevice: { width: 150 },
+  thAction: { width: 100 },
+  thModule: { width: 100 },
+  thDesc: { flex: 1 },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  td: {
+    fontSize: 13,
+    color: '#666',
+  },
+  emptyRow: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+  },
+});

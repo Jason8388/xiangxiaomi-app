@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Input, Button, Image, Select, Tag, Modal, Upload, message, Spin } from 'antd';
-import { SearchOutlined, UploadOutlined, DeleteOutlined, FilterOutlined, PictureOutlined, VideoCameraOutlined, CloudOutlined } from '@ant-design/icons';
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Platform, Alert, FlatList, Modal as RNModal, ScrollView } from 'react-native';
 import { getApiBaseUrl } from '@/utils/api';
-
-const { Option } = Select;
+import { storage } from '@/utils/storage';
+import '@/assets/styles/pc-global.css';
 
 interface MediaItem {
   id: number;
@@ -31,504 +30,329 @@ interface TagItem {
 export default function PCGallery() {
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
-  const [uploaders, setUploaders] = useState<any[]>([]);
-  const [searchText, setSearchText] = useState('');
+  const [loading, setLoading] = useState(true);
   const [selectedTag, setSelectedTag] = useState<number | null>(null);
-  const [selectedUploader, setSelectedUploader] = useState<string | null>(null);
-  const [selectedMediaType, setSelectedMediaType] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [previewVisible, setPreviewVisible] = useState(false);
+  const [mediaType, setMediaType] = useState<string>('all');
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
-    fetchMedia();
-    fetchTags();
-    fetchUploaders();
+    loadMediaList();
+    loadTags();
   }, []);
 
-  const getApiBaseUrlFunc = () => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:9091';
-      }
-    }
-    return process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
-  };
-
-  const fetchMedia = async (tagId?: number, uploaderId?: string, mediaType?: string) => {
-    setLoading(true);
+  const loadMediaList = async () => {
     try {
-      const baseUrl = getApiBaseUrlFunc();
-      let url = `${baseUrl}/api/v1/media`;
+      setLoading(true);
+      const sessionId = await storage.getItem('session_id');
+      
       const params = new URLSearchParams();
-      if (searchText) params.append('search', searchText);
-      if (tagId) params.append('tag_id', tagId.toString());
-      if (uploaderId) params.append('uploader_id', uploaderId);
-      if (mediaType) params.append('media_type', mediaType);
-      if (startDate) params.append('start_date', startDate);
-      if (endDate) params.append('end_date', endDate);
-      if (params.toString()) url += `?${params.toString()}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (Array.isArray(data.media)) {
-        setMediaList(data.media);
+      params.append('page', '1');
+      params.append('page_size', '50');
+      if (selectedTag) params.append('tag_id', selectedTag.toString());
+      if (mediaType !== 'all') params.append('media_type', mediaType);
+      
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/media?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${sessionId}` }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMediaList(data.media || data.items || []);
       }
     } catch (error) {
-      console.error('Fetch media error:', error);
-      message.error('获取媒体列表失败');
+      console.error('获取媒体列表失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchTags = async () => {
+  const loadTags = async () => {
     try {
-      const baseUrl = getApiBaseUrlFunc();
-      const response = await fetch(`${baseUrl}/api/v1/media/tags/list`);
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setTags(data);
+      const sessionId = await storage.getItem('session_id');
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/media/tags/list`,
+        {
+          headers: { Authorization: `Bearer ${sessionId}` }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTags(data.tags || []);
       }
     } catch (error) {
-      console.error('Fetch tags error:', error);
+      console.error('获取标签列表失败:', error);
     }
   };
 
-  const fetchUploaders = async () => {
-    try {
-      const baseUrl = getApiBaseUrlFunc();
-      const response = await fetch(`${baseUrl}/api/v1/media/uploaders/list`);
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setUploaders(data);
-      }
-    } catch (error) {
-      console.error('Fetch uploaders error:', error);
-    }
+  const handleTagSelect = (tagId: number | null) => {
+    setSelectedTag(tagId);
+    setTimeout(loadMediaList, 0);
   };
 
-  const handleSearch = () => {
-    fetchMedia(selectedTag || undefined, selectedUploader || undefined, selectedMediaType || undefined);
-  };
-
-  const handleFilterApply = () => {
-    fetchMedia(selectedTag || undefined, selectedUploader || undefined, selectedMediaType || undefined);
-    setFilterModalVisible(false);
-  };
-
-  const handleResetFilter = () => {
-    setSearchText('');
-    setSelectedTag(null);
-    setSelectedUploader(null);
-    setSelectedMediaType(null);
-    setStartDate('');
-    setEndDate('');
-    fetchMedia();
-    setFilterModalVisible(false);
-  };
-
-  const handlePreview = (item: MediaItem) => {
-    setPreviewItem(item);
-    setPreviewVisible(true);
+  const handleTypeSelect = (type: string) => {
+    setMediaType(type);
+    setTimeout(loadMediaList, 0);
   };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const getMediaTypeIcon = (type: string) => {
-    switch (type) {
-      case 'image':
-        return <PictureOutlined />;
-      case 'video':
-        return <VideoCameraOutlined />;
-      default:
-        return <CloudOutlined />;
+  const showAlert = (msg: string) => {
+    if (Platform.OS === 'web') {
+      alert(msg);
+    } else {
+      Alert.alert('提示', msg);
     }
   };
 
+  const renderMediaItem = ({ item }: { item: MediaItem }) => (
+    <TouchableOpacity style={styles.mediaItem} onPress={() => setPreviewItem(item)}>
+      {item.media_type === 'image' ? (
+        <Image source={{ uri: item.file_url }} style={styles.mediaThumb} />
+      ) : (
+        <View style={styles.mediaPlaceholder}>
+          <Text>{item.media_type === 'video' ? '视频' : '文件'}</Text>
+        </View>
+      )}
+      <View style={styles.mediaInfo}>
+        <Text style={styles.mediaName} numberOfLines={1}>{item.original_name}</Text>
+        <Text style={styles.mediaSize}>{formatFileSize(item.file_size)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <div className="pc-container">
-      <div className="pc-header">
-        <h1 className="pc-title">相册管理</h1>
+    <div className="pc-page-container">
+      <div className="pc-page-header">
+        <h1 className="pc-page-title">相册管理</h1>
       </div>
-
-      <div className="pc-content">
-        {/* 搜索和筛选区域 */}
-        <div className="pc-card" style={{ marginBottom: 16 }}>
-          <div className="pc-toolbar">
-            <div className="pc-toolbar-left">
-              <Input
-                placeholder="搜索文件名..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                onPressEnter={handleSearch}
-                style={{ width: 200, marginRight: 8 }}
-                prefix={<SearchOutlined />}
-              />
-              <Button onClick={handleSearch}>搜索</Button>
-            </div>
-            <div className="pc-toolbar-right">
-              <Button icon={<FilterOutlined />} onClick={() => setFilterModalVisible(true)}>
-                筛选
-              </Button>
-            </div>
-          </div>
-
-          {/* 标签筛选 */}
-          {tags.length > 0 && (
-            <div className="pc-tags-filter">
-              <Text style={{ marginRight: 8 }}>标签：</Text>
-              {tags.map((tag) => (
-                <Tag
-                  key={tag.id}
-                  color={selectedTag === tag.id ? tag.color : 'default'}
-                  onClick={() => {
-                    setSelectedTag(selectedTag === tag.id ? null : tag.id);
-                  }}
-                  style={{ cursor: 'pointer' }}
+      
+      <div className="pc-gallery-layout">
+        {/* 左侧标签栏 */}
+        <div className="pc-gallery-sidebar">
+          <h3 className="pc-sidebar-title">标签筛选</h3>
+          <TouchableOpacity 
+            style={[styles.tagItem, !selectedTag && styles.tagItemActive]}
+            onPress={() => handleTagSelect(null)}
+          >
+            <Text style={[styles.tagText, !selectedTag && styles.tagTextActive]}>全部</Text>
+          </TouchableOpacity>
+          {tags.map(tag => (
+            <TouchableOpacity 
+              key={tag.id}
+              style={[styles.tagItem, selectedTag === tag.id && styles.tagItemActive]}
+              onPress={() => handleTagSelect(tag.id)}
+            >
+              <View style={[styles.tagDot, { backgroundColor: tag.color }]} />
+              <Text style={[styles.tagText, selectedTag === tag.id && styles.tagTextActive]}>{tag.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </div>
+        
+        {/* 右侧内容区 */}
+        <div className="pc-gallery-content">
+          {/* 筛选工具栏 */}
+          <div className="pc-gallery-toolbar">
+            <View style={styles.typeFilter}>
+              {['all', 'image', 'video', 'file'].map(type => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.typeBtn, mediaType === type && styles.typeBtnActive]}
+                  onPress={() => handleTypeSelect(type)}
                 >
-                  {tag.name}
-                </Tag>
+                  <Text style={[styles.typeBtnText, mediaType === type && styles.typeBtnTextActive]}>
+                    {type === 'all' ? '全部' : type === 'image' ? '图片' : type === 'video' ? '视频' : '文件'}
+                  </Text>
+                </TouchableOpacity>
               ))}
-            </div>
+            </View>
+          </div>
+          
+          {/* 媒体网格 */}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#1677ff" />
+            </View>
+          ) : mediaList.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>暂无媒体文件</Text>
+            </View>
+          ) : (
+            <View style={styles.mediaGrid}>
+              {mediaList.map(item => (
+                <View key={item.id}>
+                  {renderMediaItem({ item })}
+                </View>
+              ))}
+            </View>
           )}
         </div>
-
-        {/* 媒体列表 */}
-        <div className="pc-card">
-          <Spin spinning={loading}>
-            {mediaList.length === 0 ? (
-              <div className="pc-empty">
-                <PictureOutlined style={{ fontSize: 48, color: '#ccc' }} />
-                <Text style={{ marginTop: 16, color: '#999' }}>暂无媒体文件</Text>
-              </div>
-            ) : (
-              <div className="pc-media-grid">
-                {mediaList.map((item) => (
-                  <div key={item.id} className="pc-media-item" onClick={() => handlePreview(item)}>
-                    <div className="pc-media-thumb">
-                      {item.media_type === 'image' ? (
-                        <img src={item.thumbnail_url || item.file_url} alt={item.original_name} />
-                      ) : item.media_type === 'video' ? (
-                        <div className="pc-media-video-placeholder">
-                          <VideoCameraOutlined style={{ fontSize: 32, color: '#999' }} />
-                        </div>
-                      ) : (
-                        <div className="pc-media-file-placeholder">
-                          <CloudOutlined style={{ fontSize: 32, color: '#999' }} />
-                        </div>
-                      )}
-                      <div className="pc-media-type-icon">
-                        {getMediaTypeIcon(item.media_type)}
-                      </div>
-                    </div>
-                    <div className="pc-media-info">
-                      <Text className="pc-media-name" ellipsis={{ tooltip: item.original_name }}>
-                        {item.original_name}
-                      </Text>
-                      <Text className="pc-media-size">{formatFileSize(item.file_size)}</Text>
-                    </div>
-                    {item.tags && item.tags.length > 0 && (
-                      <div className="pc-media-tags">
-                        {item.tags.slice(0, 2).map((tag) => (
-                          <Tag key={tag.id} color={tag.color} style={{ fontSize: 10 }}>
-                            {tag.name}
-                          </Tag>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Spin>
-        </div>
       </div>
 
-      {/* 筛选弹窗 */}
-      <Modal
-        title="筛选条件"
-        open={filterModalVisible}
-        onCancel={() => setFilterModalVisible(false)}
-        onOk={handleFilterApply}
-        okText="应用"
-        cancelText="重置"
-        footer={[
-          <Button key="reset" onClick={handleResetFilter}>
-            重置
-          </Button>,
-          <Button key="cancel" onClick={() => setFilterModalVisible(false)}>
-            取消
-          </Button>,
-          <Button key="apply" type="primary" onClick={handleFilterApply}>
-            应用
-          </Button>,
-        ]}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <Text style={{ display: 'block', marginBottom: 8 }}>媒体类型</Text>
-          <Select
-            placeholder="选择类型"
-            value={selectedMediaType}
-            onChange={setSelectedMediaType}
-            style={{ width: '100%' }}
-            allowClear
-          >
-            <Option value="image">图片</Option>
-            <Option value="video">视频</Option>
-            <Option value="file">文件</Option>
-          </Select>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <Text style={{ display: 'block', marginBottom: 8 }}>上传者</Text>
-          <Select
-            placeholder="选择上传者"
-            value={selectedUploader}
-            onChange={setSelectedUploader}
-            style={{ width: '100%' }}
-            allowClear
-          >
-            {uploaders.map((uploader) => (
-              <Option key={uploader.id} value={uploader.id.toString()}>
-                {uploader.name || uploader.username}
-              </Option>
-            ))}
-          </Select>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <Text style={{ display: 'block', marginBottom: 8 }}>标签</Text>
-          <Select
-            placeholder="选择标签"
-            value={selectedTag}
-            onChange={setSelectedTag}
-            style={{ width: '100%' }}
-            allowClear
-          >
-            {tags.map((tag) => (
-              <Option key={tag.id} value={tag.id}>
-                {tag.name}
-              </Option>
-            ))}
-          </Select>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <Text style={{ display: 'block', marginBottom: 8 }}>上传日期</Text>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder="开始日期"
-            />
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              placeholder="结束日期"
-            />
-          </div>
-        </div>
-      </Modal>
-
       {/* 预览弹窗 */}
-      <Modal
-        title={previewItem?.original_name}
-        open={previewVisible}
-        onCancel={() => setPreviewVisible(false)}
-        footer={null}
-        width={800}
-      >
-        {previewItem && (
-          <div className="pc-preview-content">
-            {previewItem.media_type === 'image' ? (
-              <img
-                src={previewItem.file_url}
-                alt={previewItem.original_name}
-                style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }}
-              />
-            ) : previewItem.media_type === 'video' ? (
-              <video
-                src={previewItem.file_url}
-                controls
-                style={{ maxWidth: '100%', maxHeight: '60vh' }}
-              />
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40 }}>
-                <CloudOutlined style={{ fontSize: 64, color: '#999' }} />
-                <Text style={{ display: 'block', marginTop: 16 }}>该文件类型不支持预览</Text>
-              </div>
-            )}
-            <div className="pc-preview-info">
-              <div className="pc-preview-info-item">
-                <Text strong>文件名：</Text>
-                <Text>{previewItem.original_name}</Text>
-              </div>
-              <div className="pc-preview-info-item">
-                <Text strong>文件大小：</Text>
-                <Text>{formatFileSize(previewItem.file_size)}</Text>
-              </div>
-              <div className="pc-preview-info-item">
-                <Text strong>上传时间：</Text>
-                <Text>{previewItem.upload_time}</Text>
-              </div>
-              <div className="pc-preview-info-item">
-                <Text strong>上传者：</Text>
-                <Text>{previewItem.uploader_name || '-'}</Text>
-              </div>
-              <div className="pc-preview-info-item">
-                <Text strong>下载次数：</Text>
-                <Text>{previewItem.download_count}</Text>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <style>{`
-        .pc-container {
-          padding: 24px;
-          max-width: 1400px;
-          margin: 0 auto;
-        }
-        .pc-header {
-          margin-bottom: 24px;
-        }
-        .pc-title {
-          font-size: 24px;
-          font-weight: 600;
-          color: #1a1a1a;
-          margin: 0;
-        }
-        .pc-card {
-          background: #fff;
-          border-radius: 8px;
-          padding: 20px;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .pc-toolbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-        }
-        .pc-toolbar-left {
-          display: flex;
-          align-items: center;
-        }
-        .pc-toolbar-right {
-          display: flex;
-          gap: 8px;
-        }
-        .pc-tags-filter {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
-          padding-top: 12px;
-          border-top: 1px solid #f0f0f0;
-        }
-        .pc-empty {
-          text-align: center;
-          padding: 60px 0;
-        }
-        .pc-media-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 16px;
-        }
-        .pc-media-item {
-          border: 1px solid #f0f0f0;
-          border-radius: 8px;
-          overflow: hidden;
-          cursor: pointer;
-          transition: all 0.3s;
-        }
-        .pc-media-item:hover {
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-          transform: translateY(-2px);
-        }
-        .pc-media-thumb {
-          position: relative;
-          height: 140px;
-          background: #f5f5f5;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .pc-media-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .pc-media-video-placeholder,
-        .pc-media-file-placeholder {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 100%;
-          background: #f0f0f0;
-        }
-        .pc-media-type-icon {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          width: 28px;
-          height: 28px;
-          background: rgba(0,0,0,0.5);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-        }
-        .pc-media-info {
-          padding: 12px;
-        }
-        .pc-media-name {
-          display: block;
-          font-size: 13px;
-          color: #333;
-          margin-bottom: 4px;
-        }
-        .pc-media-size {
-          font-size: 12px;
-          color: #999;
-        }
-        .pc-media-tags {
-          padding: 0 12px 12px;
-          display: flex;
-          gap: 4px;
-          flex-wrap: wrap;
-        }
-        .pc-preview-content {
-          text-align: center;
-        }
-        .pc-preview-info {
-          margin-top: 20px;
-          text-align: left;
-          padding: 16px;
-          background: #fafafa;
-          border-radius: 8px;
-        }
-        .pc-preview-info-item {
-          display: flex;
-          margin-bottom: 8px;
-        }
-        .pc-preview-info-item strong {
-          width: 80px;
-        }
-      `}</style>
+      <RNModal visible={!!previewItem} transparent onRequestClose={() => setPreviewItem(null)}>
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewItem(null)}>
+            <Text style={styles.previewCloseText}>关闭</Text>
+          </TouchableOpacity>
+          {previewItem && (
+            <View style={styles.previewContent}>
+              {previewItem.media_type === 'image' && (
+                <Image source={{ uri: previewItem.file_url }} style={styles.previewImage} resizeMode="contain" />
+              )}
+              <View style={styles.previewInfo}>
+                <Text style={styles.previewName}>{previewItem.original_name}</Text>
+                <Text style={styles.previewMeta}>
+                  大小: {formatFileSize(previewItem.file_size)} | 上传时间: {previewItem.upload_time}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </RNModal>
     </div>
   );
 }
+
+const styles = StyleSheet.create({
+  tagItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  tagItemActive: {
+    backgroundColor: '#e6f4ff',
+  },
+  tagDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  tagText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  tagTextActive: {
+    color: '#1677ff',
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+  },
+  mediaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  mediaItem: {
+    width: 180,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    overflow: 'hidden',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  },
+  mediaThumb: {
+    width: '100%',
+    height: 140,
+  },
+  mediaPlaceholder: {
+    width: '100%',
+    height: 140,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mediaInfo: {
+    padding: 12,
+  },
+  mediaName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  mediaSize: {
+    fontSize: 12,
+    color: '#999',
+  },
+  typeFilter: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  typeBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 4,
+    backgroundColor: '#f5f5f5',
+  },
+  typeBtnActive: {
+    backgroundColor: '#1677ff',
+  },
+  typeBtnText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  typeBtnTextActive: {
+    color: '#fff',
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  previewCloseText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  previewContent: {
+    width: '80%',
+    maxHeight: '80%',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: 400,
+  },
+  previewInfo: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  previewName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  previewMeta: {
+    color: '#ccc',
+    fontSize: 14,
+    marginTop: 8,
+  },
+});
