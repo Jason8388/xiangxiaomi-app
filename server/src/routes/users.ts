@@ -17,7 +17,7 @@ const upload = multer({
 });
 
 // 使用内存存储（用于演示，数据库连接超时）
-const USE_MEMORY_STORAGE = true;
+const USE_MEMORY_STORAGE = false;
 
 // 带重试的查询函数（快速失败，最多重试1次）
 async function queryWithRetry(query: string, params: any[] = [], retries = 1, delay = 300) {
@@ -509,8 +509,14 @@ router.delete('/:id', async (req, res) => {
     } else {
       // 使用数据库
       try {
+        // 将id转换为整数
+        const numericId = parseInt(id, 10);
+        if (isNaN(numericId)) {
+          return res.status(400).json({ error: '无效的用户ID' });
+        }
+        
         // 检查用户是否存在
-        const userResult = await queryWithRetry('SELECT id, name FROM users WHERE id = $1 OR username = $1', [id]);
+        const userResult = await queryWithRetry('SELECT id, name FROM users WHERE id = $1 OR username = $1', [numericId]);
         if (userResult.rows.length === 0) {
           return res.status(404).json({ error: '用户不存在' });
         }
@@ -518,24 +524,40 @@ router.delete('/:id', async (req, res) => {
         const userName = userResult.rows[0].name;
 
         // 执行删除操作
-        await queryWithRetry('DELETE FROM users WHERE id = $1', [userResult.rows[0].id]);
+        await queryWithRetry('DELETE FROM users WHERE id = $1', [numericId]);
 
         res.json({ success: true, message: `员工 ${userName} 已删除` });
       } catch (dbError: any) {
         console.error('Database delete failed, falling back to memory storage:', dbError.message);
-        // 如果数据库失败，使用内存存储
-        let user = memoryUsers[id];
-        if (!user && !isNaN(parseInt(id))) {
-          user = memoryUsers[parseInt(id)];
-        }
+        // 如果数据库失败，使用内存存储 - 优先使用memoryUsersList数组
+        let user = memoryUsersList.find((u: any) => 
+          String(u.id) === id || u.username === id || u.name === id
+        );
+        
+        // 如果找不到，尝试从memoryUsers对象中查找
         if (!user) {
-          user = Object.values(memoryUsers).find((u: any) => 
-            String(u.id) === id || u.username === id
-          );
+          const memoryUser = memoryUsers[id];
+          if (!memoryUser && !isNaN(parseInt(id))) {
+            const parsedId = parseInt(id);
+            user = memoryUsersList.find((u: any) => String(u.id) === String(parsedId));
+          }
+          if (!user) {
+            user = Object.values(memoryUsers).find((u: any) => 
+              String(u.id) === id || u.username === id || u.name === id
+            );
+          }
         }
+        
         if (!user) {
           return res.status(404).json({ error: '用户不存在' });
         }
+        
+        // 从memoryUsersList中移除
+        const index = memoryUsersList.findIndex((u: any) => String(u.id) === String(user!.id));
+        if (index !== -1) {
+          memoryUsersList.splice(index, 1);
+        }
+        // 从memoryUsers对象中移除
         const keys = Object.keys(memoryUsers);
         for (const key of keys) {
           if (memoryUsers[key].id === user.id) {

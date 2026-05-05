@@ -369,7 +369,7 @@ router.post('/import', async (req, res) => {
       return res.status(400).json({ error: '请上传文件' });
     }
 
-    const buffer = req.file.buffer;
+    const buffer = Buffer.from(req.file!.buffer);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
 
@@ -385,9 +385,10 @@ router.post('/import', async (req, res) => {
     let rowCount = 0;
     for (let i = 2; i <= worksheet.rowCount; i++) {
       const row = worksheet.getRow(i);
+      const rowValues = row.values as (string | number | undefined)[];
 
       // 跳过空行
-      if (row.values.length === 0 || (row.values[2] === undefined && row.values[3] === undefined)) {
+      if (rowValues.length === 0 || (rowValues[1] === undefined && rowValues[2] === undefined)) {
         continue;
       }
 

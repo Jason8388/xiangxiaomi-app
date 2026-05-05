@@ -42,16 +42,16 @@ if (process.env.DATABASE_URL) {
   dbConfig = parseDatabaseUrl(process.env.DATABASE_URL);
 }
 
-// 数据库连接配置 - 优化超时和快速失败
+// 数据库连接配置 - 优化超时设置
 const pool = new Pool({
   ...dbConfig,
   max: 10,
   min: 1,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,  // 快速失败：10秒超时（从5秒增加）
-  query_timeout: 30000,           // 查询超时：30秒（从10秒增加）
+  idleTimeoutMillis: 60000,
+  connectionTimeoutMillis: 30000,  // 30秒连接超时
+  query_timeout: 60000,           // 60秒查询超时
   keepAlive: true,
-  keepAliveInitialDelayMillis: 10000,
+  keepAliveInitialDelayMillis: 30000,
   ssl: {
     rejectUnauthorized: false,
   },

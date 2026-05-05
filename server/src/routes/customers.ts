@@ -277,8 +277,8 @@ router.get('/', async (req, res) => {
         const searchLower = keyword.toLowerCase();
         filtered = memoryCustomers.filter(c =>
           c.name.toLowerCase().includes(searchLower) ||
-          c.contact.toLowerCase().includes(searchLower) ||
-          c.phone.includes(keyword)
+          (c.contact && c.contact.toLowerCase().includes(searchLower)) ||
+          (c.phone && c.phone.includes(keyword))
         );
       }
 
@@ -339,8 +339,8 @@ router.get('/', async (req, res) => {
         const searchLower = keyword.toLowerCase();
         filtered = memoryCustomers.filter(c =>
           c.name.toLowerCase().includes(searchLower) ||
-          c.contact.toLowerCase().includes(searchLower) ||
-          c.phone.includes(keyword)
+          (c.contact && c.contact.toLowerCase().includes(searchLower)) ||
+          (c.phone && c.phone.includes(keyword))
         );
       }
 
@@ -366,8 +366,8 @@ router.get('/', async (req, res) => {
       const searchLower = keyword.toLowerCase();
       filtered = memoryCustomers.filter(c =>
         c.name.toLowerCase().includes(searchLower) ||
-        c.contact.toLowerCase().includes(searchLower) ||
-        c.phone.includes(keyword)
+        (c.contact && c.contact.toLowerCase().includes(searchLower)) ||
+        (c.phone && c.phone.includes(keyword))
       );
     }
 
