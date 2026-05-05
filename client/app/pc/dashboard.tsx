@@ -16,14 +16,26 @@ interface QuickLink {
   description: string;
 }
 
+// PC端快捷入口配置 - 与APP端保持一致
 const quickLinks: QuickLink[] = [
-  { icon: 'users', label: '客户管理', path: '/pc/customers', color: '#4F8EF7', description: '客户信息管理' },
-  { icon: 'tablet-screen-button', label: '设备管理', path: '/pc/devices', color: '#52C41A', description: '设备档案维护' },
-  { icon: 'file-contract', label: '合同管理', path: '/pc/contracts', color: '#FAAD14', description: '合同文档管理' },
-  { icon: 'clipboard-list', label: '工单管理', path: '/pc/work-orders', color: '#722ED1', description: '工单任务处理' },
-  { icon: 'boxes-stacked', label: '物料管理', path: '/pc/materials', color: '#13C2C2', description: '物料信息管理' },
-  { icon: 'book-open', label: '知识库', path: '/pc/knowledge', color: '#FA8C16', description: '知识文档库' },
-  { icon: 'address-card', label: '会议纪要', path: '/pc/meeting-minutes', color: '#8B5CF6', description: '会议记录管理' },
+  { icon: 'clipboard-list', label: '工单管理', path: '/pc/work-orders', color: '#1E88E5', description: '工单任务处理' },
+  { icon: 'users', label: '客户管理', path: '/pc/customers', color: '#00B894', description: '客户信息管理' },
+  { icon: 'file-signature', label: '合同管理', path: '/pc/contracts', color: '#F39C12', description: '合同文档管理' },
+  { icon: 'microchip', label: '设备管理', path: '/pc/devices', color: '#9B59B6', description: '设备档案维护' },
+  { icon: 'box-open', label: '仓库管理', path: '/pc/materials', color: '#E74C3C', description: '物料仓储管理' },
+  { icon: 'magnifying-glass', label: '查询助手', path: '/pc/query-assistant', color: '#2ECC71', description: '多维度数据查询' },
+  { icon: 'book', label: '知识库', path: '/pc/knowledge', color: '#F1C40F', description: '知识文档库' },
+  { icon: 'chart-pie', label: '统计报表', path: '/pc/reports', color: '#3498DB', description: '数据统计分析' },
+  { icon: 'user-gear', label: '账号管理', path: '/pc/account-settings', color: '#E91E63', description: '用户账号设置' },
+  { icon: 'file-lines', label: '日志查询', path: '/pc/logs', color: '#7F8C8D', description: '系统日志查询' },
+  { icon: 'broom', label: '系统清理', path: '/pc/cleanup', color: '#95A5A6', description: '清理系统缓存' },
+  { icon: 'images', label: '相册管理', path: '/pc/gallery', color: '#FF6B9D', description: '图片相册管理' },
+  { icon: 'folder', label: '文件管理', path: '/pc/files', color: '#5D6D7E', description: '文件资料管理' },
+  { icon: 'comments', label: '会议纪要', path: '/pc/meeting-minutes', color: '#27AE60', description: '会议记录管理' },
+  { icon: 'bell', label: '工作提醒', path: '/pc/reminders', color: '#E74C3C', description: '待办事项提醒' },
+  { icon: 'clipboard-check', label: '工单待填提醒', path: '/pc/work-order-reminders', color: '#FF6B6B', description: '待填写工单提醒' },
+  { icon: 'sitemap', label: '组织结构', path: '/pc/organization', color: '#00CEC9', description: '公司组织架构' },
+  { icon: 'code-branch', label: '版本管理', path: '/pc/version-management', color: '#8E44AD', description: 'APP版本管理' },
 ];
 
 interface RecentActivity {
@@ -421,20 +433,20 @@ export default function PCDashboard() {
           color: #666;
         }
 
-        /* 快捷入口网格 */
+        /* 快捷入口网格 - 适配18个入口 */
         .quick-links-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 12px;
         }
 
         .quick-link-card {
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 20px 12px;
+          padding: 16px 8px;
           background: #fafafa;
-          border-radius: 12px;
+          border-radius: 10px;
           text-decoration: none;
           transition: all 0.25s ease;
           border: 1px solid transparent;
@@ -448,14 +460,14 @@ export default function PCDashboard() {
         }
 
         .quick-link-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: white;
-          margin-bottom: 12px;
+          margin-bottom: 10px;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
 
@@ -465,15 +477,15 @@ export default function PCDashboard() {
 
         .quick-link-label {
           display: block;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 500;
           color: #333;
-          margin-bottom: 4px;
+          margin-bottom: 3px;
         }
 
         .quick-link-desc {
           display: block;
-          font-size: 12px;
+          font-size: 11px;
           color: #999;
         }
 
@@ -573,6 +585,12 @@ export default function PCDashboard() {
         }
 
         /* 响应式 */
+        @media (max-width: 1400px) {
+          .quick-links-grid {
+            grid-template-columns: repeat(5, 1fr);
+          }
+        }
+
         @media (max-width: 1200px) {
           .dashboard-content {
             grid-template-columns: 1fr;
@@ -580,6 +598,12 @@ export default function PCDashboard() {
           
           .quick-links-grid {
             grid-template-columns: repeat(4, 1fr);
+          }
+        }
+
+        @media (max-width: 900px) {
+          .quick-links-grid {
+            grid-template-columns: repeat(3, 1fr);
           }
         }
 
