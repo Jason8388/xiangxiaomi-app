@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { PCLayout } from '@/components/pc/PCLayout';
-import { PCTable } from '@/components/pc/PCComponents';
 import { PCTag } from '@/components/pc/PCComponents';
 import { PCCard } from '@/components/pc/PCComponents';
 import { PCToolbar } from '@/components/pc/PCComponents';
 import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCImportModal } from '@/components/pc/PCComponents';
-import { PCPagination } from '@/components/pc/PCComponents';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 import { storage } from '@/utils/storage';
@@ -25,6 +23,7 @@ interface Knowledge {
   created_at: string;
   updated_at: string;
   views: number;
+  attachments?: { id: number; url: string; filename: string; file_type: string }[];
 }
 
 export default function PCKnowledge() {
@@ -42,7 +41,7 @@ export default function PCKnowledge() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState('');
   const [tagInput, setTagInput] = useState<any>(null);
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 12, total: 0 });
 
   const categories = ['设备维护', '操作手册', '故障排除', '技术文档', '培训资料'];
   const defaultTags = ['技术文档', '操作指南', '故障处理', '最佳实践', '经验总结', '项目经验', '常见问题', '培训材料', '流程规范', '工具使用'];
@@ -256,80 +255,6 @@ export default function PCKnowledge() {
     setSelectedTags(prev => prev.filter(t => t !== tag));
   };
 
-  const columns = [
-    {
-      key: 'title',
-      title: '标题',
-      width: 280,
-      render: (val: string, record: Knowledge) => (
-        <View>
-          <Text style={{ fontWeight: 500, color: '#333' }}>{val}</Text>
-          <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{record.content?.substring(0, 40)}...</Text>
-        </View>
-      ),
-    },
-    {
-      key: 'category',
-      title: '分类',
-      width: 100,
-      render: (val: string) => (val ? <PCTag type="primary">{val}</PCTag> : <Text>-</Text>),
-    },
-    {
-      key: 'tags',
-      title: '标签',
-      width: 180,
-      render: (val: string[]) =>
-        val?.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {val.map((t, i) => (
-              <PCTag key={i} style={{ marginRight: 4, marginBottom: 2 }}>
-                {t}
-              </PCTag>
-            ))}
-          </View>
-        ) : (
-          <Text>-</Text>
-        ),
-    },
-    {
-      key: 'author_name',
-      title: '作者',
-      width: 80,
-      render: (val: string) => <Text>{val || '未知'}</Text>,
-    },
-    {
-      key: 'views',
-      title: '浏览',
-      width: 60,
-      render: (val: number) => <Text style={{ color: '#999' }}>{val}</Text>,
-    },
-    {
-      key: 'updated_at',
-      title: '更新时间',
-      width: 120,
-      render: (val: string) => <Text>{val ? val.split('T')[0] : '-'}</Text>,
-    },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 180,
-      fixed: 'right' as const,
-      render: (_: any, record: Knowledge) => (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity className="pc-btn pc-btn-text pc-btn-sm" onPress={() => setViewItem(record)}>
-            <Text style={styles.btnText}>查看</Text>
-          </TouchableOpacity>
-          <TouchableOpacity className="pc-btn pc-btn-text pc-btn-sm" onPress={() => handleEdit(record)}>
-            <Text style={styles.btnText}>编辑</Text>
-          </TouchableOpacity>
-          <TouchableOpacity className="pc-btn pc-btn-text pc-btn-sm" onPress={() => handleDelete(record.id)}>
-            <Text style={[styles.btnText, { color: '#FF4D4F' }]}>删除</Text>
-          </TouchableOpacity>
-        </View>
-      ),
-    },
-  ];
-
   const filteredItems = items.filter(i => {
     const matchSearch =
       !searchText ||
@@ -338,6 +263,23 @@ export default function PCKnowledge() {
     const matchCategory = !categoryFilter || i.category === categoryFilter;
     return matchSearch && matchCategory;
   });
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    return dateStr.split('T')[0];
+  };
+
+  // 分类颜色映射
+  const getCategoryColor = (category: string) => {
+    const colorMap: Record<string, string> = {
+      '设备维护': '#00B894',
+      '操作手册': '#0984E3',
+      '故障排除': '#E17055',
+      '技术文档': '#6C5CE7',
+      '培训资料': '#FDCB6E',
+    };
+    return colorMap[category] || '#6C63FF';
+  };
 
   return (
     <PCLayout>
@@ -400,20 +342,112 @@ export default function PCKnowledge() {
             </View>
           }
         />
-        <PCTable
-          columns={columns}
-          data={filteredItems}
-          rowKey="id"
-          loading={loading}
-          selectedRowKeys={selectedRowKeys}
-          onSelectChange={setSelectedRowKeys}
-        />
-        <PCPagination
-          current={pagination.current}
-          pageSize={pagination.pageSize}
-          total={pagination.total}
-          onChange={page => setPagination(prev => ({ ...prev, current: page }))}
-        />
+
+        {/* 卡片网格展示 */}
+        <View style={styles.cardGrid}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>加载中...</Text>
+            </View>
+          ) : filteredItems.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <FontAwesome6 name="folder-open" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyText}>暂无知识内容</Text>
+              <Text style={styles.emptyHint}>点击右上角"新增知识"创建第一条知识</Text>
+            </View>
+          ) : (
+            filteredItems.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.knowledgeCard}
+                onPress={() => setViewItem(item)}
+                activeOpacity={0.7}
+              >
+                {/* 卡片头部：图标 + 标题 + 分类 */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.iconContainer}>
+                    <FontAwesome6 name="book" size={22} color="#6C63FF" />
+                  </View>
+                  <View style={styles.titleContainer}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                    {item.category && (
+                      <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(item.category) + '15' }]}>
+                        <Text style={[styles.categoryText, { color: getCategoryColor(item.category) }]}>
+                          {item.category}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* 内容摘要 */}
+                <Text style={styles.contentPreview} numberOfLines={3}>
+                  {item.content}
+                </Text>
+
+                {/* 标签 */}
+                {item.tags && item.tags.length > 0 && (
+                  <View style={styles.tagList}>
+                    {item.tags.slice(0, 3).map((tag, index) => (
+                      <View key={index} style={styles.tagItem}>
+                        <Text style={styles.tagText}>{tag}</Text>
+                      </View>
+                    ))}
+                    {item.tags.length > 3 && (
+                      <View style={styles.moreTag}>
+                        <Text style={styles.moreTagText}>+{item.tags.length - 3}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* 附件指示 */}
+                {item.attachments && item.attachments.length > 0 && (
+                  <View style={styles.attachmentIndicator}>
+                    <FontAwesome6 name="paperclip" size={12} color="#9CA3AF" />
+                    <Text style={styles.attachmentCount}>{item.attachments.length}个附件</Text>
+                  </View>
+                )}
+
+                {/* 卡片底部：作者 + 浏览 + 操作 */}
+                <View style={styles.cardFooter}>
+                  <View style={styles.metaInfo}>
+                    <View style={styles.authorAvatar}>
+                      <FontAwesome6 name="user" size={12} color="#6B7280" />
+                    </View>
+                    <Text style={styles.authorName}>{item.author_name || '未知'}</Text>
+                  </View>
+                  <View style={styles.viewInfo}>
+                    <FontAwesome6 name="eye" size={12} color="#9CA3AF" />
+                    <Text style={styles.viewCount}>{item.views}</Text>
+                  </View>
+                  <View style={styles.dateInfo}>
+                    <FontAwesome6 name="clock" size={12} color="#9CA3AF" />
+                    <Text style={styles.dateText}>{formatDate(item.updated_at)}</Text>
+                  </View>
+                </View>
+
+                {/* 操作按钮 */}
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={(e) => { e.stopPropagation(); handleEdit(item); }}
+                  >
+                    <FontAwesome6 name="pen" size={14} color="#6C63FF" />
+                    <Text style={styles.actionBtnText}>编辑</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.deleteBtn]}
+                    onPress={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                  >
+                    <FontAwesome6 name="trash" size={14} color="#EF4444" />
+                    <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>删除</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
       </PCCard>
 
       {/* 查看详情弹窗 */}
@@ -421,7 +455,7 @@ export default function PCKnowledge() {
         visible={!!viewItem}
         title={viewItem?.title || ''}
         onClose={() => setViewItem(null)}
-        width={700}
+        width={800}
         footer={
           <TouchableOpacity className="pc-btn pc-btn-default" onPress={() => setViewItem(null)}>
             <Text style={styles.btnDefaultText}>关闭</Text>
@@ -429,31 +463,67 @@ export default function PCKnowledge() {
         }
       >
         {viewItem && (
-          <View>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-              {viewItem.category && <PCTag type="primary">{viewItem.category}</PCTag>}
+          <ScrollView style={styles.detailScrollView}>
+            {/* 分类和标签 */}
+            <View style={styles.detailTags}>
+              {viewItem.category && (
+                <View style={[styles.detailCategoryBadge, { backgroundColor: getCategoryColor(viewItem.category) }]}>
+                  <Text style={styles.detailCategoryText}>{viewItem.category}</Text>
+                </View>
+              )}
               {viewItem.tags?.map((t, i) => (
-                <PCTag key={i}>{t}</PCTag>
+                <View key={i} style={styles.detailTag}>
+                  <Text style={styles.detailTagText}>{t}</Text>
+                </View>
               ))}
             </View>
-            <View style={{ color: '#666', fontSize: 13, marginBottom: 16 }}>
-              <Text>作者: {viewItem.author_name || '未知'} | 更新时间: {viewItem.updated_at ? viewItem.updated_at.split('T')[0] : '-'} | 浏览: {viewItem.views}</Text>
+
+            {/* 元信息 */}
+            <View style={styles.detailMeta}>
+              <View style={styles.metaItem}>
+                <FontAwesome6 name="user" size={14} color="#6B7280" />
+                <Text style={styles.metaLabel}>作者：</Text>
+                <Text style={styles.metaValue}>{viewItem.author_name || '未知'}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <FontAwesome6 name="clock" size={14} color="#6B7280" />
+                <Text style={styles.metaLabel}>更新时间：</Text>
+                <Text style={styles.metaValue}>{formatDate(viewItem.updated_at)}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <FontAwesome6 name="eye" size={14} color="#6B7280" />
+                <Text style={styles.metaLabel}>浏览：</Text>
+                <Text style={styles.metaValue}>{viewItem.views}</Text>
+              </View>
             </View>
-            <View
-              style={{
-                lineHeight: 28.8,
-                color: '#333',
-                padding: 16,
-                backgroundColor: '#f5f5f5',
-                borderRadius: 8,
-                maxHeight: 400,
-              }}
-            >
-              <ScrollView style={{ maxHeight: 368 }}>
-                <Text>{viewItem.content}</Text>
-              </ScrollView>
+
+            {/* 附件 */}
+            {viewItem.attachments && viewItem.attachments.length > 0 && (
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>
+                  <FontAwesome6 name="paperclip" size={14} color="#6C63FF" /> 附件信息
+                </Text>
+                <View style={styles.attachmentGrid}>
+                  {viewItem.attachments.map((att, index) => (
+                    <View key={index} style={styles.attachmentItem}>
+                      <FontAwesome6 name="file" size={24} color="#6C63FF" />
+                      <Text style={styles.attachmentName} numberOfLines={1}>{att.filename}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* 内容 */}
+            <View style={styles.detailSection}>
+              <Text style={styles.detailSectionTitle}>
+                <FontAwesome6 name="file-alt" size={14} color="#6C63FF" /> 知识内容
+              </Text>
+              <View style={styles.contentBox}>
+                <Text style={styles.contentText}>{viewItem.content}</Text>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         )}
       </PCModal>
 
@@ -574,7 +644,7 @@ export default function PCKnowledge() {
                     return (
                       <View key={index} style={styles.attachmentItem}>
                         {isImage ? (
-                          <img src={file.uri} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} />
+                          <Image source={{ uri: file.uri }} style={{ width: 40, height: 40, borderRadius: 4 }} />
                         ) : (
                           <View style={styles.fileIcon}>
                             <FontAwesome6 name="file" size={20} color="#95A5A6" />
@@ -703,59 +773,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
   },
   selectedTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 14,
-    backgroundColor: '#E6F7FF',
-    borderWidth: 1,
-    borderColor: '#1890FF',
+    borderRadius: 12,
+    backgroundColor: '#6C63FF',
+    gap: 4,
   },
   selectedTagText: {
-    fontSize: 13,
-    color: '#1890FF',
+    fontSize: 12,
+    color: '#fff',
   },
   tagRemove: {
     fontSize: 16,
-    color: '#1890FF',
+    color: '#fff',
     fontWeight: 'bold',
   },
   // 附件相关样式
   attachmentArea: {
+    borderWidth: 1,
+    borderColor: '#d9d9d9',
+    borderRadius: 6,
+    padding: 12,
+    backgroundColor: '#fafafa',
     gap: 12,
   },
   attachmentList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
   attachmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#F5F7FA',
+    padding: 8,
     borderRadius: 6,
-    maxWidth: 200,
+    backgroundColor: '#fff',
+    gap: 8,
   },
   fileIcon: {
     width: 40,
     height: 40,
+    borderRadius: 4,
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 4,
   },
   attachmentName: {
-    fontSize: 12,
-    color: '#666',
     flex: 1,
+    fontSize: 13,
+    color: '#333',
   },
   removeBtn: {
     padding: 4,
@@ -763,14 +831,13 @@ const styles = StyleSheet.create({
   addAttachmentBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    justifyContent: 'center',
+    padding: 12,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#1E88E5',
     borderStyle: 'dashed',
-    alignSelf: 'flex-start',
+    gap: 6,
   },
   addAttachmentText: {
     fontSize: 13,
@@ -779,5 +846,273 @@ const styles = StyleSheet.create({
   attachmentHint: {
     fontSize: 12,
     color: '#999',
+  },
+  // 卡片网格
+  cardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    paddingVertical: 16,
+  },
+  knowledgeCard: {
+    width: 'calc(33.333% - 12px)',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    position: 'relative',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    gap: 12,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(108, 99, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleContainer: {
+    flex: 1,
+    gap: 6,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    lineHeight: 22,
+  },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  contentPreview: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  tagList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  tagItem: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  tagText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  moreTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+  },
+  moreTagText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  attachmentIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  attachmentCount: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 16,
+  },
+  metaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  authorAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authorName: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  viewInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewCount: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  dateInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    position: 'absolute',
+    top: 16,
+    right: 16,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(108, 99, 255, 0.08)',
+  },
+  deleteBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  actionBtnText: {
+    fontSize: 12,
+    color: '#6C63FF',
+    fontWeight: '500',
+  },
+  // 加载和空状态
+  loadingContainer: {
+    width: '100%',
+    padding: 60,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  emptyContainer: {
+    width: '100%',
+    padding: 60,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  emptyHint: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  // 详情弹窗
+  detailScrollView: {
+    maxHeight: 500,
+  },
+  detailTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  detailCategoryBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  detailCategoryText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  detailTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  detailTagText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  detailMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#F3F4F6',
+    marginBottom: 16,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  metaValue: {
+    fontSize: 13,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  detailSection: {
+    marginBottom: 16,
+  },
+  detailSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  attachmentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  contentBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 16,
+  },
+  contentText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 24,
   },
 });
