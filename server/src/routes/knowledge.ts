@@ -537,4 +537,69 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// 批量导入知识库
+router.post('/batch', upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传Excel文件' });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    if (data.length === 0) {
+      return res.status(400).json({ error: 'Excel文件中没有数据' });
+    }
+
+    const importedKnowledge: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i] as any;
+      const rowNum = i + 2;
+
+      if (!row['标题']) {
+        errors.push(`第${rowNum}行：标题不能为空`);
+        continue;
+      }
+      if (!row['内容']) {
+        errors.push(`第${rowNum}行：内容不能为空`);
+        continue;
+      }
+
+      const newKnowledge: any = {
+        id: Date.now() + i,
+        title: row['标题'] || '',
+        category: row['分类'] || '',
+        content: row['内容'] || '',
+        tags: row['标签'] ? row['标签'].toString().split(',').map((t: string) => t.trim()) : [],
+        author_name: row['作者'] || '',
+        views: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      importedKnowledge.push(newKnowledge);
+    }
+
+    importedKnowledge.forEach((knowledge) => {
+      memoryKnowledgeList.unshift(knowledge);
+    });
+
+    res.json({
+      message: '导入完成',
+      total: data.length,
+      success: importedKnowledge.length,
+      failed: errors.length,
+      errors,
+      data: importedKnowledge,
+    });
+  } catch (error) {
+    console.error('Import knowledge error:', error);
+    res.status(500).json({ error: '导入失败' });
+  }
+});
+
 export default router;

@@ -641,4 +641,68 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// 批量导入会议纪要
+router.post('/batch', upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传Excel文件' });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    if (data.length === 0) {
+      return res.status(400).json({ error: 'Excel文件中没有数据' });
+    }
+
+    const importedMinutes: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i] as any;
+      const rowNum = i + 2;
+
+      if (!row['会议名称']) {
+        errors.push(`第${rowNum}行：会议名称不能为空`);
+        continue;
+      }
+
+      const newMinute: any = {
+        id: Date.now() + i,
+        meeting_name: row['会议名称'] || '',
+        meeting_date: row['会议日期'] || '',
+        meeting_location: row['会议地点'] || '',
+        attendees: row['参会人员'] || '',
+        host: row['主持人'] || '',
+        recorder: row['记录人'] || '',
+        topics: row['议题'] || '',
+        summary: row['会议总结'] || '',
+        tags: row['标签'] ? row['标签'].toString().split(',').map((t: string) => t.trim()) : [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      importedMinutes.push(newMinute);
+    }
+
+    importedMinutes.forEach((minute) => {
+      memoryMeetingMinutes.unshift(minute);
+    });
+
+    res.json({
+      message: '导入完成',
+      total: data.length,
+      success: importedMinutes.length,
+      failed: errors.length,
+      errors,
+      data: importedMinutes,
+    });
+  } catch (error) {
+    console.error('Import meeting minutes error:', error);
+    res.status(500).json({ error: '导入失败' });
+  }
+});
+
 export default router;

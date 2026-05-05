@@ -1,8 +1,14 @@
 import express from 'express';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
 import pool, { USE_DATABASE } from '../database/db';
 import { setExportData } from './export';
 
 const router = express.Router();
+
+// 配置文件上传
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // 内存数据存储
 const memoryWorkOrders: any[] = [
@@ -855,6 +861,81 @@ router.get('/:id/logs', async (req, res) => {
   } catch (error) {
     console.error('Get work order logs error:', error);
     res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// 批量导入工单
+router.post('/batch', upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传Excel文件' });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    if (data.length === 0) {
+      return res.status(400).json({ error: 'Excel文件中没有数据' });
+    }
+
+    const importedOrders: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i] as any;
+      const rowNum = i + 2;
+
+      // 验证必填字段
+      if (!row['工单编号']) {
+        errors.push(`第${rowNum}行：工单编号不能为空`);
+        continue;
+      }
+      if (!row['工单名称']) {
+        errors.push(`第${rowNum}行：工单名称不能为空`);
+        continue;
+      }
+
+      const newOrder: any = {
+        id: Date.now() + i,
+        order_no: row['工单编号'] || '',
+        title: row['工单名称'] || '',
+        description: row['描述'] || '',
+        type: row['工单类型'] || '维修',
+        priority: row['优先级'] || 'medium',
+        status: 'pending',
+        customer_name: row['客户名称'] || '',
+        device_name: row['设备名称'] || '',
+        stage: row['阶段'] || 'assigned',
+        plan_hours: parseFloat(row['计划工时']) || 0,
+        is_charged: row['是否收费'] === '是' || row['是否收费'] === 'yes',
+        quoted_price: parseFloat(row['报价']) || 0,
+        assignee_name: row['处理人'] || '',
+        oa_work_order_no: row['OA工单编号'] || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      importedOrders.push(newOrder);
+    }
+
+    // 添加到内存存储
+    importedOrders.forEach((order) => {
+      memoryWorkOrders.unshift(order);
+    });
+
+    res.json({
+      message: '导入完成',
+      total: data.length,
+      success: importedOrders.length,
+      failed: errors.length,
+      errors,
+      data: importedOrders,
+    });
+  } catch (error) {
+    console.error('Import work orders error:', error);
+    res.status(500).json({ error: '导入失败' });
   }
 });
 

@@ -8,6 +8,7 @@ import { PCToolbar } from '@/components/pc/PCComponents';
 import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
+import { PCImportModal } from '@/components/pc/PCComponents';
 
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
@@ -47,6 +48,7 @@ export default function PCWorkOrders() {
   const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
   const [formData, setFormData] = useState({ work_order_number: '', title: '', description: '', customer_name: '', device_name: '', type: '', priority: '', status: '', stage: '', plan_hours: '', is_charge: false, quote: '', handler: '', creator: '' });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [importModalVisible, setImportModalVisible] = useState(false);
 
   const fetchWorkOrders = useCallback(async () => {
     setLoading(true);
@@ -110,7 +112,7 @@ export default function PCWorkOrders() {
         <p className="pc-page-description">管理所有工单信息，包括客户、设备、类型、优先级、阶段、计划工时、是否收费、报价等完整信息</p>
       </div>
       <PCCard>
-        <PCToolbar left={<><PCSearchBar placeholder="搜索工单编号、名称、客户或处理人..." value={searchText} onChange={setSearchText} onSearch={() => {}} /><div style={{ display: 'flex', gap: 8, marginLeft: 16 }}><select className="pc-form-control" style={{ width: 120 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="">全部类型</option>{WORK_ORDER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select><select className="pc-form-control" style={{ width: 100 }} value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}><option value="">全部优先级</option>{Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select><select className="pc-form-control" style={{ width: 100 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">全部状态</option>{Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div></>} right={<button className="pc-btn pc-btn-primary" onClick={() => { setEditingOrder(null); setFormData({ work_order_number: `WO-${Date.now()}`, title: '', description: '', customer_name: '', device_name: '', type: '', priority: 'medium', status: 'pending', stage: 'queued', plan_hours: '', is_charge: false, quote: '', handler: '', creator: 'admin' }); setModalVisible(true); }}>+ 新增工单</button>} />
+        <PCToolbar left={<><PCSearchBar placeholder="搜索工单编号、名称、客户或处理人..." value={searchText} onChange={setSearchText} onSearch={() => {}} /><div style={{ display: 'flex', gap: 8, marginLeft: 16 }}><select className="pc-form-control" style={{ width: 120 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="">全部类型</option>{WORK_ORDER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select><select className="pc-form-control" style={{ width: 100 }} value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}><option value="">全部优先级</option>{Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select><select className="pc-form-control" style={{ width: 100 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">全部状态</option>{Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div></>} right={<><button className="pc-btn pc-btn-default" onClick={() => setImportModalVisible(true)} style={{ marginRight: 8 }}>批量导入</button><button className="pc-btn pc-btn-primary" onClick={() => { setEditingOrder(null); setFormData({ work_order_number: `WO-${Date.now()}`, title: '', description: '', customer_name: '', device_name: '', type: '', priority: 'medium', status: 'pending', stage: 'queued', plan_hours: '', is_charge: false, quote: '', handler: '', creator: 'admin' }); setModalVisible(true); }}>+ 新增工单</button></>} />
         <PCTable columns={columns} data={filteredOrders} rowKey="id" loading={loading} />
         <PCPagination current={pagination.current} pageSize={pagination.pageSize} total={pagination.total} onChange={page => setPagination(prev => ({ ...prev, current: page }))} />
       </PCCard>
@@ -127,6 +129,14 @@ export default function PCWorkOrders() {
           <div className="pc-form-item"><label className="pc-form-label">描述</label><textarea className="pc-form-control pc-form-textarea" rows={3} placeholder="请输入工单描述" value={formData.description} onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} /></div>
         </div>
       </PCModal>
+      <PCImportModal
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={() => { setImportModalVisible(false); fetchOrders(); }}
+        apiPath="/api/v1/work-orders/batch"
+        title="工单"
+        templateFields={['工单编号*', '工单名称*', '客户名称', '设备名称', '工单类型', '优先级', '状态', '处理人', '描述']}
+      />
     </PCLayout>
   );
 }

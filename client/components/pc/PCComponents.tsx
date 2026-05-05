@@ -426,3 +426,168 @@ export function PCConfirm(options: {
     }
   });
 }
+
+// PC批量导入弹窗组件
+export function PCImportModal({ visible, onClose, title, apiUrl, templateFields, onSuccess }: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  apiUrl: string;
+  templateFields: string[];
+  onSuccess?: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  if (!visible) return null;
+
+  const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+
+  const handleFile = async (selectedFile: File) => {
+    setFile(selectedFile);
+    setResult(null);
+    
+    // 预览Excel文件
+    if (selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
+      const data = await selectedFile.arrayBuffer();
+      const workbook = new (window as any).XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = (window as any).XLSX.utils.sheet_to_json(worksheet);
+      setPreviewData(jsonData.slice(0, 3));
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${sessionId}` },
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setResult({ success: data.success || 0, failed: data.failed || 0, errors: data.errors || [] });
+        if (data.success > 0) {
+          onSuccess?.();
+        }
+      } else {
+        setResult({ success: 0, failed: 1, errors: [data.error || '上传失败'] });
+      }
+    } catch (error) {
+      setResult({ success: 0, failed: 1, errors: ['上传失败，请检查网络连接'] });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const worksheet = (window as any).XLSX.utils.json_to_sheet(
+      templateFields.map(field => ({ '字段名': field.replace('*', '') }))
+    );
+    const workbook = (window as any).XLSX.utils.book_new();
+    (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板');
+    (window as any).XLSX.writeFile(workbook, 'import_template.xlsx');
+  };
+
+  const overlay = document.createElement('div');
+  overlay.className = 'pc-modal-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div class="pc-modal" style="width:600px;max-height:80vh;display:flex;flex-direction:column;">
+      <div class="pc-modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee;">
+        <h3 class="pc-modal-title" style="margin:0;font-size:16px;font-weight:600;">${title}</h3>
+        <button id="pc-import-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">&times;</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <span style="font-size:14px;color:#666;">支持 .xlsx, .xls 格式</span>
+          <button id="pc-download-template" style="background:none;border:none;color:#4F46E5;cursor:pointer;font-size:14px;">下载导入模板</button>
+        </div>
+        
+        <div id="pc-drop-zone" style="border:2px dashed ${dragOver ? '#4F46E5' : '#ddd'};border-radius:8px;padding:40px;text-align:center;transition:all 0.3s;${dragOver ? 'background:#f5f5ff;' : ''}">
+          <input type="file" id="pc-file-input" accept=".xlsx,.xls" style="display:none;" />
+          <div style="font-size:32px;margin-bottom:8px;">📁</div>
+          <div style="font-size:14px;color:#666;margin-bottom:8px;">${file ? file.name : '拖拽文件到此处，或点击选择文件'}</div>
+          ${file ? `<button id="pc-remove-file" style="background:none;border:none;color:#FF4D4F;cursor:pointer;font-size:14px;">移除文件</button>` : ''}
+        </div>
+        
+        ${previewData.length > 0 ? `
+          <div style="margin-top:16px;">
+            <div style="font-size:14px;font-weight:500;margin-bottom:8px;">数据预览（前3条）：</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead>
+                <tr style="background:#f5f5f5;">
+                  ${Object.keys(previewData[0]).slice(0, 5).map(key => `<th style="padding:8px;border:1px solid #eee;text-align:left;">${key}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${previewData.map((row, i) => `<tr style="background:${i % 2 === 0 ? '#fff' : '#fafafa'};">${Object.keys(previewData[0]).slice(0, 5).map(key => `<td style="padding:8px;border:1px solid #eee;">${row[key] || '-'}</td>`).join('')}</tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+        
+        ${result ? `
+          <div style="margin-top:16px;padding:16px;background:${result.failed > 0 ? '#fff2f0' : '#f6ffed'};border-radius:8px;">
+            <div style="font-size:14px;font-weight:500;margin-bottom:8px;">导入结果</div>
+            <div style="font-size:14px;">成功: <span style="color:#52c41a;font-weight:600;">${result.success}</span> | 失败: <span style="color:#ff4d4f;font-weight:600;">${result.failed}</span></div>
+            ${result.errors.length > 0 ? `<div style="margin-top:8px;font-size:12px;color:#666;">${result.errors.slice(0, 3).join('<br/>')}</div>` : ''}
+          </div>
+        ` : ''}
+      </div>
+      <div class="pc-modal-footer" style="display:flex;justify-content:flex-end;gap:12px;padding:16px 20px;border-top:1px solid #eee;">
+        <button id="pc-import-cancel" class="pc-btn pc-btn-default">取消</button>
+        <button id="pc-import-submit" class="pc-btn pc-btn-primary" ${loading || !file ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>${loading ? '导入中...' : '开始导入'}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // 事件绑定
+  overlay.querySelector('#pc-import-close')?.addEventListener('click', () => { document.body.removeChild(overlay); onClose(); });
+  overlay.querySelector('#pc-import-cancel')?.addEventListener('click', () => { document.body.removeChild(overlay); onClose(); });
+  overlay.querySelector('#pc-download-template')?.addEventListener('click', downloadTemplate);
+  
+  overlay.querySelector('#pc-drop-zone')?.addEventListener('click', () => {
+    (overlay.querySelector('#pc-file-input') as HTMLInputElement)?.click();
+  });
+
+  overlay.querySelector('#pc-file-input')?.addEventListener('change', (e: any) => {
+    if (e.target.files?.[0]) handleFile(e.target.files[0]);
+  });
+
+  overlay.querySelector('#pc-remove-file')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setFile(null);
+    setPreviewData([]);
+    (overlay.querySelector('#pc-file-input') as HTMLInputElement).value = '';
+  });
+
+  overlay.querySelector('#pc-import-submit')?.addEventListener('click', handleUpload);
+
+  // 拖拽事件
+  overlay.addEventListener('dragover', (e) => { e.preventDefault(); setDragOver(true); });
+  overlay.addEventListener('dragleave', () => setDragOver(false));
+  overlay.addEventListener('drop', (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer?.files?.[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { document.body.removeChild(overlay); onClose(); }
+  });
+}

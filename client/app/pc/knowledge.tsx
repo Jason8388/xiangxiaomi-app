@@ -7,6 +7,7 @@ import { PCCard } from '@/components/pc/PCComponents';
 import { PCToolbar } from '@/components/pc/PCComponents';
 import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
+import { PCImportModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
 
 import { getApiBaseUrl } from '@/utils/api';
@@ -28,6 +29,7 @@ export default function PCKnowledge() {
   const [items, setItems] = useState<Knowledge[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [importModalVisible, setImportModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -231,7 +233,13 @@ export default function PCKnowledge() {
                 ))}
               </div>
             </>} 
-            right={<button className="pc-btn pc-btn-primary" onClick={handleAdd}>+ 新增知识</button>} 
+            right={<>
+              <button className="pc-btn pc-btn-default" onClick={() => setImportModalVisible(true)} style={{ marginRight: 8 }}>
+                <FontAwesome6 name="upload" size={14} style={{ marginRight: 6 }} />
+                批量导入
+              </button>
+              <button className="pc-btn pc-btn-primary" onClick={handleAdd}>+ 新增知识</button>
+            </>} 
           />
           <PCTable 
             columns={columns} 

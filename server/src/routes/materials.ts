@@ -1,8 +1,13 @@
 import express from 'express';
+import multer from 'multer';
 import pool, { USE_DATABASE } from '../database/db';
 import XLSX from 'xlsx';
 
 const router = express.Router();
+
+// 配置文件上传
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // 内存数据存储
 const memoryMaterials: any[] = [
@@ -505,5 +510,73 @@ router.post('/:id/inventory/adjust', async (req, res) => {
 
 // 导出内存存储供其他路由使用
 export { memoryMaterials };
+
+// 批量导入物料
+router.post('/batch', upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传Excel文件' });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    if (data.length === 0) {
+      return res.status(400).json({ error: 'Excel文件中没有数据' });
+    }
+
+    const importedMaterials: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i] as any;
+      const rowNum = i + 2;
+
+      // 验证必填字段
+      if (!row['物料名称']) {
+        errors.push(`第${rowNum}行：物料名称不能为空`);
+        continue;
+      }
+
+      const newMaterial: any = {
+        id: Date.now() + i,
+        qr_code_id: row['二维码ID'] || `M${Date.now()}${i}`,
+        name: row['物料名称'] || '',
+        code: row['物料编码'] || '',
+        spec: row['规格型号'] || '',
+        unit: row['单位'] || '',
+        category: row['分类'] || '',
+        current_stock: parseInt(row['库存数量']) || 0,
+        min_stock: parseInt(row['最低库存']) || 0,
+        price: parseFloat(row['单价']) || 0,
+        supplier: row['供应商'] || '',
+        location: row['存放位置'] || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      importedMaterials.push(newMaterial);
+    }
+
+    // 添加到内存存储
+    importedMaterials.forEach((material) => {
+      memoryMaterials.unshift(material);
+    });
+
+    res.json({
+      message: '导入完成',
+      total: data.length,
+      success: importedMaterials.length,
+      failed: errors.length,
+      errors,
+      data: importedMaterials,
+    });
+  } catch (error) {
+    console.error('Import materials error:', error);
+    res.status(500).json({ error: '导入失败' });
+  }
+});
 
 export default router;

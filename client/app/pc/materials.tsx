@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
-import { PCCard } from '@/components/pc/PCComponents';
+import { PCCard, PCImportModal } from '@/components/pc/PCComponents';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 import { getApiBaseUrl } from '@/utils/api';
@@ -44,6 +44,7 @@ export default function PCMaterials() {
     description: '',
     status: '正常',
   });
+  const [importModalVisible, setImportModalVisible] = useState(false);
 
   const fetchMaterials = useCallback(async () => {
     setLoading(true);
@@ -175,10 +176,16 @@ export default function PCMaterials() {
           <h1 className="pc-page-title">物料管理</h1>
           <p className="pc-page-description">管理物料信息</p>
         </div>
-        <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
+        <div>
+          <button className="pc-btn pc-btn-default" onClick={() => setImportModalVisible(true)} style={{ marginRight: 8 }}>
+            <FontAwesome6 name="upload" size={14} style={{ marginRight: 6 }} />
+            批量导入
+          </button>
+          <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
           <FontAwesome6 name="plus" size={14} style={{ marginRight: 6 }} />
           新增物料
         </button>
+        </div>
       </div>
 
       <PCCard>
@@ -372,6 +379,30 @@ export default function PCMaterials() {
           </div>
         </div>
       )}
+      
+      <PCImportModal
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={() => {
+          setImportModalVisible(false);
+          fetchMaterials();
+        }}
+        title="批量导入物料"
+        apiPath="/api/v1/materials/batch"
+        fields={[
+          { key: 'material_name', label: '物料名称', required: true },
+          { key: 'material_code', label: '物料编码' },
+          { key: 'specification', label: '规格型号' },
+          { key: 'unit', label: '单位' },
+          { key: 'category', label: '分类' },
+          { key: 'stock_quantity', label: '库存数量' },
+          { key: 'min_stock', label: '最低库存' },
+          { key: 'unit_price', label: '单价' },
+          { key: 'supplier', label: '供应商' },
+          { key: 'location', label: '存放位置' },
+          { key: 'remark', label: '备注' }
+        ]}
+      />
     </PCLayout>
   );
 }

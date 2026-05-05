@@ -8,6 +8,7 @@ import { PCToolbar } from '@/components/pc/PCComponents';
 import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
+import { PCImportModal } from '@/components/pc/PCComponents';
 
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
@@ -41,6 +42,7 @@ export default function PCContracts() {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [formData, setFormData] = useState({
     contract_number: '',
@@ -150,7 +152,7 @@ export default function PCContracts() {
                 <PCSearchBar placeholder="搜索合同名称、编号、客户或业务经理..." value={searchText} onChange={setSearchText} onSearch={() => {}} />
               </>
             }
-            right={<button className="pc-btn pc-btn-primary" onClick={() => { setEditingContract(null); setFormData({ contract_number: '', contract_name: '', customer_name: '', business_manager: '', sign_date: '', acceptance_date: '', warranty_end_date: '', contract_amount: '', remarks: '' }); setModalVisible(true); }}>+ 新增合同</button>}
+            right={<><button className="pc-btn pc-btn-default" style={{ marginRight: 8 }} onClick={() => setImportModalVisible(true)}>批量导入</button><button className="pc-btn pc-btn-primary" onClick={() => { setEditingContract(null); setFormData({ contract_number: '', contract_name: '', customer_name: '', business_manager: '', sign_date: '', acceptance_date: '', warranty_end_date: '', contract_amount: '', remarks: '' }); setModalVisible(true); }}>+ 新增合同</button></>}
           />
 
           <PCTable columns={columns} data={filteredContracts} rowKey="id" loading={loading} selectedRowKeys={selectedRowKeys} onSelectChange={setSelectedRowKeys} />
@@ -177,6 +179,15 @@ export default function PCContracts() {
             <div className="pc-form-item"><label className="pc-form-label">备注</label><textarea className="pc-form-control pc-form-textarea" rows={3} placeholder="请输入备注信息" value={formData.remarks} onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))} /></div>
           </div>
         </PCModal>
+
+        <PCImportModal
+          visible={importModalVisible}
+          onClose={() => setImportModalVisible(false)}
+          title="批量导入合同"
+          apiUrl={`${API_BASE}/api/v1/contracts/batch`}
+          templateFields={['合同编号*', '合同名称*', '客户名称', '业务经理', '签订日期', '验收日期', '质保到期日期', '合同金额', '备注']}
+          onSuccess={() => { setImportModalVisible(false); fetchContracts(); }}
+        />
       </PCLayout>
     </>
   );

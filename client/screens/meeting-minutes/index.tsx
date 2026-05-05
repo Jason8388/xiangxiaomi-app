@@ -55,6 +55,9 @@ export default function MeetingMinutes() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [selectedMinute, setSelectedMinute] = useState<MeetingMinute | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{ success?: number; successCount?: number; error?: string } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -163,6 +166,58 @@ export default function MeetingMinutes() {
 
   const handleCreate = () => {
     router.push('/meeting-minute-create');
+  };
+
+  // 批量导入会议纪要
+  const handleBatchImport = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const file = result.assets[0];
+      setImporting(true);
+
+      const sessionId = await getSecureItem('session_id');
+      if (!sessionId) {
+        Alert.alert('错误', '请先登录');
+        return;
+      }
+
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      } as any);
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/meeting-minutes/batch`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+        },
+        body: uploadFormData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert('成功', `成功导入 ${data.imported || 0} 条会议纪要`);
+        loadMeetingMinutes();
+      } else {
+        Alert.alert('导入失败', data.message || '请检查文件格式');
+      }
+    } catch (error) {
+      console.error('Batch import error:', error);
+      Alert.alert('错误', '导入失败，请重试');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleEdit = (minuteId: number) => {
@@ -455,9 +510,14 @@ export default function MeetingMinutes() {
       <PageHeader
         title="会议纪要"
         rightAction={
-          <TouchableOpacity onPress={handleCreate} style={styles.addButton}>
-            <FontAwesome6 name="plus" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={handleBatchImport} style={[styles.addButton, { marginRight: 8, backgroundColor: '#10B981' }]}>
+              <FontAwesome6 name="file-import" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleCreate} style={styles.addButton}>
+              <FontAwesome6 name="plus" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         }
       />
 

@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard, StyleSheet, ActivityIndicator } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { getApiBaseUrl } from '@/utils/api';
+import * as DocumentPicker from 'expo-document-picker';
+import { getSecureItem } from '@/utils/storage';
 
 interface WorkOrder {
   id: number;
@@ -200,6 +202,58 @@ export default function WorkOrdersScreen() {
       document.body.removeChild(link);
     } else {
       Alert.alert('提示', '移动端暂不支持导出功能，请在PC端操作');
+    }
+  };
+
+  const handleBatchImport = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const file = result.assets[0];
+      const sessionId = await getSecureItem('session_id');
+      
+      if (!sessionId) {
+        Alert.alert('错误', '未登录或登录已过期');
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || 'application/octet-stream',
+      } as any);
+
+      const response = await fetch(`${API_BASE}/work-orders/batch`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionId}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('导入成功', `成功导入 ${data.success_count || 0} 条工单`);
+        fetchOrders();
+      } else {
+        Alert.alert('导入失败', data.message || '导入失败，请检查文件格式');
+      }
+    } catch (error) {
+      console.error('批量导入失败:', error);
+      Alert.alert('导入失败', '批量导入失败，请重试');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -443,6 +497,9 @@ export default function WorkOrdersScreen() {
           <Text style={styles.headerSubtitle}>共 {stats.totalWorkOrders} 条工单</Text>
         </View>
         <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleImport}>
+            <FontAwesome6 name="file-import" size={20} color="#6B7280" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => handleExport('excel')}>
             <FontAwesome6 name="file-export" size={20} color="#6B7280" />
           </TouchableOpacity>

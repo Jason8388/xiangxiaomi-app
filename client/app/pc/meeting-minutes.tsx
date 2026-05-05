@@ -8,6 +8,8 @@ import { PCToolbar } from '@/components/pc/PCComponents';
 import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
+import { PCImportModal } from '@/components/pc/PCComponents';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
@@ -43,6 +45,7 @@ export default function PCMeetingMinutes() {
     tags: '',
   });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [importModalVisible, setImportModalVisible] = useState(false);
 
   const fetchMeetings = useCallback(async () => {
     setLoading(true);
@@ -237,9 +240,14 @@ export default function PCMeetingMinutes() {
               />
             }
             right={
-              <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
-                + 新增会议纪要
-              </button>
+              <>
+                <button className="pc-btn" onClick={() => setImportModalVisible(true)} style={{ marginRight: 8 }}>
+                  批量导入
+                </button>
+                <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
+                  + 新增会议纪要
+                </button>
+              </>
             }
           />
 
@@ -356,6 +364,15 @@ export default function PCMeetingMinutes() {
             </div>
           </div>
         </PCModal>
+
+        <PCImportModal
+          visible={importModalVisible}
+          onClose={() => setImportModalVisible(false)}
+          onSuccess={() => { setImportModalVisible(false); fetchMeetings(); }}
+          apiPath="/api/v1/meeting-minutes/batch"
+          title="会议纪要"
+          templateFields={['meeting_name*', 'meeting_date*', 'meeting_location', 'attendees', 'recorder', 'topic', 'summary', 'tags']}
+        />
       </PCLayout>
     </>
   );

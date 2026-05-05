@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Modal, ActivityIndicator } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { getApiBaseUrl } from '@/utils/api';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function KnowledgeScreen() {
   const [knowledgeList, setKnowledgeList] = useState<any[]>([]);
@@ -16,6 +18,10 @@ export default function KnowledgeScreen() {
     content: '',
     tags: '',
   });
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importFile, setImportFile] = useState<any>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
   const router = useSafeRouter();
 
   useEffect(() => {
@@ -89,6 +95,78 @@ export default function KnowledgeScreen() {
     } catch (error: any) {
       Alert.alert('错误', error.message);
     }
+  };
+
+  const handleImport = async () => {
+    try {
+      const file = await DocumentPicker.getDocumentAsync({
+        type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+      });
+
+      if (file.canceled || !file.assets?.[0]) {
+        return;
+      }
+
+      const selectedFile = file.assets[0];
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+          if (jsonData.length === 0) {
+            Alert.alert('提示', '导入文件中没有数据');
+            return;
+          }
+
+          const knowledgeList = jsonData.map((row) => ({
+            title: row['标题'] || row['title'] || '',
+            category: row['分类'] || row['category'] || '',
+            tags: row['标签'] || row['tags'] || '',
+            content: row['内容'] || row['content'] || '',
+            author_id: 1,
+          })).filter((item) => item.title && item.content);
+
+          if (knowledgeList.length === 0) {
+            Alert.alert('提示', '没有有效的知识数据（标题和内容不能为空）');
+            return;
+          }
+
+          const sessionId = await AsyncStorage.getItem('session_id');
+          const response = await fetch(`${getApiBaseUrl()}/api/v1/knowledge/batch`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({ knowledge: knowledgeList }),
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            Alert.alert('成功', `成功导入 ${result.count || knowledgeList.length} 条知识`);
+            setImportModalVisible(false);
+            fetchKnowledge();
+          } else {
+            Alert.alert('错误', result.message || '导入失败');
+          }
+        } catch (error: any) {
+          Alert.alert('错误', '解析Excel文件失败: ' + error.message);
+        }
+      };
+
+      reader.readAsArrayBuffer(selectedFile);
+    } catch (error: any) {
+      Alert.alert('错误', '选择文件失败: ' + error.message);
+    }
+  };
+
+  const handleFilePick = async () => {
+    handleImport();
   };
 
   const handleDelete = (id: number) => {
@@ -285,6 +363,81 @@ export default function KnowledgeScreen() {
         >
           <FontAwesome6 name="plus" size={26} color="#FFFFFF" />
         </TouchableOpacity>
+
+        {/* 导入按钮 */}
+        <TouchableOpacity
+          onPress={() => setImportModalVisible(true)}
+          className="absolute bottom-6 left-6"
+          style={{
+            width: 50,
+            height: 50,
+            borderRadius: 25,
+            backgroundColor: '#00B894',
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#00B894',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.35,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
+        >
+          <FontAwesome6 name="file-import" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        {/* 导入 Modal */}
+        {importModalVisible && (
+          <Modal visible={importModalVisible} transparent animationType="slide">
+            <View className="flex-1 bg-black/50 justify-center items-center px-6">
+              <View className="w-full rounded-3xl p-6 bg-[#F0F0F3]">
+                <View className="flex-row justify-between items-center mb-6">
+                  <Text className="text-xl font-bold text-[#2D3436]">批量导入知识</Text>
+                  <TouchableOpacity onPress={() => setImportModalVisible(false)}>
+                    <FontAwesome6 name="times" size={22} color="#636E72" />
+                  </TouchableOpacity>
+                </View>
+
+                <View className="mb-4 p-4 bg-[#E8E8EB] rounded-2xl">
+                  <Text className="text-sm text-[#636E72] mb-2">导入说明：</Text>
+                  <Text className="text-xs text-[#636E72] mb-1">• 支持 .xlsx, .xls 格式</Text>
+                  <Text className="text-xs text-[#636E72] mb-1">• 必填字段：标题(title)、内容(content)</Text>
+                  <Text className="text-xs text-[#636E72]">• 选填字段：分类(category)、标签(tags)、作者(author_name)</Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleDownloadTemplate}
+                  className="mb-4 p-4 border-2 border-dashed border-[#6C63FF] rounded-2xl items-center"
+                >
+                  <FontAwesome6 name="file-download" size={28} color="#6C63FF" />
+                  <Text className="text-sm text-[#6C63FF] mt-2">下载导入模板</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleImport}
+                  className="mb-4 p-4 border-2 border-dashed border-[#00B894] rounded-2xl items-center"
+                >
+                  <FontAwesome6 name="upload" size={28} color="#00B894" />
+                  <Text className="text-sm text-[#00B894] mt-2">选择Excel文件导入</Text>
+                </TouchableOpacity>
+
+                {importLoading && (
+                  <View className="items-center py-4">
+                    <ActivityIndicator size="large" color="#6C63FF" />
+                    <Text className="text-sm text-[#636E72] mt-2">正在导入...</Text>
+                  </View>
+                )}
+
+                {importResult && (
+                  <View className={`p-4 rounded-2xl ${importResult.success ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <Text className={`text-sm font-medium ${importResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                      {importResult.success ? `导入成功！共 ${importResult.success} 条` : `导入失败：${importResult.error}`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Modal>
+        )}
 
         {/* 编辑/新增 Modal */}
         {modalVisible && (
