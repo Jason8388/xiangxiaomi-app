@@ -20,8 +20,7 @@ const quickLinks: QuickLink[] = [
   { icon: 'tablet-screen-button', label: '设备管理', path: '/pc/devices', color: '#52C41A', description: '设备档案维护' },
   { icon: 'file-contract', label: '合同管理', path: '/pc/contracts', color: '#FAAD14', description: '合同文档管理' },
   { icon: 'clipboard-list', label: '工单管理', path: '/pc/work-orders', color: '#722ED1', description: '工单任务处理' },
-  { icon: 'warehouse', label: '仓库管理', path: '/pc/warehouses', color: '#13C2C2', description: '仓库库位管理' },
-  { icon: 'warehouse', label: '仓库管理', path: '/pc/warehouses', color: '#13C2C2', description: '仓库库位管理' },
+  { icon: 'boxes-stacked', label: '物料管理', path: '/pc/materials', color: '#13C2C2', description: '物料信息管理' },
   { icon: 'book-open', label: '知识库', path: '/pc/knowledge', color: '#FA8C16', description: '知识文档库' },
   { icon: 'address-card', label: '会议纪要', path: '/pc/meeting-minutes', color: '#8B5CF6', description: '会议记录管理' },
 ];

@@ -15,7 +15,7 @@ const navItems: NavItem[] = [
   { key: 'devices', icon: 'mobile-screen', label: '设备管理', path: '/pc/devices' },
   { key: 'contracts', icon: 'file-contract', label: '合同管理', path: '/pc/contracts' },
   { key: 'work-orders', icon: 'clipboard-list', label: '工单管理', path: '/pc/work-orders' },
-  { key: 'warehouses', icon: 'warehouse', label: '仓库管理', path: '/pc/warehouses' },
+  { key: 'materials', icon: 'boxes-stacked', label: '物料管理', path: '/pc/materials' },
   { key: 'knowledge', icon: 'book-open', label: '知识库', path: '/pc/knowledge' },
   { key: 'meeting-minutes', icon: 'address-card', label: '会议纪要', path: '/pc/meeting-minutes' },
   { key: 'files', icon: 'folder-open', label: '文件管理', path: '/pc/files' },
