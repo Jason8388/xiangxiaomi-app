@@ -865,16 +865,19 @@ export default function PCWorkOrderDetail() {
                 </View>
               </View>
             )}
-            {toPhotoArray(order.requirement_photos).length > 0 && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>需求照片/视频</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(order.requirement_photos).map((photo, index) => (
+            {/* 需求照片/视频 - 非编辑模式始终显示 */}
+            <View style={styles.photosRow}>
+              <Text style={styles.infoLabel}>需求照片/视频</Text>
+              <View style={styles.photoList}>
+                {toPhotoArray(order.requirement_photos).length > 0 ? (
+                  toPhotoArray(order.requirement_photos).map((photo, index) => (
                     <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
-                  ))}
-                </View>
+                  ))
+                ) : (
+                  <Text style={styles.emptyText}>暂无照片</Text>
+                )}
               </View>
-            )}
+            </View>
           </View>
         </PCCard>
 
@@ -1037,46 +1040,32 @@ export default function PCWorkOrderDetail() {
                 </View>
               </View>
             )}
-            {toPhotoArray(order?.quoted_price_doc).length > 0 && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>报价单照片</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(order?.quoted_price_doc).map((photo, index) => (
+            {/* 报价单照片 - 非编辑模式始终显示 */}
+            <View style={styles.photosRow}>
+              <Text style={styles.infoLabel}>报价单照片</Text>
+              <View style={styles.photoList}>
+                {toPhotoArray(order?.quoted_price_doc).length > 0 ? (
+                  toPhotoArray(order?.quoted_price_doc).map((photo, index) => (
                     <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
-                  ))}
-                </View>
+                  ))
+                ) : (
+                  <Text style={styles.emptyText}>暂无照片</Text>
+                )}
               </View>
-            )}
-            {/* 客户共识凭证 */}
-            {isEditMode && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>客户共识凭证</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(getEditValue('consensus_docs') as string | string[]).map((photo, index) => (
-                    <View key={index} style={styles.photoItem}>
-                      <Image source={{ uri: photo }} style={styles.thumbnail} />
-                      <TouchableOpacity style={styles.deletePhotoBtn} onPress={() => handleDeleteConsensusPhoto(photo)}>
-                        <FontAwesome6 name="times-circle" size={16} color="#E74C3C" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  <TouchableOpacity style={styles.addPhotoBtn} onPress={handleUploadConsensusPhoto}>
-                    <FontAwesome6 name="plus" size={20} color="#3498DB" />
-                    <Text style={styles.addPhotoText}>添加</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-            {toPhotoArray(order?.consensus_docs).length > 0 && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>客户共识凭证</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(order?.consensus_docs).map((photo, index) => (
+            </View>
+            {/* 客户共识凭证 - 非编辑模式始终显示 */}
+            <View style={styles.photosRow}>
+              <Text style={styles.infoLabel}>客户共识凭证</Text>
+              <View style={styles.photoList}>
+                {toPhotoArray(order?.consensus_docs).length > 0 ? (
+                  toPhotoArray(order?.consensus_docs).map((photo, index) => (
                     <Image key={index} source={{ uri: photo }} style={styles.thumbnail} />
-                  ))}
-                </View>
+                  ))
+                ) : (
+                  <Text style={styles.emptyText}>暂无凭证</Text>
+                )}
               </View>
-            )}
+            </View>
           </View>
         </PCCard>
 
@@ -1169,26 +1158,32 @@ export default function PCWorkOrderDetail() {
                 </View>
               </>
             )}
-            {toPhotoArray(order?.work_order_docs).length > 0 && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>派工单照片</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(order?.work_order_docs).map((doc, index) => (
+            {/* 派工单照片 - 非编辑模式始终显示 */}
+            <View style={styles.photosRow}>
+              <Text style={styles.infoLabel}>派工单照片</Text>
+              <View style={styles.photoList}>
+                {toPhotoArray(order?.work_order_docs).length > 0 ? (
+                  toPhotoArray(order?.work_order_docs).map((doc, index) => (
                     <Image key={index} source={{ uri: doc }} style={styles.thumbnail} />
-                  ))}
-                </View>
+                  ))
+                ) : (
+                  <Text style={styles.emptyText}>暂无照片</Text>
+                )}
               </View>
-            )}
-            {toPhotoArray(order?.site_completion_docs).length > 0 && (
-              <View style={styles.photosRow}>
-                <Text style={styles.infoLabel}>现场实施照片</Text>
-                <View style={styles.photoList}>
-                  {toPhotoArray(order?.site_completion_docs).map((doc, index) => (
+            </View>
+            {/* 现场实施照片 - 非编辑模式始终显示 */}
+            <View style={styles.photosRow}>
+              <Text style={styles.infoLabel}>现场实施照片</Text>
+              <View style={styles.photoList}>
+                {toPhotoArray(order?.site_completion_docs).length > 0 ? (
+                  toPhotoArray(order?.site_completion_docs).map((doc, index) => (
                     <Image key={index} source={{ uri: doc }} style={styles.thumbnail} />
-                  ))}
-                </View>
+                  ))
+                ) : (
+                  <Text style={styles.emptyText}>暂无照片</Text>
+                )}
               </View>
-            )}
+            </View>
           </View>
         </PCCard>
 
