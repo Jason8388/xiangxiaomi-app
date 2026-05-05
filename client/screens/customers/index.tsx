@@ -69,6 +69,8 @@ export default function CustomerManagement() {
   const serviceDepartmentOptions = ['技术服务一组', '技术服务二组', '技术服务三组'];
   const [serviceDeptModalVisible, setServiceDeptModalVisible] = useState(false);
   const [subGroupModalVisible, setSubGroupModalVisible] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // 获取客户列表（性能优化：使用 useCallback 避免重复创建）
   const fetchCustomers = useCallback(async () => {
@@ -324,6 +326,13 @@ export default function CustomerManagement() {
         <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
           <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
           <Text style={styles.addButtonText}>新建客户</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.importButton} 
+          onPress={() => setImportModalVisible(true)}
+        >
+          <FontAwesome6 name="file-import" size={16} color="#1E88E5" />
+          <Text style={styles.importButtonText}>批量导入</Text>
         </TouchableOpacity>
       </View>
 
@@ -738,6 +747,55 @@ export default function CustomerManagement() {
           </View>
         </View>
       </Modal>
+
+      {/* 批量导入 Modal */}
+      <Modal
+        visible={importModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setImportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.importModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>批量导入客户</Text>
+              <TouchableOpacity onPress={() => setImportModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.importModalBody}>
+              <View style={styles.importInfo}>
+                <Text style={styles.importInfoTitle}>导入说明</Text>
+                <Text style={styles.importInfoText}>1. 请先下载导入模板，按模板格式填写数据</Text>
+                <Text style={styles.importInfoText}>2. 支持 .xlsx 和 .xls 格式</Text>
+                <Text style={styles.importInfoText}>3. 必填字段：客户名称</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.downloadTemplateButton}
+                onPress={() => Alert.alert('提示', '请在PC端下载导入模板')}
+              >
+                <FontAwesome6 name="file-arrow-down" size={20} color="#1E88E5" />
+                <Text style={styles.downloadTemplateText}>下载导入模板</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.importNote}>
+                注：请使用PC端进行批量导入操作，移动端仅支持单条新增
+              </Text>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setImportModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>关闭</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -771,11 +829,30 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     backgroundColor: '#1E88E5',
+    flex: 1,
   },
   addButtonText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#1E88E5',
+    flex: 1,
+    marginLeft: 8,
+  },
+  importButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E88E5',
   },
   statsContainer: {
     flexDirection: 'row',

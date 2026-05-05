@@ -34,6 +34,9 @@ export default function PCCustomers() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -135,6 +138,75 @@ export default function PCCustomers() {
     setCustomers(prev => prev.filter(c => !selectedRowKeys.includes(String(c.id))));
     setPagination(prev => ({ ...prev, total: prev.total - selectedRowKeys.length }));
     setSelectedRowKeys([]);
+  };
+
+  // 下载导入模板
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/customers/import-template`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'customer_import_template.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('下载模板失败:', error);
+      alert('下载模板失败');
+    }
+  };
+
+  // 处理文件选择
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        alert('请选择 Excel 文件 (.xlsx 或 .xls)');
+        return;
+      }
+      setImportFile(file);
+    }
+  };
+
+  // 执行批量导入
+  const handleImport = async () => {
+    if (!importFile) {
+      alert('请选择要导入的文件');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+
+      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const response = await fetch(`${API_BASE}/api/v1/customers/import`, {
+        method: 'POST',
+        headers: {
+          'Authorization': sessionId ? `Bearer ${sessionId}` : '',
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert(`成功导入 ${result.count || 0} 条客户数据`);
+        setImportModalVisible(false);
+        setImportFile(null);
+        fetchCustomers();
+      } else {
+        alert(result.error || '导入失败');
+      }
+    } catch (error) {
+      console.error('导入失败:', error);
+      alert('导入失败，请检查文件格式');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleSave = async () => {
@@ -242,6 +314,9 @@ export default function PCCustomers() {
                     批量删除 ({selectedRowKeys.length})
                   </button>
                 )}
+                <button className="pc-btn pc-btn-default" onClick={() => setImportModalVisible(true)}>
+                  批量导入
+                </button>
                 <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
                   + 新增客户
                 </button>
@@ -364,6 +439,55 @@ export default function PCCustomers() {
                 value={formData.remarks}
                 onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
               />
+            </div>
+          </div>
+        </PCModal>
+
+        {/* 批量导入弹窗 */}
+        <PCModal
+          visible={importModalVisible}
+          title="批量导入客户"
+          onClose={() => { setImportModalVisible(false); setImportFile(null); }}
+          width={500}
+          footer={
+            <>
+              <button className="pc-btn pc-btn-default" onClick={() => { setImportModalVisible(false); setImportFile(null); }}>
+                取消
+              </button>
+              <button className="pc-btn pc-btn-primary" onClick={handleImport} disabled={importing}>
+                {importing ? '导入中...' : '开始导入'}
+              </button>
+            </>
+          }
+        >
+          <div className="pc-form">
+            <div className="pc-form-item">
+              <label className="pc-form-label">导入说明</label>
+              <div style={{ fontSize: 13, color: '#666', lineHeight: 1.6 }}>
+                <p>1. 请先下载导入模板，按模板格式填写数据</p>
+                <p>2. 支持 .xlsx 和 .xls 格式</p>
+                <p>3. 必填字段：客户名称</p>
+              </div>
+            </div>
+            <div className="pc-form-item">
+              <label className="pc-form-label">下载模板</label>
+              <button className="pc-btn pc-btn-default" onClick={handleDownloadTemplate}>
+                下载导入模板
+              </button>
+            </div>
+            <div className="pc-form-item">
+              <label className="pc-form-label">选择文件</label>
+              <input
+                type="file"
+                className="pc-form-control"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange}
+              />
+              {importFile && (
+                <div style={{ marginTop: 8, color: '#4F46E5', fontSize: 13 }}>
+                  已选择: {importFile.name}
+                </div>
+              )}
             </div>
           </div>
         </PCModal>

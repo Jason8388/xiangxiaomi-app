@@ -1309,6 +1309,184 @@ router.get('/:deviceId/history-detail/export', async (req, res) => {
   }
 });
 
+// 设备批量导入
+router.post('/batch', upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传Excel文件' });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+    const worksheet = workbook.getWorksheet(1);
+
+    if (!worksheet) {
+      return res.status(400).json({ error: 'Excel文件格式错误' });
+    }
+
+    const devices: any[] = [];
+    let startRow = 1; // 默认从第一行开始读取
+
+    // 检查第一行是否是表头
+    const firstRow = worksheet.getRow(1);
+    const firstCellValue = firstRow.getCell(1).value?.toString().toLowerCase() || '';
+    
+    // 如果第一行是"设备编号"或"设备名称"，则跳过表头从第二行开始
+    if (firstCellValue.includes('设备编号') || firstCellValue.includes('设备名称') || firstCellValue.includes('设备')) {
+      startRow = 2;
+    }
+
+    // 从指定行开始读取数据
+    for (let rowNum = startRow; rowNum <= worksheet.rowCount; rowNum++) {
+      const row = worksheet.getRow(rowNum);
+      
+      // 检查是否有有效数据
+      const deviceCode = row.getCell(1).value?.toString().trim() || '';
+      const deviceName = row.getCell(2).value?.toString().trim() || '';
+      
+      if (!deviceCode && !deviceName) continue;
+
+      devices.push({
+        device_code: deviceCode || `DEV${Date.now()}${rowNum}`,
+        device_name: deviceName || '',
+        device_type: row.getCell(3).value?.toString().trim() || '',
+        model: row.getCell(4).value?.toString().trim() || '',
+        manufacturer: row.getCell(5).value?.toString().trim() || '',
+        serial_number: row.getCell(6).value?.toString().trim() || '',
+        install_location: row.getCell(7).value?.toString().trim() || '',
+        customer_name: row.getCell(8).value?.toString().trim() || '',
+        status: (row.getCell(9).value?.toString().trim() || '正常').replace('正常', '正常').replace('维修中', '维修中').replace('已报废', '已报废') || '正常',
+        purchase_date: row.getCell(10).value ? new Date(row.getCell(10).value) : null,
+        warranty_expiry: row.getCell(11).value ? new Date(row.getCell(11).value) : null,
+        qr_code: row.getCell(12).value?.toString().trim() || '',
+        service_number: row.getCell(13).value?.toString().trim() || '',
+        remarks: row.getCell(14).value?.toString().trim() || '',
+      });
+    }
+
+    if (devices.length === 0) {
+      return res.status(400).json({ error: 'Excel文件中没有有效数据' });
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const failedRows: any[] = [];
+
+    // 批量插入设备
+    for (let i = 0; i < devices.length; i++) {
+      const device = devices[i];
+      try {
+        // 如果有客户名称，先查找客户ID
+        let customerId = null;
+        if (device.customer_name) {
+          const customerResult = await queryWithRetry(
+            'SELECT id FROM customers WHERE name = $1 LIMIT 1',
+            [device.customer_name]
+          );
+          if (customerResult.rows.length > 0) {
+            customerId = customerResult.rows[0].id;
+          }
+        }
+
+        const query = `
+          INSERT INTO devices (
+            device_code, device_name, device_type, model, manufacturer,
+            serial_number, install_location, customer_id, status,
+            purchase_date, warranty_expiry, qr_code, service_number, remarks,
+            created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+          ON CONFLICT (device_code) DO UPDATE SET
+            device_name = EXCLUDED.device_name,
+            device_type = EXCLUDED.device_type,
+            model = EXCLUDED.model,
+            updated_at = NOW()
+          RETURNING id
+        `;
+
+        await queryWithRetry(query, [
+          device.device_code,
+          device.device_name,
+          device.device_type,
+          device.model,
+          device.manufacturer,
+          device.serial_number,
+          device.install_location,
+          customerId,
+          device.status,
+          device.purchase_date,
+          device.warranty_expiry,
+          device.qr_code,
+          device.service_number,
+          device.remarks,
+        ]);
+
+        // 更新内存存储
+        const existingIndex = memoryDevices.findIndex(d => d.device_code === device.device_code);
+        if (existingIndex >= 0) {
+          memoryDevices[existingIndex] = {
+            ...memoryDevices[existingIndex],
+            device_name: device.device_name,
+            device_type: device.device_type,
+            model: device.model,
+            manufacturer: device.manufacturer,
+            serial_number: device.serial_number,
+            install_location: device.install_location,
+            customer_name: device.customer_name,
+            status: device.status,
+            purchase_date: device.purchase_date,
+            warranty_expiry: device.warranty_expiry,
+            qr_code: device.qr_code,
+            service_number: device.service_number,
+            remarks: device.remarks,
+            updated_at: new Date().toISOString(),
+          };
+        } else {
+          memoryDevices.push({
+            id: memoryDevices.length + 1,
+            device_code: device.device_code,
+            device_name: device.device_name,
+            device_type: device.device_type,
+            model: device.model,
+            manufacturer: device.manufacturer,
+            serial_number: device.serial_number,
+            install_location: device.install_location,
+            customer_id: customerId,
+            customer_name: device.customer_name,
+            status: device.status,
+            purchase_date: device.purchase_date,
+            warranty_expiry: device.warranty_expiry,
+            qr_code: device.qr_code,
+            service_number: device.service_number,
+            remarks: device.remarks,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+
+        successCount++;
+      } catch (error: any) {
+        failCount++;
+        failedRows.push({
+          row: i + startRow + 1,
+          device_code: device.device_code,
+          error: error.message,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `导入完成：成功 ${successCount} 条，失败 ${failCount} 条`,
+      successCount,
+      failCount,
+      failedRows: failCount > 0 ? failedRows : undefined,
+    });
+  } catch (error: any) {
+    console.error('Batch import devices error:', error);
+    res.status(500).json({ error: '批量导入失败: ' + error.message });
+  }
+});
+
 // 格式化文件大小
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes === 0) return '0 B';

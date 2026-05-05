@@ -64,6 +64,9 @@ export default function PCDevices() {
     service_number: '',
   });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const fetchDevices = useCallback(async () => {
     setLoading(true);
@@ -169,6 +172,44 @@ export default function PCDevices() {
     setSelectedRowKeys([]);
   };
 
+  const handleImport = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    
+    const formData = new FormData();
+    formData.append('file', importFile);
+
+    try {
+      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const response = await fetch(`${API_BASE}/api/v1/devices/batch`, {
+        method: 'POST',
+        headers: {
+          'Authorization': sessionId ? `Bearer ${sessionId}` : '',
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert(`导入完成：成功 ${result.successCount} 条，失败 ${result.failCount} 条`);
+        if (result.failedRows && result.failedRows.length > 0) {
+          console.error('导入失败行:', result.failedRows);
+        }
+        setImportModalVisible(false);
+        setImportFile(null);
+        fetchDevices();
+      } else {
+        alert('导入失败: ' + (result.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('导入失败:', error);
+      alert('导入失败，请重试');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleStatusFilter = (status: string) => {
     setStatusFilter(status === statusFilter ? '' : status);
   };
@@ -262,6 +303,9 @@ export default function PCDevices() {
                 )}
                 <button className="pc-btn pc-btn-primary" onClick={handleAdd}>
                   + 新增设备
+                </button>
+                <button className="pc-btn" style={{ background: '#E8F5E9', color: '#1E88E5', border: '1px solid #1E88E5' }} onClick={() => setImportModalVisible(true)}>
+                  📥 批量导入
                 </button>
               </div>
             }
@@ -377,6 +421,70 @@ export default function PCDevices() {
               <label className="pc-form-label">备注</label>
               <textarea className="pc-form-control pc-form-textarea" rows={2} placeholder="请输入备注信息" value={formData.remarks}
                 onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))} />
+            </div>
+          </div>
+        </PCModal>
+
+        {/* 批量导入弹窗 */}
+        <PCModal
+          visible={importModalVisible}
+          title="批量导入设备"
+          onClose={() => { setImportModalVisible(false); setImportFile(null); }}
+          width={500}
+          footer={
+            <>
+              <button className="pc-btn pc-btn-default" onClick={() => { setImportModalVisible(false); setImportFile(null); }}>取消</button>
+              <button className="pc-btn pc-btn-primary" onClick={handleImport} disabled={!importFile || importing}>
+                {importing ? '导入中...' : '开始导入'}
+              </button>
+            </>
+          }
+        >
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <input
+              type="file"
+              id="device-import-file"
+              accept=".xlsx,.xls"
+              style={{ display: 'none' }}
+              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+            />
+            <label htmlFor="device-import-file" style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 12,
+              padding: '40px 60px',
+              border: '2px dashed #DDD',
+              borderRadius: 12,
+              cursor: 'pointer',
+              background: '#FAFAFA',
+            }}>
+              <span style={{ fontSize: 48 }}>📤</span>
+              <span style={{ color: '#666' }}>
+                {importFile ? importFile.name : '点击选择Excel文件'}
+              </span>
+              <span style={{ fontSize: 12, color: '#999' }}>
+                支持 .xlsx, .xls 格式
+              </span>
+            </label>
+            <div style={{ marginTop: 16, padding: '12px 16px', background: '#FFF7E6', borderRadius: 8, textAlign: 'left' }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#F57C00', marginBottom: 8 }}>Excel格式要求：</div>
+              <div style={{ fontSize: 12, color: '#666', lineHeight: 1.8 }}>
+                第1列：设备编号<br/>
+                第2列：设备名称<br/>
+                第3列：设备类型<br/>
+                第4列：设备型号<br/>
+                第5列：制造商<br/>
+                第6列：序列号<br/>
+                第7列：安装位置<br/>
+                第8列：客户名称<br/>
+                第9列：状态<br/>
+                第10列：购买日期<br/>
+                第11列：质保到期<br/>
+                第12列：二维码ID<br/>
+                第13列：服务编号<br/>
+                第14列：备注
+              </div>
             </div>
           </div>
         </PCModal>

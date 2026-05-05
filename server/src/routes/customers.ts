@@ -1,7 +1,10 @@
 import express from 'express';
+import multer from 'multer';
+import ExcelJS from 'exceljs';
 import pool, { USE_DATABASE } from '../database/db';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // 内存数据存储（用于数据库不可用时）
 const memoryCustomers: any[] = [
@@ -627,5 +630,177 @@ router.get('/:id/work-orders', async (req, res) => {
 
 // 导出内存存储供其他路由使用
 export { memoryCustomers };
+
+// 下载客户导入模板
+router.get('/import-template', async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('客户导入模板');
+
+    // 设置表头
+    worksheet.addRow([
+      '客户名称*', '联系人', '联系电话', '地址', '邮箱',
+      '所属行业', '客户等级', '客户来源', '业务经理', '服务看管部门', '备注'
+    ]);
+
+    // 添加示例数据
+    worksheet.addRow([
+      '示例科技有限公司', '张三', '13800138001', '北京市朝阳区', 'zhangsan@example.com',
+      'IT行业', 'A', '线上推广', '张三', '技术服务一组', '优质客户'
+    ]);
+
+    // 设置表头样式
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E88E5' },
+    };
+
+    // 设置列宽
+    worksheet.columns.forEach((column) => {
+      column.width = 20;
+    });
+
+    // 生成Excel文件
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=customer_import_template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Download template error:', error);
+    res.status(500).json({ error: '下载模板失败' });
+  }
+});
+
+// 批量导入客户
+router.post('/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传文件' });
+    }
+
+    // 解析Excel文件
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    const worksheet = workbook.getWorksheet(1);
+    if (!worksheet) {
+      return res.status(400).json({ error: 'Excel文件为空' });
+    }
+
+    const customersToImport: any[] = [];
+    const errors: string[] = [];
+
+    // 跳过表头，从第二行开始读取
+    let rowNumber = 2;
+    worksheet.eachRow({ includeEmpty: false }, (row, rowNum) => {
+      if (rowNum === 1) return; // 跳过表头
+
+      const name = row.getCell(1).text?.trim();
+      const contact = row.getCell(2).text?.trim();
+      const phone = row.getCell(3).text?.trim();
+      const address = row.getCell(4).text?.trim();
+      const email = row.getCell(5).text?.trim();
+      const industry = row.getCell(6).text?.trim();
+      const level = row.getCell(7).text?.trim();
+      const source = row.getCell(8).text?.trim();
+      const business_manager = row.getCell(9).text?.trim();
+      const sub_group = row.getCell(10).text?.trim();
+      const remarks = row.getCell(11).text?.trim();
+
+      // 验证必填字段
+      if (!name) {
+        errors.push(`第${rowNum}行：客户名称为必填项`);
+        return;
+      }
+
+      customersToImport.push({
+        name,
+        contact: contact || '',
+        phone: phone || '',
+        address: address || '',
+        email: email || '',
+        industry: industry || '',
+        level: level || 'A',
+        source: source || '',
+        business_manager: business_manager || '',
+        sub_group: sub_group || '',
+        remarks: remarks || '',
+      });
+    });
+
+    if (errors.length > 0) {
+      return res.status(400).json({ error: '数据验证失败', details: errors });
+    }
+
+    if (customersToImport.length === 0) {
+      return res.status(400).json({ error: '没有有效数据可导入' });
+    }
+
+    // 导入到数据库或内存存储
+    let count = 0;
+    if (USE_DATABASE) {
+      // 使用数据库
+      for (const customer of customersToImport) {
+        await pool.query(
+          `INSERT INTO customers (
+            name, contact, phone, address, email,
+            industry, level, source, business_manager, sub_group,
+            remarks, status, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, '正常', NOW(), NOW())`,
+          [
+            customer.name,
+            customer.contact,
+            customer.phone,
+            customer.address,
+            customer.email,
+            customer.industry,
+            customer.level,
+            customer.source,
+            customer.business_manager,
+            customer.sub_group,
+            customer.remarks,
+          ]
+        );
+        count++;
+      }
+    } else {
+      // 使用内存存储
+      customersToImport.forEach((customer) => {
+        const newCustomer = {
+          id: memoryCustomers.length + 1,
+          name: customer.name,
+          contact: customer.contact,
+          phone: customer.phone,
+          address: customer.address,
+          email: customer.email,
+          industry: customer.industry,
+          level: customer.level,
+          source: customer.source,
+          business_manager: customer.business_manager,
+          sub_group: customer.sub_group,
+          remarks: customer.remarks,
+          status: '正常',
+          device_count: 0,
+          contract_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        memoryCustomers.push(newCustomer);
+        count++;
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `成功导入${count}条客户数据`,
+      count: count,
+    });
+  } catch (error) {
+    console.error('Import customers error:', error);
+    res.status(500).json({ error: '批量导入失败' });
+  }
+});
 
 export default router;
