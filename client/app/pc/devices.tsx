@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCTable } from '@/components/pc/PCComponents';
@@ -64,6 +64,8 @@ export default function PCDevices() {
   const [showContractSelector, setShowContractSelector] = useState(false);
   const [sitePhotos, setSitePhotos] = useState<string[]>([]);
   const [qrCode, setQrCode] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     device_number: '',
     device_name: '',
@@ -378,9 +380,44 @@ export default function PCDevices() {
   };
 
   const handlePickImage = () => {
-    Alert.alert('提示', '请选择照片上传功能', [
-      { text: '确定' }
-    ]);
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    const newPhotos: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const data = new FormData();
+        data.append('file', file);
+
+        const res = await fetch(`${API_BASE}/api/v1/upload/image`, {
+          method: 'POST',
+          body: data,
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          if (result.url) {
+            newPhotos.push(result.url);
+          }
+        }
+      }
+
+      setSitePhotos(prev => [...prev, ...newPhotos]);
+    } catch (error) {
+      console.error('Upload error:', error);
+    } finally {
+      setUploading(false);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = '';
+      }
+    }
   };
 
   const handleRemovePhoto = (index: number) => {
@@ -542,6 +579,15 @@ export default function PCDevices() {
           </View>
         }
       >
+        {/* 隐藏的文件输入框，用于选择图片 */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleImageChange}
+        />
+
         <ScrollView style={{ maxHeight: 600 }}>
           {/* 基本信息 */}
           <View style={styles.formSection}>
