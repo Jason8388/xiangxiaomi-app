@@ -101,6 +101,12 @@ export default function PCWorkOrderDetail() {
   const [selectOptions, setSelectOptions] = useState<string[]>([]);
   const [editValue, setEditValue] = useState('');
   const [progressNoteText, setProgressNoteText] = useState('');
+  
+  // 编辑模式状态
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editFormData, setEditFormData] = useState<WorkOrderDetail>({});
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // 计算日期差
   const calculateDaysDiff = (startDate: string, endDate: string): number => {
@@ -146,6 +152,90 @@ export default function PCWorkOrderDetail() {
   useEffect(() => {
     fetchOrderDetail();
   }, [fetchOrderDetail]);
+
+  // 进入编辑模式
+  const handleEnterEditMode = () => {
+    if (order) {
+      setEditFormData({ ...order });
+      setIsEditMode(true);
+      setHasChanges(false);
+    }
+  };
+
+  // 退出编辑模式
+  const handleExitEditMode = () => {
+    setIsEditMode(false);
+    setEditFormData({});
+    setHasChanges(false);
+  };
+
+  // 更新编辑字段
+  const handleEditFieldChange = (field: keyof WorkOrderDetail, value: any) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
+  };
+
+  // 批量保存
+  const handleBatchSave = async () => {
+    if (!order || !hasChanges) return;
+
+    setSaving(true);
+    try {
+      const sessionId = await storage.getItem('session_id');
+      
+      // 收集所有修改的字段
+      const updates: Record<string, any> = {};
+      const fieldsToCheck: (keyof WorkOrderDetail)[] = [
+        'title', 'task_leader', 'implementation_entity', 'task_phase',
+        'task_progress', 'task_status', 'service_plan', 'plan_hours',
+        'planned_completion_date', 'material_requirements', 'warranty_status',
+        'is_charged', 'quoted_price', 'consensus_date', 'sales_sub_project_no',
+        'oa_work_order_no', 'erp_outbound_no', 'implementer', 'implementation_complete_date',
+        'actual_hours', 'work_order_signer', 'invoice_application', 'invoice_completed',
+        'invoice_delivered', 'planned_payment_date', 'actual_payment_date'
+      ];
+
+      fieldsToCheck.forEach(field => {
+        if (editFormData[field] !== order[field]) {
+          updates[field] = editFormData[field];
+        }
+      });
+
+      if (Object.keys(updates).length === 0) {
+        Alert.alert('提示', '没有修改任何内容');
+        setSaving(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/api/v1/work-orders/${order.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { Authorization: `Bearer ${sessionId}` } : {}),
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.ok) {
+        setOrder({ ...order, ...updates });
+        setIsEditMode(false);
+        setHasChanges(false);
+        Alert.alert('成功', '保存成功');
+      } else {
+        throw new Error('保存失败');
+      }
+    } catch (error) {
+      console.error('保存失败:', error);
+      Alert.alert('错误', '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 获取编辑模式下的字段值
+  const getEditValue = (field: keyof WorkOrderDetail) => {
+    return editFormData[field] ?? order?.[field] ?? '';
+  };
 
   // 编辑字段
   const handleEdit = (field: string, currentValue: string) => {
@@ -378,26 +468,153 @@ export default function PCWorkOrderDetail() {
             </View>
             <Text style={styles.orderNo}>工单编号: {order.order_no || '-'}</Text>
           </View>
+          <View style={styles.headerActions}>
+            {isEditMode ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.headerBtn, styles.cancelBtn]}
+                  onPress={handleExitEditMode}
+                >
+                  <Text style={styles.cancelBtnText}>取消</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.headerBtn, styles.saveBtn, (!hasChanges || saving) && styles.saveBtnDisabled]}
+                  onPress={handleBatchSave}
+                  disabled={!hasChanges || saving}
+                >
+                  <Text style={styles.saveBtnText}>{saving ? '保存中...' : '保存'}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[styles.headerBtn, styles.editBtn]}
+                onPress={handleEnterEditMode}
+              >
+                <FontAwesome6 name="edit" size={14} color="#fff" />
+                <Text style={styles.editBtnText}>编辑</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* 信息栏1：基本情况 */}
         <PCCard title="基本情况" icon="clipboard-list" iconColor="#6C63FF" style={styles.card}>
           <View style={styles.infoGrid}>
-            <InfoRow label="工单名称" value={order.title} editable="title" />
-            <InfoRow label="工单编号" value={order.order_no} />
-            <InfoRow label="任务号" value={order.task_no} />
-            <InfoRow label="客户名称" value={order.customer_name} />
-            <InfoRow label="任务负责人" value={order.task_leader} editable="task_leader" />
-            <InfoRow label="实施主体" value={order.implementation_entity} editable="implementation_entity" />
+            {isEditMode ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>工单名称</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('title') as string}
+                    onChangeText={(text) => handleEditFieldChange('title', text)}
+                    placeholder="请输入工单名称"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>工单编号</Text>
+                  <Text style={styles.infoValue}>{order.order_no || '-'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>任务号</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('task_no') as string}
+                    onChangeText={(text) => handleEditFieldChange('task_no', text)}
+                    placeholder="请输入任务号"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>客户名称</Text>
+                  <Text style={styles.infoValue}>{order.customer_name || '-'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>任务负责人</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('task_leader') as string}
+                    onChangeText={(text) => handleEditFieldChange('task_leader', text)}
+                    placeholder="请输入任务负责人"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>实施主体</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('implementation_entity') as string}
+                    onChangeText={(text) => handleEditFieldChange('implementation_entity', text)}
+                    placeholder="请输入实施主体"
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <InfoRow label="工单名称" value={order.title} editable="title" />
+                <InfoRow label="工单编号" value={order.order_no} />
+                <InfoRow label="任务号" value={order.task_no} />
+                <InfoRow label="客户名称" value={order.customer_name} />
+                <InfoRow label="任务负责人" value={order.task_leader} editable="task_leader" />
+                <InfoRow label="实施主体" value={order.implementation_entity} editable="implementation_entity" />
+              </>
+            )}
           </View>
         </PCCard>
 
         {/* 信息栏2：工单状态 */}
         <PCCard title="工单状态" icon="tasks" iconColor="#00B894" style={styles.card}>
           <View style={styles.infoGrid}>
-            <InfoRow label="任务阶段" value={order.task_phase} editable="task_phase" />
-            <InfoRow label="任务进度" value={order.task_progress} editable="task_progress" />
-            <InfoRow label="任务状态" value={order.task_status} editable="task_status" />
+            {isEditMode ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>任务阶段</Text>
+                  <View style={styles.selectContainer}>
+                    {TASK_PHASE_OPTIONS.map(phase => (
+                      <TouchableOpacity
+                        key={phase}
+                        style={[styles.selectOption, getEditValue('task_phase') === phase && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('task_phase', phase)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('task_phase') === phase && styles.selectOptionTextActive]}>{phase}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>任务进度</Text>
+                  <View style={styles.selectContainer}>
+                    {TASK_PROGRESS_OPTIONS.slice(0, 6).map(progress => (
+                      <TouchableOpacity
+                        key={progress}
+                        style={[styles.selectOption, getEditValue('task_progress') === progress && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('task_progress', progress)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('task_progress') === progress && styles.selectOptionTextActive]}>{progress}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>任务状态</Text>
+                  <View style={styles.selectContainer}>
+                    {TASK_STATUS_OPTIONS.map(status => (
+                      <TouchableOpacity
+                        key={status}
+                        style={[styles.selectOption, getEditValue('task_status') === status && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('task_status', status)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('task_status') === status && styles.selectOptionTextActive]}>{status}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <InfoRow label="任务阶段" value={order.task_phase} editable="task_phase" />
+                <InfoRow label="任务进度" value={order.task_progress} editable="task_progress" />
+                <InfoRow label="任务状态" value={order.task_status} editable="task_status" />
+              </>
+            )}
             <InfoRow label="需求对接周期" value={order.demand_assessment_period || getDemandPeriod()} unit="天" />
             <InfoRow label="服务实施周期" value={order.service_implementation_period || getServicePeriod()} unit="天" />
             <InfoRow label="回款周期" value={order.payment_period || getPaymentPeriod()} unit="天" />
@@ -486,15 +703,108 @@ export default function PCWorkOrderDetail() {
         {/* 信息栏5：服务方案 */}
         <PCCard title="服务方案" icon="file-alt" iconColor="#3498DB" style={styles.card}>
           <View style={styles.infoGrid}>
-            <InfoRow label="服务方案说明" value={order.service_plan} editable="service_plan" />
-            <InfoRow label="计划工时" value={order.plan_hours} unit="天" editable="plan_hours" />
-            <InfoRow label="计划完成日期" value={order.planned_completion_date} editable="planned_completion_date" />
-            <InfoRow label="物料需求" value={order.material_requirements} editable="material_requirements" />
-            <InfoRow label="质保期状态" value={order.warranty_status} editable="warranty_status" />
-            <InfoRow label="是否收费" value={order.is_charged ? '收费' : '免费'} editable="is_charged" />
-            <InfoRow label="收费金额" value={order.quoted_price} unit="元" editable="quoted_price" />
-            <InfoRow label="服务方案客户共识日期" value={order.consensus_date} editable="consensus_date" />
-            <InfoRow label="销售子项目号" value={order.sales_sub_project_no} editable="sales_sub_project_no" />
+            {isEditMode ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>服务方案说明</Text>
+                  <TextInput
+                    style={styles.editFieldInputMultiline}
+                    value={getEditValue('service_plan') as string}
+                    onChangeText={(text) => handleEditFieldChange('service_plan', text)}
+                    placeholder="请输入服务方案说明"
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>计划工时(天)</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={String(getEditValue('plan_hours') || '')}
+                    onChangeText={(text) => handleEditFieldChange('plan_hours', text ? Number(text) : undefined)}
+                    placeholder="请输入计划工时"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>计划完成日期</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('planned_completion_date') as string}
+                    onChangeText={(text) => handleEditFieldChange('planned_completion_date', text)}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>物料需求</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('material_requirements') as string}
+                    onChangeText={(text) => handleEditFieldChange('material_requirements', text)}
+                    placeholder="请输入物料需求"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>质保期状态</Text>
+                  <View style={styles.selectContainer}>
+                    {WARRANTY_STATUS_OPTIONS.map(opt => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.selectOption, getEditValue('warranty_status') === opt && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('warranty_status', opt)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('warranty_status') === opt && styles.selectOptionTextActive]}>{opt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>是否收费</Text>
+                  <View style={styles.selectContainer}>
+                    {IS_CHARGED_OPTIONS.map(opt => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.selectOption, getEditValue('is_charged') === opt && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('is_charged', opt)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('is_charged') === opt && styles.selectOptionTextActive]}>{opt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>收费金额(元)</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={String(getEditValue('quoted_price') || '')}
+                    onChangeText={(text) => handleEditFieldChange('quoted_price', text ? Number(text) : undefined)}
+                    placeholder="请输入收费金额"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>共识日期</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('consensus_date') as string}
+                    onChangeText={(text) => handleEditFieldChange('consensus_date', text)}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <InfoRow label="服务方案说明" value={order.service_plan} editable="service_plan" />
+                <InfoRow label="计划工时" value={order.plan_hours} unit="天" editable="plan_hours" />
+                <InfoRow label="计划完成日期" value={order.planned_completion_date} editable="planned_completion_date" />
+                <InfoRow label="物料需求" value={order.material_requirements} editable="material_requirements" />
+                <InfoRow label="质保期状态" value={order.warranty_status} editable="warranty_status" />
+                <InfoRow label="是否收费" value={order.is_charged ? '收费' : '免费'} editable="is_charged" />
+                <InfoRow label="收费金额" value={order.quoted_price} unit="元" editable="quoted_price" />
+                <InfoRow label="服务方案客户共识日期" value={order.consensus_date} editable="consensus_date" />
+              </>
+            )}
             {order.contract_no && (
               <InfoRow label="合同编号" value={order.contract_no} />
             )}
@@ -502,18 +812,87 @@ export default function PCWorkOrderDetail() {
               <InfoRow label="合同名称" value={order.contract_name} />
             )}
             <InfoRow label="物料编码" value={order.material_code} />
-            <InfoRow label="OA系统工单编号" value={order.oa_work_order_no} editable="oa_work_order_no" />
-            <InfoRow label="ERP出库申请单号" value={order.erp_outbound_no} editable="erp_outbound_no" />
+            {isEditMode ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>OA工单编号</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('oa_work_order_no') as string}
+                    onChangeText={(text) => handleEditFieldChange('oa_work_order_no', text)}
+                    placeholder="请输入OA工单编号"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>ERP出库单号</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('erp_outbound_no') as string}
+                    onChangeText={(text) => handleEditFieldChange('erp_outbound_no', text)}
+                    placeholder="请输入ERP出库单号"
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <InfoRow label="OA系统工单编号" value={order.oa_work_order_no} editable="oa_work_order_no" />
+                <InfoRow label="ERP出库申请单号" value={order.erp_outbound_no} editable="erp_outbound_no" />
+              </>
+            )}
           </View>
         </PCCard>
 
         {/* 信息栏6：实施情况 */}
         <PCCard title="实施情况" icon="hard-hat" iconColor="#F39C12" style={styles.card}>
           <View style={styles.infoGrid}>
-            <InfoRow label="实施人" value={order.implementer} editable="implementer" />
-            <InfoRow label="实施完成日期" value={order.implementation_complete_date} editable="implementation_complete_date" />
-            <InfoRow label="实际工时投入" value={order.actual_hours} unit="天" editable="actual_hours" />
-            <InfoRow label="派工单签字人" value={order.work_order_signer} editable="work_order_signer" />
+            {isEditMode ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>实施人</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('implementer') as string}
+                    onChangeText={(text) => handleEditFieldChange('implementer', text)}
+                    placeholder="请输入实施人"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>实施完成日期</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('implementation_complete_date') as string}
+                    onChangeText={(text) => handleEditFieldChange('implementation_complete_date', text)}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>实际工时(天)</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={String(getEditValue('actual_hours') || '')}
+                    onChangeText={(text) => handleEditFieldChange('actual_hours', text ? Number(text) : undefined)}
+                    placeholder="请输入实际工时"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>派工单签字人</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('work_order_signer') as string}
+                    onChangeText={(text) => handleEditFieldChange('work_order_signer', text)}
+                    placeholder="请输入派工单签字人"
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <InfoRow label="实施人" value={order.implementer} editable="implementer" />
+                <InfoRow label="实施完成日期" value={order.implementation_complete_date} editable="implementation_complete_date" />
+                <InfoRow label="实际工时投入" value={order.actual_hours} unit="天" editable="actual_hours" />
+                <InfoRow label="派工单签字人" value={order.work_order_signer} editable="work_order_signer" />
+              </>
+            )}
             {order.work_order_docs && order.work_order_docs.length > 0 && (
               <View style={styles.photosRow}>
                 <Text style={styles.infoLabel}>派工单照片</Text>
@@ -540,11 +919,78 @@ export default function PCWorkOrderDetail() {
         {/* 信息栏7：回款情况 */}
         <PCCard title="回款情况" icon="money-bill" iconColor="#27AE60" style={styles.card}>
           <View style={styles.infoGrid}>
-            <InfoRow label="是否申请开票" value={order.invoice_application} editable="invoice_application" />
-            <InfoRow label="开票是否完成" value={order.invoice_completed} editable="invoice_completed" />
-            <InfoRow label="发票是否送达客户" value={order.invoice_delivered} editable="invoice_delivered" />
-            <InfoRow label="计划回款日期" value={order.planned_payment_date} editable="planned_payment_date" />
-            <InfoRow label="实际回款日期" value={order.actual_payment_date} editable="actual_payment_date" />
+            {isEditMode ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>是否申请开票</Text>
+                  <View style={styles.selectContainer}>
+                    {INVOICE_OPTIONS.map(opt => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.selectOption, getEditValue('invoice_application') === opt && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('invoice_application', opt)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('invoice_application') === opt && styles.selectOptionTextActive]}>{opt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>开票是否完成</Text>
+                  <View style={styles.selectContainer}>
+                    {INVOICE_COMPLETED_OPTIONS.map(opt => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.selectOption, getEditValue('invoice_completed') === opt && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('invoice_completed', opt)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('invoice_completed') === opt && styles.selectOptionTextActive]}>{opt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>发票是否送达</Text>
+                  <View style={styles.selectContainer}>
+                    {INVOICE_DELIVERED_OPTIONS.map(opt => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.selectOption, getEditValue('invoice_delivered') === opt && styles.selectOptionActive]}
+                        onPress={() => handleEditFieldChange('invoice_delivered', opt)}
+                      >
+                        <Text style={[styles.selectOptionText, getEditValue('invoice_delivered') === opt && styles.selectOptionTextActive]}>{opt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>计划回款日期</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('planned_payment_date') as string}
+                    onChangeText={(text) => handleEditFieldChange('planned_payment_date', text)}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>实际回款日期</Text>
+                  <TextInput
+                    style={styles.editFieldInput}
+                    value={getEditValue('actual_payment_date') as string}
+                    onChangeText={(text) => handleEditFieldChange('actual_payment_date', text)}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <InfoRow label="是否申请开票" value={order.invoice_application} editable="invoice_application" />
+                <InfoRow label="开票是否完成" value={order.invoice_completed} editable="invoice_completed" />
+                <InfoRow label="发票是否送达客户" value={order.invoice_delivered} editable="invoice_delivered" />
+                <InfoRow label="计划回款日期" value={order.planned_payment_date} editable="planned_payment_date" />
+                <InfoRow label="实际回款日期" value={order.actual_payment_date} editable="actual_payment_date" />
+              </>
+            )}
             {order.payment_progress && !Array.isArray(order.payment_progress) && (
               <InfoRow label="回款进度" value={order.payment_progress} />
             )}
@@ -702,6 +1148,50 @@ const styles = StyleSheet.create({
   orderNo: {
     fontSize: 13,
     color: '#999',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  headerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6,
+  },
+  editBtn: {
+    backgroundColor: '#1E88E5',
+  },
+  editBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  saveBtn: {
+    backgroundColor: '#52C41A',
+  },
+  saveBtnDisabled: {
+    backgroundColor: '#D9D9D9',
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  cancelBtn: {
+    backgroundColor: '#F0F0F0',
+    borderWidth: 1,
+    borderColor: '#D9D9D9',
+  },
+  cancelBtnText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
   },
   card: {
     marginBottom: 16,
@@ -916,5 +1406,54 @@ const styles = StyleSheet.create({
   selectItemTextActive: {
     color: '#6C63FF',
     fontWeight: 500,
+  },
+  editFieldInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: '#333',
+    backgroundColor: '#FAFAFA',
+  },
+  editFieldInputMultiline: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: '#333',
+    backgroundColor: '#FAFAFA',
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  selectContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  selectOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FAFAFA',
+  },
+  selectOptionActive: {
+    backgroundColor: '#6C63FF',
+    borderColor: '#6C63FF',
+  },
+  selectOptionText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  selectOptionTextActive: {
+    color: '#fff',
   },
 });
