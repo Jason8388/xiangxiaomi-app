@@ -557,7 +557,7 @@ export default function PCWorkOrders() {
                     <View style={styles.formCol}>
                       <Text style={styles.formLabel}>任务阶段</Text>
                       <View style={styles.selectContainer}>
-                        {['需求阶段', '方案阶段', '实施阶段', '验收阶段'].map(phase => (
+                        {['需求阶段', '实施阶段', '回款阶段', '关单存档', '异常状态'].map(phase => (
                           <TouchableOpacity
                             key={phase}
                             style={[
@@ -595,7 +595,7 @@ export default function PCWorkOrders() {
                     <View style={styles.formCol}>
                       <Text style={styles.formLabel}>任务状态</Text>
                       <View style={styles.selectContainer}>
-                        {['计划中', '进行中', '已完成', '已关闭'].map(status => (
+                        {['计划中', '延期风险', '已延期', '关单完成', '挂起或暂停'].map(status => (
                           <TouchableOpacity
                             key={status}
                             style={[
