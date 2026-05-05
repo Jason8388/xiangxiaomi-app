@@ -400,7 +400,7 @@ export default function PCWorkOrders() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.toolbarBtnPrimary}
-                onPress={() => Alert.alert('提示', '导出功能正在开发中')}
+                onPress={() => window.open(`${API_BASE}/api/v1/reports/work-orders/export`, '_blank')}
               >
                 <FontAwesome6 name="download" size={14} color="#1E88E5" />
                 <Text style={{ color: '#1E88E5', marginLeft: 4 }}>批量导出</Text>
