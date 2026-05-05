@@ -184,8 +184,8 @@ export default function PCContracts() {
           visible={importModalVisible}
           onClose={() => setImportModalVisible(false)}
           title="批量导入合同"
-          apiUrl={`${API_BASE}/api/v1/contracts/batch`}
-          templateFields={['合同编号*', '合同名称*', '客户名称', '业务经理', '签订日期', '验收日期', '质保到期日期', '合同金额', '备注']}
+          apiPath="/api/v1/contracts/batch"
+          templateUrl={`${API_BASE}/api/v1/reports/contracts/template`}
           onSuccess={() => { setImportModalVisible(false); fetchContracts(); }}
         />
       </PCLayout>

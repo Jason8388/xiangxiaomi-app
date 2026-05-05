@@ -482,4 +482,39 @@ router.get('/work-orders/template', async (req, res) => {
   }
 });
 
+/**
+ * 服务端文件：server/src/routes/reports.ts
+ * 接口：GET /api/v1/reports/contracts/template
+ * 描述：下载合同导入模板
+ */
+router.get('/contracts/template', async (req, res) => {
+  try {
+    const templateData = [{
+      '合同编号*': '',
+      '合同名称*': '',
+      '客户名称': '',
+      '业务经理': '',
+      '签订日期': '2024-01-01',
+      '验收日期': '2024-01-15',
+      '质保到期日期': '2025-01-15',
+      '合同金额': '0',
+      '备注': '',
+    }];
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    XLSX.utils.book_append_sheet(workbook, worksheet, '合同导入模板');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileName = encodeURIComponent('合同导入模板.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${fileName}`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Download contract template error:', error);
+    res.status(500).json({ error: '下载合同导入模板失败' });
+  }
+});
+
 export default router;
