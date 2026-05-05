@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { storage } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
 
 interface WorkOrder {
@@ -33,7 +34,7 @@ export default function PCQueryWorkOrder() {
     try {
       setLoading(true);
       setHasSearched(true);
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/work-orders/search?keyword=${encodeURIComponent(searchKeyword)}`,
         sessionId ? { headers: { 'x-session-id': sessionId } } : {}

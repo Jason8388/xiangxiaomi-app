@@ -1,13 +1,25 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Platform, Alert } from 'react-native';
 import '@/assets/styles/pc-global.css';
 import { getApiBaseUrl } from '@/utils/api';
+import { storage } from '@/utils/storage';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 export default function PCLogin() {
+  const router = useSafeRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 检测平台并显示提示
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      // 移动端提示
+      console.warn('[PC登录] 当前为移动端环境，PC功能可能受限');
+    }
+  }, []);
 
   const handleLogin = useCallback(async () => {
     if (!username.trim()) {
@@ -26,6 +38,16 @@ export default function PCLogin() {
       console.log('[PC登录] 开始登录...');
 
       const baseUrl = getApiBaseUrl();
+      const deviceInfo = Platform.OS === 'web' 
+        ? JSON.stringify({
+            platform: 'web',
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+          })
+        : JSON.stringify({
+            platform: Platform.OS,
+            isReactNative: true,
+          });
+      
       const response = await fetch(`${baseUrl}/api/v1/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,10 +55,7 @@ export default function PCLogin() {
           username,
           password,
           device_id: 'pc-web-' + Date.now(),
-          device_info: JSON.stringify({
-            platform: 'web',
-            userAgent: navigator.userAgent,
-          }),
+          device_info: deviceInfo,
         }),
       });
 
@@ -47,18 +66,22 @@ export default function PCLogin() {
       }
 
       if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
+        await storage.setItem('user', JSON.stringify(data.user));
       }
 
       if (data.session && data.session.session_id) {
-        localStorage.setItem('session_id', data.session.session_id);
-        localStorage.setItem('token', data.session.session_id);
+        await storage.setItem('session_id', data.session.session_id);
+        await storage.setItem('token', data.session.session_id);
       }
 
-      window.alert('登录成功！欢迎回来！');
+      if (Platform.OS === 'web') {
+        window.alert('登录成功！欢迎回来！');
+      } else {
+        Alert.alert('登录成功', '欢迎回来！');
+      }
 
       setTimeout(() => {
-        window.location.href = '/pc/dashboard';
+        router.replace('/pc/dashboard');
       }, 500);
     } catch (err: any) {
       console.error('[PC登录] 错误:', err);
@@ -167,7 +190,11 @@ export default function PCLogin() {
               </label>
               <a href="#" className="pc-forgot-link" onClick={e => {
                 e.preventDefault();
-                window.alert('请联系管理员重置密码');
+                if (Platform.OS === 'web') {
+                  window.alert('请联系管理员重置密码');
+                } else {
+                  Alert.alert('提示', '请联系管理员重置密码');
+                }
               }}>
                 忘记密码？
               </a>

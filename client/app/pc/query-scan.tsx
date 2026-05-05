@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { storage } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
 
 interface ScanResult {
@@ -24,7 +25,7 @@ export default function PCQueryScan() {
 
     try {
       setLoading(true);
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/query/scan?code=${encodeURIComponent(scanCode)}`,
         sessionId ? { headers: { 'x-session-id': sessionId } } : {}

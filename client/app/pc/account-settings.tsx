@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Avatar, Modal, message } from 'antd';
 import { UploadOutlined, LockOutlined, UserOutlined, CameraOutlined } from '@ant-design/icons';
+import { storage } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
 
 interface User {
@@ -43,7 +44,7 @@ export default function PCAccountSettings() {
   const loadUserInfo = async () => {
     try {
       setLoading(true);
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       
       if (sessionId) {
         const response = await fetch(
@@ -78,7 +79,7 @@ export default function PCAccountSettings() {
   const uploadAvatar = async (file: File) => {
     try {
       setUploadingAvatar(true);
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       if (!sessionId) {
         message.error('未登录');
         return;
@@ -134,7 +135,7 @@ export default function PCAccountSettings() {
 
     try {
       setSavingPassword(true);
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       if (!sessionId) {
         message.error('未登录');
         return;
@@ -181,7 +182,7 @@ export default function PCAccountSettings() {
 
     try {
       setSavingSignature(true);
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       if (!sessionId) {
         message.error('未登录');
         return;

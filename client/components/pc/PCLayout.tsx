@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { PCSidebar } from './PCSidebar';
 import { PCHeader } from './PCHeader';
+import { storage } from '@/utils/storage';
 
 interface PCLayoutProps {
   children: React.ReactNode;
@@ -44,17 +46,20 @@ export function PCLayout({ children, activePath }: PCLayoutProps) {
   };
 
   useEffect(() => {
-    // 模拟获取用户信息
-    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
+    // 获取用户信息
+    const loadUser = async () => {
+      const storedUser = await storage.getItem('user');
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (e) {
+          setUser({ name: '管理员', role: '管理员' });
+        }
+      } else {
         setUser({ name: '管理员', role: '管理员' });
       }
-    } else {
-      setUser({ name: '管理员', role: '管理员' });
-    }
+    };
+    loadUser();
   }, []);
 
   const handleNavigate = useCallback((path: string) => {

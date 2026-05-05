@@ -9,6 +9,7 @@ import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
 
+import { storage } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
 
@@ -62,7 +63,7 @@ export default function PCFiles() {
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/files`, {
         headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
       });
@@ -104,7 +105,7 @@ export default function PCFiles() {
     setUploadProgress(0);
 
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const formDataObj = new FormData();
       formDataObj.append('file', selectedFile);
       formDataObj.append('category', formData.category || '未分类');
@@ -144,7 +145,7 @@ export default function PCFiles() {
 
   const handleDownload = async (file: FileItem) => {
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       
       // 获取文件下载链接
       const response = await fetch(`${API_BASE}/api/v1/files/${file.id}/download`, {
@@ -192,7 +193,7 @@ export default function PCFiles() {
     if (!confirm('确定要删除此文件吗？')) return;
 
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/files/${id}`, {
         method: 'DELETE',
         headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},

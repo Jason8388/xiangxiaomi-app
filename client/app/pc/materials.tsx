@@ -4,6 +4,7 @@ import { PCLayout } from '@/components/pc/PCLayout';
 import { PCCard, PCImportModal } from '@/components/pc/PCComponents';
 import { FontAwesome6 } from '@expo/vector-icons';
 
+import { storage } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
 
@@ -49,7 +50,7 @@ export default function PCMaterials() {
   const fetchMaterials = useCallback(async () => {
     setLoading(true);
     try {
-      const sessionId = localStorage.getItem('session_id');
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/materials`, {
         headers: {
           'Authorization': `Bearer ${sessionId}`,
@@ -115,7 +116,7 @@ export default function PCMaterials() {
     }
 
     try {
-      const sessionId = localStorage.getItem('session_id');
+      const sessionId = await storage.getItem('session_id');
       const url = editingMaterial
         ? `${API_BASE}/api/v1/materials/${editingMaterial.id}`
         : `${API_BASE}/api/v1/materials`;
@@ -150,7 +151,7 @@ export default function PCMaterials() {
     if (!confirm('确定要删除这个物料吗？')) return;
 
     try {
-      const sessionId = localStorage.getItem('session_id');
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/materials/${id}`, {
         method: 'DELETE',
         headers: {

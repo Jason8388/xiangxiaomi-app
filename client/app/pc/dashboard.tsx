@@ -3,6 +3,7 @@ import '@/assets/styles/pc-global.css';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { PCCard } from '@/components/pc/PCComponents';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { storage } from '@/utils/storage';
 
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
@@ -178,7 +179,22 @@ export default function PCDashboard() {
   }
 
   // 获取用户信息
-  const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
+  const [userInfo, setUserInfo] = useState<any>({});
+  
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      const userStr = await storage.getItem('user');
+      if (userStr) {
+        try {
+          setUserInfo(JSON.parse(userStr));
+        } catch {
+          setUserInfo({});
+        }
+      }
+    };
+    loadUserInfo();
+  }, []);
+  
   const greeting = getGreeting();
 
   function getGreeting(): string {

@@ -10,6 +10,7 @@ import { PCModal } from '@/components/pc/PCComponents';
 import { PCImportModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
 
+import { storage } from '@/utils/storage';
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
 
@@ -43,7 +44,7 @@ export default function PCKnowledge() {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/knowledge`, {
         headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
       });
@@ -75,7 +76,7 @@ export default function PCKnowledge() {
     }
     setLoading(true);
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/knowledge/search/${searchText}`, {
         headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},
       });
@@ -102,7 +103,7 @@ export default function PCKnowledge() {
     }
 
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const url = editingItem
         ? `${API_BASE}/api/v1/knowledge/${editingItem.id}`
         : `${API_BASE}/api/v1/knowledge`;
@@ -138,7 +139,7 @@ export default function PCKnowledge() {
     if (!confirm('确定要删除此知识吗？')) return;
 
     try {
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/knowledge/${id}`, {
         method: 'DELETE',
         headers: sessionId ? { 'Authorization': `Bearer ${sessionId}` } : {},

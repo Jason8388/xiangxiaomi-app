@@ -8,6 +8,7 @@ import { PCToolbar } from '@/components/pc/PCComponents';
 import { PCSearchBar } from '@/components/pc/PCComponents';
 import { PCModal } from '@/components/pc/PCComponents';
 import { PCPagination } from '@/components/pc/PCComponents';
+import { storage } from '@/utils/storage';
 
 import { getApiBaseUrl } from '@/utils/api';
 const API_BASE = getApiBaseUrl();
@@ -183,7 +184,7 @@ export default function PCCustomers() {
       const formData = new FormData();
       formData.append('file', importFile);
 
-      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
+      const sessionId = await storage.getItem('session_id');
       const response = await fetch(`${API_BASE}/api/v1/customers/import`, {
         method: 'POST',
         headers: {
