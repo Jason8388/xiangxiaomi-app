@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { API_BASE } from '@/utils/api';
 
 // ==================== 统计卡片 ====================
 interface StatCardProps {
