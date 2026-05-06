@@ -233,7 +233,7 @@ export default function PCDevices() {
   // 打开履历表 - 跳转到详情页
   const handleViewHistory = (deviceId: number, deviceName: string) => {
     // 跳转到设备履历表详情页面
-    router.push(`/pc/device-history?deviceId=${deviceId}&deviceName=${encodeURIComponent(deviceName)}`);
+    router.push('/pc/device-history', { deviceId, deviceName });
   };
 
   // 保存设备
