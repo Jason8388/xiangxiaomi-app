@@ -203,6 +203,8 @@ export default function PCDevices() {
   // 打开新增设备
   const handleAdd = () => {
     setEditingDevice(null);
+    setSitePhotos([]);
+    setEditingPhotos([]);
     setDeviceForm({
       device_name: '',
       device_type: '',
@@ -226,6 +228,13 @@ export default function PCDevices() {
   // 打开编辑设备
   const handleEdit = (device: Device) => {
     setEditingDevice(device);
+    setSitePhotos([]);
+    // 加载已有照片
+    if (device.site_photos && Array.isArray(device.site_photos)) {
+      setEditingPhotos(device.site_photos);
+    } else {
+      setEditingPhotos([]);
+    }
     setDeviceForm({
       device_name: device.device_name || '',
       device_type: device.device_type || '',
@@ -273,10 +282,30 @@ export default function PCDevices() {
       
       const method = editingDevice ? 'PUT' : 'POST';
       
+      // 使用 FormData 支持文件上传
+      const formData = new FormData();
+      
+      // 添加文本字段
+      Object.keys(deviceForm).forEach((key) => {
+        const value = deviceForm[key as keyof typeof deviceForm];
+        if (value) {
+          formData.append(key, value);
+        }
+      });
+      
+      // 添加新上传的照片（Base64格式）
+      sitePhotos.forEach((photo, index) => {
+        formData.append(`site_photo_${index}`, photo);
+      });
+      
+      // 添加已有照片的标识
+      if (editingPhotos.length > 0) {
+        formData.append('existing_photos', JSON.stringify(editingPhotos));
+      }
+      
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deviceForm),
+        body: formData,
       });
 
       if (response.ok) {
@@ -383,6 +412,39 @@ export default function PCDevices() {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  // 设备现场照片
+  const [sitePhotos, setSitePhotos] = useState<string[]>([]);
+  // 保持对编辑设备的引用以加载已有照片
+  const [editingPhotos, setEditingPhotos] = useState<string[]>([]);
+
+  // 处理照片选择
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newPhotos: string[] = [];
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setSitePhotos((prev) => [...prev, event.target!.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    // 清空input值，允许重复选择同一文件
+    e.target.value = '';
+  };
+
+  // 删除照片
+  const handleRemovePhoto = (index: number, isExisting: boolean) => {
+    if (isExisting) {
+      setEditingPhotos((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      setSitePhotos((prev) => prev.filter((_, i) => i !== index));
+    }
   };
 
   return (
@@ -637,6 +699,66 @@ export default function PCDevices() {
                       style={styles.input}
                       placeholder="请输入设备位置"
                     />
+                  </div>
+                  {/* 设备现场照片上传 */}
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>设备现场照片</label>
+                    <div style={{ width: '100%' }}>
+                      <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px' }}>支持 JPG、PNG 格式，最多上传9张</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                        {/* 已存在的照片 */}
+                        {editingPhotos.map((photo, index) => (
+                          <div key={`existing-${index}`} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                            <img 
+                              src={photo} 
+                              alt={`现场照片${index + 1}`}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e: any) => { e.target.style.display = 'none'; }}
+                            />
+                            <button 
+                              style={{ position: 'absolute', top: '4px', right: '4px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', lineHeight: '1' }}
+                              onClick={() => handleRemovePhoto(index, true)}
+                              type="button"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        {/* 新上传的照片 */}
+                        {sitePhotos.map((photo, index) => (
+                          <div key={`new-${index}`} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e8e8e8' }}>
+                            <img 
+                              src={photo} 
+                              alt={`新照片${index + 1}`}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            <button 
+                              style={{ position: 'absolute', top: '4px', right: '4px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', lineHeight: '1' }}
+                              onClick={() => handleRemovePhoto(index, false)}
+                              type="button"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        {/* 添加照片按钮 */}
+                        {(editingPhotos.length + sitePhotos.length) < 9 && (
+                          <div style={{ width: '100px', height: '100px', borderRadius: '8px', border: '1px dashed #d9d9d9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                            <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '8px' }}>
+                              <FontAwesome6 name="camera" size={24} color="#999" />
+                              <span style={{ fontSize: '12px', color: '#999' }}>添加照片</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handlePhotoSelect}
+                                style={{ display: 'none' }}
+                              />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div style={styles.formRow}>
                     <label style={styles.label}>备注</label>
