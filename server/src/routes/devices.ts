@@ -3,7 +3,7 @@ import multer from 'multer';
 import ExcelJS from 'exceljs';
 import pool from '../database/db';
 import { uploadFileToOSS } from '../utils/oss';
-import { deviceHistoryList } from '../database/memory-storage';
+import { deviceHistoryList, getDeviceHistoryDetail, saveDeviceHistoryDetail } from '../database/memory-storage';
 
 const router = express.Router();
 
@@ -881,12 +881,23 @@ router.delete('/:id', async (req, res) => {
 router.get('/:deviceId/history-detail', async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const result = await pool.query(
-      'SELECT * FROM device_history_detail WHERE device_id = $1',
-      [deviceId]
-    );
-    if (result.rows.length > 0) {
-      res.json(result.rows[0]);
+    
+    // 尝试从数据库获取
+    if (!USE_MEMORY_STORAGE) {
+      const result = await pool.query(
+        'SELECT * FROM device_history_detail WHERE device_id = $1',
+        [deviceId]
+      );
+      if (result.rows.length > 0) {
+        res.json(result.rows[0]);
+        return;
+      }
+    }
+    
+    // 从内存存储获取
+    const detail = getDeviceHistoryDetail(parseInt(deviceId));
+    if (detail) {
+      res.json(detail);
     } else {
       // 返回空对象，允许前端创建新的履历表
       res.json({

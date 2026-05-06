@@ -42,6 +42,7 @@ export default function PCLayout() {
       <Stack.Screen name="version-management" />
       <Stack.Screen name="contract-detail" />
       <Stack.Screen name="work-order-detail" />
+      <Stack.Screen name="device-history" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="help" />
     </Stack>

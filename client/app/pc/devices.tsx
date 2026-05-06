@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } fr
 import { FontAwesome6 } from '@expo/vector-icons';
 import { PCLayout } from '@/components/pc/PCLayout';
 import { apiUrl } from '@/utils/api';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 interface Device {
   id: number;
@@ -36,19 +37,11 @@ interface Contract {
   contract_name: string;
 }
 
-interface HistoryRecord {
-  id: number;
-  device_id: number;
-  type: '保养' | '维修' | '巡检';
-  created_at: string;
-  description: string;
-  result?: string;
-}
-
 const deviceTypes = ['工业设备', '医疗设备', '办公设备', '安防设备', '网络设备', '其他'];
 const statusOptions = ['在用', '闲置', '维修中', '已报废'];
 
 export default function PCDevices() {
+  const router = useSafeRouter();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -86,11 +79,6 @@ export default function PCDevices() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailDevice, setDetailDevice] = useState<Device | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-
-  // 履历表
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
 
   // 删除确认
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -151,25 +139,6 @@ export default function PCDevices() {
       Alert.alert('错误', '获取设备详情失败');
     } finally {
       setDetailLoading(false);
-    }
-  };
-
-  // 获取设备履历表
-  const fetchDeviceHistory = async (id: number) => {
-    setHistoryLoading(true);
-    try {
-      const response = await fetch(apiUrl(`/api/v1/devices/device-history/${id}`));
-      if (response.ok) {
-        const data = await response.json();
-        setHistoryRecords(data.data || []);
-      } else {
-        setHistoryRecords([]);
-      }
-    } catch (error) {
-      console.error('获取设备履历表失败:', error);
-      setHistoryRecords([]);
-    } finally {
-      setHistoryLoading(false);
     }
   };
 
@@ -261,11 +230,10 @@ export default function PCDevices() {
     setShowDetailModal(true);
   };
 
-  // 打开履历表
-  const handleViewHistory = async (deviceId: number) => {
-    setShowDetailModal(false);
-    await fetchDeviceHistory(deviceId);
-    setShowHistoryModal(true);
+  // 打开履历表 - 跳转到详情页
+  const handleViewHistory = (deviceId: number, deviceName: string) => {
+    // 跳转到设备履历表详情页面
+    router.push(`/pc/device-history?deviceId=${deviceId}&deviceName=${encodeURIComponent(deviceName)}`);
   };
 
   // 保存设备
@@ -394,16 +362,6 @@ export default function PCDevices() {
       case '安防设备': return 'shield';
       case '网络设备': return 'wifi';
       default: return 'microchip';
-    }
-  };
-
-  // 获取履历类型颜色
-  const getHistoryTypeColor = (type: string) => {
-    switch (type) {
-      case '保养': return '#52c41a';
-      case '维修': return '#ff4d4f';
-      case '巡检': return '#1890ff';
-      default: return '#999';
     }
   };
 
@@ -560,7 +518,7 @@ export default function PCDevices() {
                     <FontAwesome6 name="edit" size={14} color="#4F8EF7" />
                     <span>编辑</span>
                   </button>
-                  <button style={styles.historyBtn} onClick={() => handleViewHistory(device.id)}>
+                  <button style={styles.historyBtn} onClick={() => handleViewHistory(device.id, device.device_name)}>
                     <FontAwesome6 name="clipboard-list" size={14} color="#F39C12" />
                     <span>履历表</span>
                   </button>
@@ -878,7 +836,7 @@ export default function PCDevices() {
                   <FontAwesome6 name="edit" size={14} color="#4F8EF7" />
                   <span>编辑</span>
                 </button>
-                <button style={styles.historyBtn} onClick={() => handleViewHistory(detailDevice!.id)}>
+                <button style={styles.historyBtn} onClick={() => handleViewHistory(detailDevice!.id, detailDevice!.device_name)}>
                   <FontAwesome6 name="clipboard-list" size={14} color="#F39C12" />
                   <span>履历表</span>
                 </button>
@@ -886,53 +844,6 @@ export default function PCDevices() {
                   <FontAwesome6 name="trash" size={14} color="#ff4d4f" />
                   <span>删除</span>
                 </button>
-              </div>
-            </div>
-          </div>
-        </Modal>
-
-        {/* 履历表模态框 */}
-        <Modal visible={showHistoryModal} animationType="slide" transparent>
-          <div style={styles.modalOverlay}>
-            <div style={styles.detailModal}>
-              <div style={styles.modalHeader}>
-                <h2>设备履历表</h2>
-                <button style={styles.closeBtn} onClick={() => setShowHistoryModal(false)}>×</button>
-              </div>
-              <div style={styles.modalBody}>
-                {historyLoading ? (
-                  <div style={styles.loading}>
-                    <div style={styles.spinner}></div>
-                    <span>加载中...</span>
-                  </div>
-                ) : historyRecords.length === 0 ? (
-                  <div style={styles.empty}>
-                    <FontAwesome6 name="clipboard-list" size={48} color="#ccc" />
-                    <p>暂无履历记录</p>
-                  </div>
-                ) : (
-                  <ScrollView style={{ maxHeight: '60vh' }}>
-                    <div style={styles.historyList}>
-                      {historyRecords.map((record, index) => (
-                        <div key={record.id || index} style={styles.historyItem}>
-                          <div style={styles.historyHeader}>
-                            <span style={{...styles.historyType, backgroundColor: getHistoryTypeColor(record.type) + '20', color: getHistoryTypeColor(record.type)}}>
-                              {record.type}
-                            </span>
-                            <span style={styles.historyDate}>{formatDate(record.created_at)}</span>
-                          </div>
-                          <p style={styles.historyDesc}>{record.description}</p>
-                          {record.result && (
-                            <p style={styles.historyResult}>结果：{record.result}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollView>
-                )}
-              </div>
-              <div style={styles.modalFooter}>
-                <button style={styles.cancelBtn} onClick={() => setShowHistoryModal(false)}>关闭</button>
               </div>
             </div>
           </div>
@@ -1467,46 +1378,5 @@ const styles = StyleSheet.create({
     fontSize: '14px',
     color: '#333',
     fontWeight: '500',
-  },
-  historyList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  historyItem: {
-    padding: '16px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    borderLeft: '3px solid #4F8EF7',
-  },
-  historyHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '8px',
-  },
-  historyType: {
-    padding: '4px 10px',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: '500',
-  },
-  historyDate: {
-    fontSize: '12px',
-    color: '#999',
-  },
-  historyDesc: {
-    fontSize: '14px',
-    color: '#333',
-    margin: '0 0 8px',
-    lineHeight: '1.5',
-  },
-  historyResult: {
-    fontSize: '12px',
-    color: '#666',
-    margin: 0,
-    padding: '8px',
-    backgroundColor: '#fff',
-    borderRadius: '4px',
   },
 });

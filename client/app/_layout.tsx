@@ -176,6 +176,7 @@ function RootLayoutInner() {
         <Stack.Screen name="devices" options={{ title: "" }} />
         <Stack.Screen name="device-detail" options={{ title: "" }} />
         <Stack.Screen name="device-history" options={{ title: "" }} />
+        <Stack.Screen name="device-history-detail" options={{ title: "" }} />
         <Stack.Screen name="materials" options={{ title: "" }} />
         <Stack.Screen name="material-detail" options={{ title: "" }} />
         <Stack.Screen name="standard-material-lists" options={{ title: "" }} />
