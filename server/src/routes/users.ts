@@ -329,10 +329,6 @@ router.get('/', async (req, res) => {
   return res.json(users);
 });
 
-// 内存用户存储（用于创建新用户时）
-let memoryUserList: any[] = [...memoryUsersList];
-let memoryNewUserId = Math.max(...memoryUsersList.map(u => u.id)) + 1;
-
 // 创建用户
 router.post('/', async (req, res) => {
   try {
@@ -350,12 +346,19 @@ router.post('/', async (req, res) => {
       res.json(result.rows[0]);
     } catch (dbError: any) {
       console.error('Database error, using memory storage:', dbError.message);
-      // 检查是否已存在
-      if (memoryUserList.find(u => u.username === username)) {
+      // 检查是否已存在（同时检查 memoryUsersList 和 memoryUsers）
+      const userExists = memoryUsersList.find(u => u.username === username) ||
+        Object.values(memoryUsers).find((u: any) => u.username === username);
+      if (userExists) {
         return res.status(400).json({ error: '用户名已存在' });
       }
+      // 生成新ID（取当前最大ID+1）
+      const maxId = Math.max(
+        ...memoryUsersList.map(u => u.id),
+        ...Object.values(memoryUsers).map((u: any) => u.id)
+      );
       const newUser = {
-        id: memoryNewUserId++,
+        id: maxId + 1,
         username,
         password,
         name,
@@ -368,7 +371,8 @@ router.post('/', async (req, res) => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      memoryUserList.push(newUser);
+      // 添加到 memoryUsersList（全局共享的内存存储）
+      memoryUsersList.push(newUser);
       res.json(newUser);
     }
   } catch (error: any) {
@@ -482,22 +486,37 @@ router.delete('/:id', async (req, res) => {
 
     if (USE_MEMORY_STORAGE) {
       // 使用内存存储
-      // 尝试用字符串 key 查找（如 "admin"）
-      let user = memoryUsers[id];
-      // 如果没找到，尝试用数字 key 查找
-      if (!user && !isNaN(parseInt(id))) {
-        user = memoryUsers[parseInt(id)];
-      }
-      // 如果还没找到，遍历查找
+      // 优先从 memoryUsersList 数组中查找（新增的用户可能只在这里）
+      let user = memoryUsersList.find((u: any) =>
+        String(u.id) === id || u.username === id || u.name === id
+      );
+
+      // 如果没找到，尝试从 memoryUsers 对象中查找
       if (!user) {
-        user = Object.values(memoryUsers).find((u: any) => 
-          String(u.id) === id || u.username === id
-        );
+        user = memoryUsers[id];
+        // 尝试用数字 key 查找
+        if (!user && !isNaN(parseInt(id))) {
+          user = memoryUsers[parseInt(id)];
+        }
+        // 如果还没找到，遍历查找
+        if (!user) {
+          user = Object.values(memoryUsers).find((u: any) =>
+            String(u.id) === id || u.username === id
+          );
+        }
       }
+
       if (!user) {
         return res.status(404).json({ error: '用户不存在' });
       }
+
       // 从内存存储中删除
+      // 先尝试从 memoryUsersList 中移除
+      const listIndex = memoryUsersList.findIndex((u: any) => String(u.id) === String(user!.id));
+      if (listIndex !== -1) {
+        memoryUsersList.splice(listIndex, 1);
+      }
+      // 再尝试从 memoryUsers 中移除
       const keys = Object.keys(memoryUsers);
       for (const key of keys) {
         if (memoryUsers[key].id === user.id) {
@@ -589,44 +608,113 @@ router.patch('/:id/disable', async (req, res) => {
       return res.status(400).json({ error: '禁用账号时必须提供禁用原因' });
     }
 
-    let query = `
-      UPDATE users
-      SET is_disabled = $1,
-          updated_at = CURRENT_TIMESTAMP
-    `;
-    const values: any[] = [is_disabled];
-    let paramCount: number = 2;
+    if (USE_MEMORY_STORAGE) {
+      // 使用内存存储
+      // 优先从 memoryUsersList 数组中查找（新增的用户可能只在这里）
+      let user = memoryUsersList.find((u: any) =>
+        String(u.id) === id || u.username === id || u.name === id
+      );
 
-    if (is_disabled) {
-      query += `,
-          disabled_at = CURRENT_TIMESTAMP,
-          disabled_by = $${paramCount},
-          disabled_reason = $${paramCount + 1}
-      `;
-      values.push(operator_id, disabled_reason);
-      paramCount += 2;
+      // 如果没找到，尝试从 memoryUsers 对象中查找
+      if (!user) {
+        user = memoryUsers[id];
+        // 尝试用数字 key 查找
+        if (!user && !isNaN(parseInt(id))) {
+          user = memoryUsers[parseInt(id)];
+        }
+        // 如果还没找到，遍历查找
+        if (!user) {
+          user = Object.values(memoryUsers).find((u: any) =>
+            String(u.id) === id || u.username === id
+          );
+        }
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+
+      // 更新用户状态
+      user.is_disabled = is_disabled;
+      if (is_disabled) {
+        user.disabled_at = new Date().toISOString();
+        user.disabled_by = operator_id;
+        user.disabled_reason = disabled_reason;
+      } else {
+        user.disabled_at = null;
+        user.disabled_by = null;
+        user.disabled_reason = null;
+      }
+      user.updated_at = new Date().toISOString();
+
+      // 同步更新 memoryUsersList 中的对应记录
+      const listIndex = memoryUsersList.findIndex((u: any) => String(u.id) === String(user!.id));
+      if (listIndex !== -1) {
+        memoryUsersList[listIndex] = user;
+      }
+
+      // 同步更新 memoryUsers 中的对应记录
+      const keys = Object.keys(memoryUsers);
+      for (const key of keys) {
+        if (memoryUsers[key].id === user.id) {
+          memoryUsers[key] = user;
+          break;
+        }
+      }
+
+      res.json({
+        message: is_disabled ? '账号已禁用' : '账号已启用',
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role,
+          is_disabled: user.is_disabled,
+          disabled_at: user.disabled_at,
+          disabled_reason: user.disabled_reason
+        }
+      });
     } else {
-      // 启用账号时清空禁用相关字段
-      query += `,
-          disabled_at = NULL,
-          disabled_by = NULL,
-          disabled_reason = NULL
+      // 使用数据库
+      let query = `
+        UPDATE users
+        SET is_disabled = $1,
+            updated_at = CURRENT_TIMESTAMP
       `;
+      const values: any[] = [is_disabled];
+      let paramCount: number = 2;
+
+      if (is_disabled) {
+        query += `,
+            disabled_at = CURRENT_TIMESTAMP,
+            disabled_by = $${paramCount},
+            disabled_reason = $${paramCount + 1}
+        `;
+        values.push(operator_id, disabled_reason);
+        paramCount += 2;
+      } else {
+        // 启用账号时清空禁用相关字段
+        query += `,
+            disabled_at = NULL,
+            disabled_by = NULL,
+            disabled_reason = NULL
+        `;
+      }
+
+      query += ` WHERE id = $${paramCount} RETURNING id, username, name, role, is_disabled, disabled_at, disabled_reason`;
+      values.push(parseInt(id));
+
+      const result = await pool.query(query, values);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+
+      res.json({
+        message: is_disabled ? '账号已禁用' : '账号已启用',
+        user: result.rows[0]
+      });
     }
-
-    query += ` WHERE id = $${paramCount} RETURNING id, username, name, role, is_disabled, disabled_at, disabled_reason`;
-    values.push(parseInt(id));
-
-    const result = await pool.query(query, values);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '用户不存在' });
-    }
-
-    res.json({
-      message: is_disabled ? '账号已禁用' : '账号已启用',
-      user: result.rows[0]
-    });
   } catch (error) {
     console.error('Toggle user status error:', error);
     res.status(500).json({ error: '服务器错误' });
