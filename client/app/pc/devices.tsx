@@ -1,27 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { PCLayout } from '@/components/pc/PCLayout';
-import { PCCard } from '@/components/pc/PCComponents';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { getApiBaseUrl } from '@/utils/api';
-import { SafeAreaView, Platform, TouchableOpacity, ScrollView, Modal, Text, TextInput, View, StyleSheet } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-
-const API_BASE = getApiBaseUrl();
+import PCLayout from '@/components/pc/PCLayout';
+import { API_BASE } from '@/utils/api';
 
 interface Device {
   id: number;
   device_name: string;
   device_type: string;
-  model?: string;
-  serial_number?: string;
+  device_model: string;
+  factory_serial_number: string;
+  device_number: string;
   customer_id?: number;
   customer_name?: string;
   contract_id?: number;
   contract_name?: string;
+  factory_date?: string;
+  acceptance_date?: string;
+  warranty_end_date?: string;
+  location?: string;
+  remarks?: string;
+  status?: string;
   installation_date?: string;
-  status: string;
-  created_at?: string;
-  updated_at?: string;
+  photos?: any[];
+  site_photos?: any[];
 }
 
 interface Customer {
@@ -34,69 +36,150 @@ interface Contract {
   contract_name: string;
 }
 
+interface HistoryRecord {
+  id: number;
+  device_id: number;
+  type: '保养' | '维修' | '巡检';
+  date: string;
+  description: string;
+  result?: string;
+}
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+
+const deviceTypes = ['工业设备', '医疗设备', '办公设备', '安防设备', '网络设备', '其他'];
+const statusOptions = ['在用', '闲置', '维修中', '已报废'];
+
 export default function PCDevices() {
   const [devices, setDevices] = useState<Device[]>([]);
-  const [filteredDevices, setFilteredDevices] = useState<Device[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterType, setFilterType] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
-  const [showContractPicker, setShowContractPicker] = useState(false);
-
-  const [formData, setFormData] = useState({
+  const [filteredDevices, setFilteredDevices] = useState<Device[]>([]);
+  
+  // 新增/编辑设备
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const [deviceForm, setDeviceForm] = useState({
     device_name: '',
     device_type: '',
-    model: '',
-    serial_number: '',
+    device_model: '',
+    factory_serial_number: '',
+    device_number: '',
     customer_id: '',
     customer_name: '',
     contract_id: '',
     contract_name: '',
-    installation_date: '',
+    factory_date: '',
+    acceptance_date: '',
+    warranty_end_date: '',
+    location: '',
+    remarks: '',
     status: '在用',
   });
 
-  const deviceTypes = ['工业设备', '医疗设备', '办公设备', '安防设备', '网络设备', '其他'];
-  const statusOptions = ['在用', '闲置', '维修中', '已报废'];
+  // 客户和合同选择器
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
+  const [showContractPicker, setShowContractPicker] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  // 设备详情
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailDevice, setDetailDevice] = useState<Device | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // 履历表
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // 删除确认
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // 获取设备列表
+  const fetchDevices = useCallback(async () => {
     try {
-      const [devicesRes, customersRes, contractsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/devices`),
-        fetch(`${API_BASE}/api/v1/customers`),
-        fetch(`${API_BASE}/api/v1/contracts`),
-      ]);
-
-      const [devicesData, customersData, contractsData] = await Promise.all([
-        devicesRes.json().catch(() => ({ data: [] })),
-        customersRes.json().catch(() => ({ data: [] })),
-        contractsRes.json().catch(() => ({ data: [] })),
-      ]);
-
-      const deviceList = devicesData.data || [];
-      setDevices(deviceList);
-      setFilteredDevices(deviceList);
-      setCustomers(customersData.data || []);
-      setContracts(contractsData.data || []);
+      const response = await fetch(`${API_BASE_URL}/api/v1/devices`);
+      if (response.ok) {
+        const data = await response.json();
+        setDevices(data.data || []);
+      }
     } catch (error) {
-      console.error('获取数据失败:', error);
+      console.error('获取设备列表失败:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [fetchData])
-  );
+  // 获取客户列表
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/customers`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data.data || []);
+      }
+    } catch (error) {
+      console.error('获取客户列表失败:', error);
+    }
+  };
+
+  // 获取合同列表
+  const fetchContracts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/contracts`);
+      if (response.ok) {
+        const data = await response.json();
+        setContracts(data.data || []);
+      }
+    } catch (error) {
+      console.error('获取合同列表失败:', error);
+    }
+  };
+
+  // 获取设备详情
+  const fetchDeviceDetail = async (id: number) => {
+    setDetailLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/devices/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDetailDevice(data);
+      }
+    } catch (error) {
+      console.error('获取设备详情失败:', error);
+      Alert.alert('错误', '获取设备详情失败');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // 获取设备履历表
+  const fetchDeviceHistory = async (id: number) => {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/device-history/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setHistoryRecords(data.data || []);
+      } else {
+        setHistoryRecords([]);
+      }
+    } catch (error) {
+      console.error('获取设备履历表失败:', error);
+      setHistoryRecords([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDevices();
+    fetchCustomers();
+    fetchContracts();
+  }, [fetchDevices]);
 
   useEffect(() => {
     let filtered = [...devices];
@@ -105,8 +188,9 @@ export default function PCDevices() {
       const keyword = searchKeyword.toLowerCase();
       filtered = filtered.filter(d =>
         (d.device_name?.toLowerCase().includes(keyword)) ||
-        (d.model?.toLowerCase().includes(keyword)) ||
-        (d.serial_number?.toLowerCase().includes(keyword)) ||
+        (d.device_model?.toLowerCase().includes(keyword)) ||
+        (d.device_number?.toLowerCase().includes(keyword)) ||
+        (d.factory_serial_number?.toLowerCase().includes(keyword)) ||
         (d.customer_name?.toLowerCase().includes(keyword))
       );
     }
@@ -118,72 +202,100 @@ export default function PCDevices() {
     setFilteredDevices(filtered);
   }, [searchKeyword, filterType, devices]);
 
+  // 打开新增设备
   const handleAdd = () => {
     setEditingDevice(null);
-    setFormData({
+    setDeviceForm({
       device_name: '',
       device_type: '',
-      model: '',
-      serial_number: '',
+      device_model: '',
+      factory_serial_number: '',
+      device_number: '',
       customer_id: '',
       customer_name: '',
       contract_id: '',
       contract_name: '',
-      installation_date: '',
+      factory_date: '',
+      acceptance_date: '',
+      warranty_end_date: '',
+      location: '',
+      remarks: '',
       status: '在用',
     });
-    setShowModal(true);
+    setShowDeviceModal(true);
   };
 
+  // 打开编辑设备
   const handleEdit = (device: Device) => {
     setEditingDevice(device);
-    setFormData({
+    setDeviceForm({
       device_name: device.device_name || '',
       device_type: device.device_type || '',
-      model: device.model || '',
-      serial_number: device.serial_number || '',
+      device_model: device.device_model || '',
+      factory_serial_number: device.factory_serial_number || '',
+      device_number: device.device_number || '',
       customer_id: device.customer_id?.toString() || '',
       customer_name: device.customer_name || '',
       contract_id: device.contract_id?.toString() || '',
       contract_name: device.contract_name || '',
-      installation_date: device.installation_date || '',
+      factory_date: device.factory_date || '',
+      acceptance_date: device.acceptance_date || '',
+      warranty_end_date: device.warranty_end_date || '',
+      location: device.location || '',
+      remarks: device.remarks || '',
       status: device.status || '在用',
     });
-    setShowModal(true);
+    setShowDeviceModal(true);
   };
 
+  // 打开设备详情
+  const handleViewDetail = async (device: Device) => {
+    await fetchDeviceDetail(device.id);
+    setShowDetailModal(true);
+  };
+
+  // 打开履历表
+  const handleViewHistory = async (deviceId: number) => {
+    setShowDetailModal(false);
+    await fetchDeviceHistory(deviceId);
+    setShowHistoryModal(true);
+  };
+
+  // 保存设备
   const handleSave = async () => {
-    if (!formData.device_name) {
-      alert('请输入设备名称');
+    if (!deviceForm.device_name) {
+      Alert.alert('提示', '请输入设备名称');
       return;
     }
 
     try {
       const url = editingDevice
-        ? `${API_BASE}/api/v1/devices/${editingDevice.id}`
-        : `${API_BASE}/api/v1/devices`;
+        ? `${API_BASE_URL}/api/v1/devices/${editingDevice.id}`
+        : `${API_BASE_URL}/api/v1/devices`;
       
       const method = editingDevice ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(deviceForm),
       });
 
       if (response.ok) {
-        setShowModal(false);
-        fetchData();
+        setShowDeviceModal(false);
+        fetchDevices();
+        Alert.alert('成功', editingDevice ? '设备已更新' : '设备已添加');
       } else {
         const data = await response.json();
-        alert(data.error || '保存失败');
+        Alert.alert('错误', data.error || '保存失败');
       }
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败');
+      Alert.alert('错误', '保存失败');
     }
   };
 
+  // 删除设备
   const handleDelete = async (id: number) => {
     setDeletingId(id);
     setShowDeleteConfirm(true);
@@ -193,26 +305,31 @@ export default function PCDevices() {
     if (!deletingId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/v1/devices/${deletingId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/devices/${deletingId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         setShowDeleteConfirm(false);
         setDeletingId(null);
-        fetchData();
+        fetchDevices();
+        if (showDetailModal) {
+          setShowDetailModal(false);
+        }
+        Alert.alert('成功', '设备已删除');
       } else {
         const data = await response.json();
-        alert(data.error || '删除失败');
+        Alert.alert('错误', data.error || '删除失败');
       }
     } catch (error) {
       console.error('删除失败:', error);
-      alert('删除失败');
+      Alert.alert('错误', '删除失败');
     }
   };
 
+  // 选择客户
   const selectCustomer = (customer: Customer) => {
-    setFormData(prev => ({
+    setDeviceForm(prev => ({
       ...prev,
       customer_id: customer.id.toString(),
       customer_name: customer.name,
@@ -220,8 +337,9 @@ export default function PCDevices() {
     setShowCustomerPicker(false);
   };
 
+  // 选择合同
   const selectContract = (contract: Contract) => {
-    setFormData(prev => ({
+    setDeviceForm(prev => ({
       ...prev,
       contract_id: contract.id.toString(),
       contract_name: contract.contract_name,
@@ -229,6 +347,7 @@ export default function PCDevices() {
     setShowContractPicker(false);
   };
 
+  // 获取状态颜色
   const getStatusColor = (status: string) => {
     switch (status) {
       case '在用': return '#52c41a';
@@ -239,6 +358,7 @@ export default function PCDevices() {
     }
   };
 
+  // 获取设备类型图标
   const getTypeIcon = (type: string) => {
     switch (type) {
       case '工业设备': return 'industry';
@@ -250,9 +370,27 @@ export default function PCDevices() {
     }
   };
 
+  // 获取履历类型颜色
+  const getHistoryTypeColor = (type: string) => {
+    switch (type) {
+      case '保养': return '#52c41a';
+      case '维修': return '#ff4d4f';
+      case '巡检': return '#1890ff';
+      default: return '#999';
+    }
+  };
+
+  // 格式化日期
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
   return (
     <PCLayout activePath="/pc/devices">
       <div style={styles.container}>
+        {/* 头部 */}
         <div style={styles.header}>
           <div style={styles.titleSection}>
             <FontAwesome6 name="microchip" size={24} color="#4F8EF7" />
@@ -266,6 +404,7 @@ export default function PCDevices() {
           </div>
         </div>
 
+        {/* 工具栏 */}
         <div style={styles.toolbar}>
           <div style={styles.searchBox}>
             <FontAwesome6 name="search" size={16} color="#999" />
@@ -294,6 +433,7 @@ export default function PCDevices() {
           </div>
         </div>
 
+        {/* 设备列表 */}
         {loading ? (
           <div style={styles.loading}>
             <div style={styles.spinner}></div>
@@ -324,16 +464,22 @@ export default function PCDevices() {
                   </span>
                 </div>
                 <div style={styles.cardBody}>
-                  {device.model && (
+                  {device.device_model && (
                     <div style={styles.infoRow}>
                       <FontAwesome6 name="tag" size={14} color="#999" />
-                      <span>{device.model}</span>
+                      <span>{device.device_model}</span>
                     </div>
                   )}
-                  {device.serial_number && (
+                  {device.device_number && (
+                    <div style={styles.infoRow}>
+                      <FontAwesome6 name="hashtag" size={14} color="#999" />
+                      <span>{device.device_number}</span>
+                    </div>
+                  )}
+                  {device.factory_serial_number && (
                     <div style={styles.infoRow}>
                       <FontAwesome6 name="barcode" size={14} color="#999" />
-                      <span>{device.serial_number}</span>
+                      <span>{device.factory_serial_number}</span>
                     </div>
                   )}
                   {device.customer_name && (
@@ -342,10 +488,10 @@ export default function PCDevices() {
                       <span>{device.customer_name}</span>
                     </div>
                   )}
-                  {device.installation_date && (
+                  {device.factory_date && (
                     <div style={styles.infoRow}>
                       <FontAwesome6 name="calendar" size={14} color="#999" />
-                      <span>{device.installation_date}</span>
+                      <span>{formatDate(device.factory_date)}</span>
                     </div>
                   )}
                 </div>
@@ -353,6 +499,10 @@ export default function PCDevices() {
                   <button style={styles.editBtn} onClick={() => handleEdit(device)}>
                     <FontAwesome6 name="edit" size={14} color="#4F8EF7" />
                     <span>编辑</span>
+                  </button>
+                  <button style={styles.historyBtn} onClick={() => handleViewHistory(device.id)}>
+                    <FontAwesome6 name="clipboard-list" size={14} color="#F39C12" />
+                    <span>履历表</span>
                   </button>
                   <button style={styles.deleteBtn} onClick={() => handleDelete(device.id)}>
                     <FontAwesome6 name="trash" size={14} color="#ff4d4f" />
@@ -364,113 +514,311 @@ export default function PCDevices() {
           </div>
         )}
 
-        <Modal visible={showModal} animationType="slide" transparent>
+        {/* 新增/编辑设备模态框 */}
+        <Modal visible={showDeviceModal} animationType="slide" transparent>
           <div style={styles.modalOverlay}>
             <div style={styles.modalContent}>
               <div style={styles.modalHeader}>
                 <h2>{editingDevice ? '编辑设备' : '新增设备'}</h2>
-                <button style={styles.closeBtn} onClick={() => setShowModal(false)}>×</button>
+                <button style={styles.closeBtn} onClick={() => setShowDeviceModal(false)}>×</button>
               </div>
               <div style={styles.modalBody}>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>设备名称 *</label>
-                  <input
-                    type="text"
-                    value={formData.device_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, device_name: e.target.value }))}
-                    style={styles.input}
-                    placeholder="请输入设备名称"
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>设备类型</label>
-                  <select
-                    value={formData.device_type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, device_type: e.target.value }))}
-                    style={styles.select}
-                  >
-                    <option value="">请选择类型</option>
-                    {deviceTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>型号</label>
-                  <input
-                    type="text"
-                    value={formData.model}
-                    onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
-                    style={styles.input}
-                    placeholder="请输入型号"
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>序列号</label>
-                  <input
-                    type="text"
-                    value={formData.serial_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, serial_number: e.target.value }))}
-                    style={styles.input}
-                    placeholder="请输入序列号"
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>客户</label>
-                  <div style={styles.pickerWrapper}>
+                <ScrollView style={{ maxHeight: '60vh' }}>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>设备名称 *</label>
                     <input
                       type="text"
-                      value={formData.customer_name}
-                      readOnly
+                      value={deviceForm.device_name}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, device_name: e.target.value }))}
                       style={styles.input}
-                      placeholder="选择客户"
+                      placeholder="请输入设备名称"
                     />
-                    <button style={styles.pickerBtn} onClick={() => setShowCustomerPicker(true)}>选择</button>
                   </div>
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>关联合同</label>
-                  <div style={styles.pickerWrapper}>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>设备类型</label>
+                    <select
+                      value={deviceForm.device_type}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, device_type: e.target.value }))}
+                      style={styles.select}
+                    >
+                      <option value="">请选择类型</option>
+                      {deviceTypes.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>设备型号</label>
                     <input
                       type="text"
-                      value={formData.contract_name}
-                      readOnly
+                      value={deviceForm.device_model}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, device_model: e.target.value }))}
                       style={styles.input}
-                      placeholder="选择合同"
+                      placeholder="请输入设备型号"
                     />
-                    <button style={styles.pickerBtn} onClick={() => setShowContractPicker(true)}>选择</button>
                   </div>
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>安装日期</label>
-                  <input
-                    type="date"
-                    value={formData.installation_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, installation_date: e.target.value }))}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.label}>状态</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                    style={styles.select}
-                  >
-                    {statusOptions.map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>出厂编号</label>
+                    <input
+                      type="text"
+                      value={deviceForm.factory_serial_number}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, factory_serial_number: e.target.value }))}
+                      style={styles.input}
+                      placeholder="请输入出厂编号"
+                    />
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>设备编号</label>
+                    <input
+                      type="text"
+                      value={deviceForm.device_number}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, device_number: e.target.value }))}
+                      style={styles.input}
+                      placeholder="请输入设备编号"
+                    />
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>归属客户</label>
+                    <div style={styles.pickerWrapper}>
+                      <input
+                        type="text"
+                        value={deviceForm.customer_name}
+                        readOnly
+                        style={styles.input}
+                        placeholder="选择客户"
+                      />
+                      <button style={styles.pickerBtn} onClick={() => setShowCustomerPicker(true)}>选择</button>
+                    </div>
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>关联合同</label>
+                    <div style={styles.pickerWrapper}>
+                      <input
+                        type="text"
+                        value={deviceForm.contract_name}
+                        readOnly
+                        style={styles.input}
+                        placeholder="选择合同"
+                      />
+                      <button style={styles.pickerBtn} onClick={() => setShowContractPicker(true)}>选择</button>
+                    </div>
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>进厂日期</label>
+                    <input
+                      type="date"
+                      value={deviceForm.factory_date}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, factory_date: e.target.value }))}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>验收日期</label>
+                    <input
+                      type="date"
+                      value={deviceForm.acceptance_date}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, acceptance_date: e.target.value }))}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>质保到期日期</label>
+                    <input
+                      type="date"
+                      value={deviceForm.warranty_end_date}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, warranty_end_date: e.target.value }))}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>设备位置</label>
+                    <input
+                      type="text"
+                      value={deviceForm.location}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, location: e.target.value }))}
+                      style={styles.input}
+                      placeholder="请输入设备位置"
+                    />
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>备注</label>
+                    <textarea
+                      value={deviceForm.remarks}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, remarks: e.target.value }))}
+                      style={styles.textarea}
+                      placeholder="请输入备注信息"
+                      rows={3}
+                    />
+                  </div>
+                  <div style={styles.formRow}>
+                    <label style={styles.label}>状态</label>
+                    <select
+                      value={deviceForm.status}
+                      onChange={(e) => setDeviceForm(prev => ({ ...prev, status: e.target.value }))}
+                      style={styles.select}
+                    >
+                      {statusOptions.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  </div>
+                </ScrollView>
               </div>
               <div style={styles.modalFooter}>
-                <button style={styles.cancelBtn} onClick={() => setShowModal(false)}>取消</button>
+                <button style={styles.cancelBtn} onClick={() => setShowDeviceModal(false)}>取消</button>
                 <button style={styles.saveBtn} onClick={handleSave}>保存</button>
               </div>
             </div>
           </div>
         </Modal>
 
+        {/* 设备详情模态框 */}
+        <Modal visible={showDetailModal} animationType="slide" transparent>
+          <div style={styles.modalOverlay}>
+            <div style={styles.detailModal}>
+              <div style={styles.modalHeader}>
+                <h2>设备详情</h2>
+                <button style={styles.closeBtn} onClick={() => setShowDetailModal(false)}>×</button>
+              </div>
+              <div style={styles.modalBody}>
+                {detailLoading ? (
+                  <div style={styles.loading}>
+                    <div style={styles.spinner}></div>
+                    <span>加载中...</span>
+                  </div>
+                ) : detailDevice ? (
+                  <ScrollView style={{ maxHeight: '70vh' }}>
+                    <div style={styles.detailSection}>
+                      <h3 style={styles.detailSectionTitle}>
+                        <FontAwesome6 name="microchip" size={16} color="#2ECC71" />
+                        设备信息
+                      </h3>
+                      <div style={styles.detailGrid}>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>设备名称</span>
+                          <span style={styles.detailValue}>{detailDevice.device_name}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>设备型号</span>
+                          <span style={styles.detailValue}>{detailDevice.device_model || '-'}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>出厂编号</span>
+                          <span style={styles.detailValue}>{detailDevice.factory_serial_number || '-'}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>设备编号</span>
+                          <span style={styles.detailValue}>{detailDevice.device_number || '-'}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>设备类型</span>
+                          <span style={styles.detailValue}>{detailDevice.device_type || '-'}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>归属客户</span>
+                          <span style={styles.detailValue}>{detailDevice.customer_name || '-'}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>进厂日期</span>
+                          <span style={styles.detailValue}>{formatDate(detailDevice.factory_date)}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>验收日期</span>
+                          <span style={styles.detailValue}>{formatDate(detailDevice.acceptance_date)}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>质保到期日期</span>
+                          <span style={styles.detailValue}>{formatDate(detailDevice.warranty_end_date)}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>设备位置</span>
+                          <span style={styles.detailValue}>{detailDevice.location || '-'}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>备注</span>
+                          <span style={styles.detailValue}>{detailDevice.remarks || '-'}</span>
+                        </div>
+                        <div style={styles.detailItem}>
+                          <span style={styles.detailLabel}>状态</span>
+                          <span style={{...styles.detailValue, color: getStatusColor(detailDevice.status || '在用')}}>
+                            {detailDevice.status || '在用'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </ScrollView>
+                ) : (
+                  <div style={styles.empty}>
+                    <span>暂无数据</span>
+                  </div>
+                )}
+              </div>
+              <div style={styles.modalFooter}>
+                <button style={styles.editBtn} onClick={() => { setShowDetailModal(false); handleEdit(detailDevice!); }}>
+                  <FontAwesome6 name="edit" size={14} color="#4F8EF7" />
+                  <span>编辑</span>
+                </button>
+                <button style={styles.historyBtn} onClick={() => handleViewHistory(detailDevice!.id)}>
+                  <FontAwesome6 name="clipboard-list" size={14} color="#F39C12" />
+                  <span>履历表</span>
+                </button>
+                <button style={styles.deleteBtn} onClick={() => { setShowDetailModal(false); handleDelete(detailDevice!.id); }}>
+                  <FontAwesome6 name="trash" size={14} color="#ff4d4f" />
+                  <span>删除</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+
+        {/* 履历表模态框 */}
+        <Modal visible={showHistoryModal} animationType="slide" transparent>
+          <div style={styles.modalOverlay}>
+            <div style={styles.detailModal}>
+              <div style={styles.modalHeader}>
+                <h2>设备履历表</h2>
+                <button style={styles.closeBtn} onClick={() => setShowHistoryModal(false)}>×</button>
+              </div>
+              <div style={styles.modalBody}>
+                {historyLoading ? (
+                  <div style={styles.loading}>
+                    <div style={styles.spinner}></div>
+                    <span>加载中...</span>
+                  </div>
+                ) : historyRecords.length === 0 ? (
+                  <div style={styles.empty}>
+                    <FontAwesome6 name="clipboard-list" size={48} color="#ccc" />
+                    <p>暂无履历记录</p>
+                  </div>
+                ) : (
+                  <ScrollView style={{ maxHeight: '60vh' }}>
+                    <div style={styles.historyList}>
+                      {historyRecords.map((record, index) => (
+                        <div key={record.id || index} style={styles.historyItem}>
+                          <div style={styles.historyHeader}>
+                            <span style={{...styles.historyType, backgroundColor: getHistoryTypeColor(record.type) + '20', color: getHistoryTypeColor(record.type)}}>
+                              {record.type}
+                            </span>
+                            <span style={styles.historyDate}>{formatDate(record.date)}</span>
+                          </div>
+                          <p style={styles.historyDesc}>{record.description}</p>
+                          {record.result && (
+                            <p style={styles.historyResult}>结果：{record.result}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollView>
+                )}
+              </div>
+              <div style={styles.modalFooter}>
+                <button style={styles.cancelBtn} onClick={() => setShowHistoryModal(false)}>关闭</button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+
+        {/* 客户选择器 */}
         <Modal visible={showCustomerPicker} animationType="slide" transparent>
           <div style={styles.modalOverlay}>
             <div style={styles.pickerModal}>
@@ -494,6 +842,7 @@ export default function PCDevices() {
           </div>
         </Modal>
 
+        {/* 合同选择器 */}
         <Modal visible={showContractPicker} animationType="slide" transparent>
           <div style={styles.modalOverlay}>
             <div style={styles.pickerModal}>
@@ -517,6 +866,7 @@ export default function PCDevices() {
           </div>
         </Modal>
 
+        {/* 删除确认 */}
         <Modal visible={showDeleteConfirm} animationType="fade" transparent>
           <div style={styles.modalOverlay}>
             <div style={styles.confirmModal}>
@@ -547,8 +897,6 @@ export default function PCDevices() {
 const styles = StyleSheet.create({
   container: {
     padding: '24px',
-    maxWidth: '1400px',
-    margin: '0 auto',
   },
   header: {
     display: 'flex',
@@ -564,7 +912,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: '24px',
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#333',
     margin: 0,
   },
   headerActions: {
@@ -582,7 +930,6 @@ const styles = StyleSheet.create({
     borderRadius: '8px',
     fontSize: '14px',
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
   },
   toolbar: {
     display: 'flex',
@@ -595,68 +942,70 @@ const styles = StyleSheet.create({
     boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
   },
   searchBox: {
-    flex: 1,
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    padding: '8px 16px',
+    flex: 1,
+    padding: '10px 16px',
     backgroundColor: '#f5f7fa',
     borderRadius: '8px',
+    border: '1px solid #e8e8e8',
   },
   searchInput: {
     flex: 1,
     border: 'none',
-    background: 'transparent',
+    backgroundColor: 'transparent',
     fontSize: '14px',
     outline: 'none',
+    color: '#333',
   },
   filterGroup: {
     display: 'flex',
     gap: '12px',
   },
   filterSelect: {
-    padding: '8px 16px',
-    border: '1px solid #e5e7eb',
+    padding: '10px 16px',
+    border: '1px solid #e8e8e8',
     borderRadius: '8px',
     fontSize: '14px',
+    color: '#333',
     backgroundColor: '#fff',
     cursor: 'pointer',
-    minWidth: '120px',
+    outline: 'none',
   },
   stats: {
     fontSize: '14px',
-    color: '#6b7280',
-    marginLeft: 'auto',
+    color: '#666',
+    padding: '0 12px',
   },
   loading: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '80px 0',
+    padding: '60px',
     color: '#999',
+    gap: '12px',
   },
   spinner: {
     width: '32px',
     height: '32px',
-    border: '3px solid #e5e7eb',
-    borderTopColor: '#4F8EF7',
+    border: '3px solid #f3f3f3',
+    borderTop: '3px solid #4F8EF7',
     borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '16px',
   },
   empty: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '80px 0',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
+    padding: '60px',
+    color: '#999',
+    gap: '16px',
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
     gap: '20px',
   },
   card: {
@@ -664,11 +1013,10 @@ const styles = StyleSheet.create({
     borderRadius: '12px',
     padding: '20px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-    transition: 'box-shadow 0.2s, transform 0.2s',
   },
   cardHeader: {
     display: 'flex',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: '12px',
     marginBottom: '16px',
   },
@@ -684,10 +1032,16 @@ const styles = StyleSheet.create({
   cardTitle: {
     flex: 1,
   },
+  cardTitleText: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#333',
+    margin: 0,
+  },
   deviceType: {
     fontSize: '12px',
-    color: '#999',
-    marginTop: '2px',
+    color: '#666',
+    marginTop: '4px',
   },
   statusBadge: {
     padding: '4px 10px',
@@ -696,24 +1050,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   cardBody: {
-    padding: '12px 0',
-    borderTop: '1px solid #f0f0f0',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    paddingBottom: '16px',
     borderBottom: '1px solid #f0f0f0',
+    marginBottom: '16px',
   },
   infoRow: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    marginBottom: '8px',
-    fontSize: '13px',
+    fontSize: '14px',
     color: '#666',
   },
   cardFooter: {
     display: 'flex',
     gap: '12px',
-    marginTop: '16px',
-    paddingTop: '12px',
-    borderTop: '1px solid #f0f0f0',
   },
   editBtn: {
     flex: 1,
@@ -721,14 +1074,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
-    padding: '8px',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    backgroundColor: '#fff',
-    cursor: 'pointer',
-    fontSize: '13px',
+    padding: '10px',
+    backgroundColor: '#EEF4FF',
     color: '#4F8EF7',
-    transition: 'background-color 0.2s',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    cursor: 'pointer',
+  },
+  historyBtn: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    padding: '10px',
+    backgroundColor: '#FEF9E7',
+    color: '#F39C12',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    cursor: 'pointer',
   },
   deleteBtn: {
     flex: 1,
@@ -736,14 +1102,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
-    padding: '8px',
-    border: '1px solid #ffebee',
-    borderRadius: '6px',
-    backgroundColor: '#fff',
-    cursor: 'pointer',
-    fontSize: '13px',
+    padding: '10px',
+    backgroundColor: '#FFEEF0',
     color: '#ff4d4f',
-    transition: 'background-color 0.2s',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    cursor: 'pointer',
   },
   modalOverlay: {
     position: 'fixed',
@@ -758,26 +1123,61 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   modalContent: {
-    width: '520px',
-    maxHeight: '80vh',
+    width: '600px',
+    maxWidth: '90%',
+    maxHeight: '90vh',
     backgroundColor: '#fff',
     borderRadius: '12px',
-    overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
+  },
+  detailModal: {
+    width: '800px',
+    maxWidth: '90%',
+    maxHeight: '90vh',
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  pickerModal: {
+    width: '400px',
+    maxWidth: '90%',
+    maxHeight: '60vh',
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  confirmModal: {
+    width: '400px',
+    maxWidth: '90%',
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    padding: '32px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    textAlign: 'center',
   },
   modalHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '16px 20px',
-    borderBottom: '1px solid #e5e7eb',
+    padding: '20px 24px',
+    borderBottom: '1px solid #f0f0f0',
+  },
+  modalHeaderText: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#333',
+    margin: 0,
   },
   closeBtn: {
     width: '32px',
     height: '32px',
     border: 'none',
-    background: 'transparent',
+    backgroundColor: 'transparent',
     fontSize: '24px',
     color: '#999',
     cursor: 'pointer',
@@ -787,122 +1187,206 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalBody: {
-    padding: '20px',
-    overflowY: 'auto',
     flex: 1,
+    padding: '24px',
+    overflow: 'hidden',
+  },
+  modalFooter: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '12px',
+    padding: '16px 24px',
+    borderTop: '1px solid #f0f0f0',
   },
   formRow: {
-    marginBottom: '16px',
+    marginBottom: '20px',
   },
   label: {
     display: 'block',
-    marginBottom: '6px',
+    marginBottom: '8px',
     fontSize: '14px',
-    color: '#374151',
+    color: '#666',
     fontWeight: '500',
   },
   input: {
     width: '100%',
-    padding: '10px 12px',
-    border: '1px solid #e5e7eb',
+    padding: '12px 16px',
+    border: '1px solid #e8e8e8',
     borderRadius: '8px',
     fontSize: '14px',
+    color: '#333',
     outline: 'none',
     boxSizing: 'border-box',
   },
   select: {
     width: '100%',
-    padding: '10px 12px',
-    border: '1px solid #e5e7eb',
+    padding: '12px 16px',
+    border: '1px solid #e8e8e8',
     borderRadius: '8px',
     fontSize: '14px',
+    color: '#333',
     backgroundColor: '#fff',
-    cursor: 'pointer',
     outline: 'none',
+    cursor: 'pointer',
+  },
+  textarea: {
+    width: '100%',
+    padding: '12px 16px',
+    border: '1px solid #e8e8e8',
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: '#333',
+    outline: 'none',
+    resize: 'vertical',
+    fontFamily: 'inherit',
   },
   pickerWrapper: {
     display: 'flex',
     gap: '8px',
   },
   pickerBtn: {
-    padding: '10px 16px',
+    padding: '12px 20px',
     backgroundColor: '#4F8EF7',
     color: '#fff',
     border: 'none',
     borderRadius: '8px',
-    cursor: 'pointer',
     fontSize: '14px',
-  },
-  modalFooter: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '12px',
-    padding: '16px 20px',
-    borderTop: '1px solid #e5e7eb',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
   cancelBtn: {
-    padding: '10px 20px',
-    border: '1px solid #e5e7eb',
+    padding: '12px 24px',
+    backgroundColor: '#f5f5f5',
+    color: '#666',
+    border: 'none',
     borderRadius: '8px',
-    backgroundColor: '#fff',
-    cursor: 'pointer',
     fontSize: '14px',
+    cursor: 'pointer',
   },
   saveBtn: {
-    padding: '10px 20px',
+    padding: '12px 24px',
     backgroundColor: '#4F8EF7',
     color: '#fff',
     border: 'none',
     borderRadius: '8px',
-    cursor: 'pointer',
     fontSize: '14px',
-  },
-  pickerModal: {
-    width: '400px',
-    maxHeight: '60vh',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
+    cursor: 'pointer',
   },
   pickerList: {
-    padding: '12px',
-    overflowY: 'auto',
     maxHeight: '400px',
+    overflow: 'auto',
+    padding: '8px',
   },
   pickerItem: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '12px 16px',
+    padding: '14px 16px',
     borderRadius: '8px',
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  confirmModal: {
-    width: '360px',
-    padding: '24px',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    textAlign: 'center',
+    transition: 'backgroundColor 0.2s',
   },
   confirmIcon: {
     marginBottom: '16px',
   },
+  confirmText: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#333',
+    margin: 0,
+  },
+  confirmDesc: {
+    fontSize: '14px',
+    color: '#666',
+    margin: '8px 0 24px',
+  },
   confirmActions: {
     display: 'flex',
     gap: '12px',
-    marginTop: '20px',
+    width: '100%',
   },
   confirmDeleteBtn: {
     flex: 1,
-    padding: '10px 20px',
+    padding: '12px 24px',
     backgroundColor: '#ff4d4f',
     color: '#fff',
     border: 'none',
     borderRadius: '8px',
-    cursor: 'pointer',
     fontSize: '14px',
+    cursor: 'pointer',
+  },
+  detailSection: {
+    marginBottom: '24px',
+  },
+  detailSectionTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: '16px',
+    paddingBottom: '12px',
+    borderBottom: '1px solid #f0f0f0',
+  },
+  detailGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '16px',
+  },
+  detailItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  detailLabel: {
+    fontSize: '12px',
+    color: '#999',
+  },
+  detailValue: {
+    fontSize: '14px',
+    color: '#333',
+    fontWeight: '500',
+  },
+  historyList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  historyItem: {
+    padding: '16px',
+    backgroundColor: '#f9f9f9',
+    borderRadius: '8px',
+    borderLeft: '3px solid #4F8EF7',
+  },
+  historyHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
+  historyType: {
+    padding: '4px 10px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: '500',
+  },
+  historyDate: {
+    fontSize: '12px',
+    color: '#999',
+  },
+  historyDesc: {
+    fontSize: '14px',
+    color: '#333',
+    margin: '0 0 8px',
+    lineHeight: '1.5',
+  },
+  historyResult: {
+    fontSize: '12px',
+    color: '#666',
+    margin: 0,
+    padding: '8px',
+    backgroundColor: '#fff',
+    borderRadius: '4px',
   },
 });
