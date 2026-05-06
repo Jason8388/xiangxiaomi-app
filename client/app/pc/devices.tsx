@@ -406,45 +406,22 @@ export default function PCDevices() {
   };
 
   // 导出设备信息
-  const handleExportDevices = async () => {
+  const handleExportDevices = () => {
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/export`
-      );
-
-      if (!response.ok) {
-        throw new Error('导出失败');
-      }
-
-      if (Platform.OS === 'web') {
-        const blob = await response.blob();
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `设备信息导出_${new Date().toISOString().split('T')[0]}.xlsx`;
-
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-          if (filenameMatch && filenameMatch[1]) {
-            filename = decodeURIComponent(filenameMatch[1]);
-          }
-        }
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        Alert.alert('成功', '导出成功！');
+      const apiUrl = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/export`;
+      
+      // Web端下载 - 使用更兼容的方式
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        const link = document.createElement('a');
+        link.href = apiUrl;
+        link.download = `设备信息导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        Alert.alert('提示', '正在导出文件...');
       } else {
-        const fileUri = FileSystem.documentDirectory + `设备信息导出.xlsx`;
-        const base64 = await response.text();
-        await (FileSystem as any).writeAsStringAsync(fileUri, base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        Alert.alert('成功', '文件已保存到文档目录');
+        Alert.alert('错误', '当前环境不支持导出功能');
       }
     } catch (error) {
       console.error('导出失败:', error);

@@ -284,38 +284,25 @@ export default function PCDeviceHistory() {
   // 下载功能
   const handleDownload = async () => {
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail/export`
-      );
-
-      if (!response.ok) {
-        throw new Error('导出失败');
-      }
-
-      // Web端下载
-      if (Platform.OS === 'web') {
-        const blob = await response.blob();
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `设备履历表_${deviceId}.xlsx`;
-
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-          if (filenameMatch && filenameMatch[1]) {
-            filename = decodeURIComponent(filenameMatch[1]);
-          }
-        }
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        Alert.alert('成功', '下载成功！');
+      const apiUrl = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail/export`;
+      
+      // Web端下载 - 使用更兼容的方式
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        // 直接通过 window.open 触发下载
+        const link = document.createElement('a');
+        link.href = apiUrl;
+        link.download = `设备履历表_${deviceId}.xlsx`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        Alert.alert('提示', '正在下载文件...');
       } else {
+        // 原生端下载
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          throw new Error('导出失败');
+        }
         const fileUri = FileSystem.documentDirectory + `设备履历表_${deviceId}.xlsx`;
         const base64 = await response.text();
         await (FileSystem as any).writeAsStringAsync(fileUri, base64, {
