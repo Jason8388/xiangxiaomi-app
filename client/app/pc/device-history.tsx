@@ -14,7 +14,7 @@ import {
 import { PCLayout } from '@/components/pc/PCLayout';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
-import { apiUrl } from '@/utils/api';
+import { apiUrl, getApiBaseUrl } from '@/utils/api';
 import * as FileSystem from 'expo-file-system/legacy';
 
 interface Attachment {
@@ -257,8 +257,9 @@ export default function PCDeviceHistory() {
       formData.append('deviceId', deviceId);
 
       try {
+        const baseUrl = getApiBaseUrl();
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail/import`,
+          `${baseUrl}/api/v1/devices/${deviceId}/history-detail/import`,
           {
             method: 'POST',
             body: formData,
@@ -284,7 +285,8 @@ export default function PCDeviceHistory() {
   // 下载功能
   const handleDownload = async () => {
     try {
-      const apiUrl = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail/export`;
+      const baseUrl = getApiBaseUrl();
+      const apiUrl = `${baseUrl}/api/v1/devices/${deviceId}/history-detail/export`;
       
       // Web端下载 - 使用更兼容的方式
       if (typeof window !== 'undefined' && typeof document !== 'undefined') {

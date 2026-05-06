@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { PCLayout } from '@/components/pc/PCLayout';
-import { apiUrl } from '@/utils/api';
+import { apiUrl, getApiBaseUrl } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 interface Device {
@@ -408,12 +408,13 @@ export default function PCDevices() {
   // 导出设备信息
   const handleExportDevices = () => {
     try {
-      const apiUrl = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/export`;
+      const baseUrl = getApiBaseUrl();
+      const exportUrl = `${baseUrl}/api/v1/devices/export`;
       
       // Web端下载 - 使用更兼容的方式
       if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         const link = document.createElement('a');
-        link.href = apiUrl;
+        link.href = exportUrl;
         link.download = `设备信息导出_${new Date().toISOString().split('T')[0]}.xlsx`;
         link.target = '_blank';
         document.body.appendChild(link);
@@ -443,8 +444,9 @@ export default function PCDevices() {
       formData.append('file', file);
 
       try {
+        const baseUrl = getApiBaseUrl();
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/import`,
+          `${baseUrl}/api/v1/devices/import`,
           {
             method: 'POST',
             body: formData,
@@ -469,8 +471,9 @@ export default function PCDevices() {
 
   // 下载导入模板
   const handleDownloadTemplate = () => {
+    const baseUrl = getApiBaseUrl();
     window.open(
-      `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/template`,
+      `${baseUrl}/api/v1/devices/template`,
       '_blank'
     );
   };
