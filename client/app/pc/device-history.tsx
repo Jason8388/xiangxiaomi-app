@@ -244,7 +244,41 @@ export default function PCDeviceHistory() {
   };
 
   const handleImport = () => {
-    Alert.alert('提示', '导入功能开发中...');
+    // 创建隐藏的文件输入框
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('deviceId', deviceId);
+
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/${deviceId}/history-detail/import`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        const result = await response.json();
+
+        if (response.ok) {
+          Alert.alert('成功', result.message || '导入成功！');
+          fetchHistoryDetail();
+        } else {
+          Alert.alert('错误', result.error || '导入失败');
+        }
+      } catch (error) {
+        console.error('导入失败:', error);
+        Alert.alert('错误', '导入失败，请重试');
+      }
+    };
+    input.click();
   };
 
   // 下载功能

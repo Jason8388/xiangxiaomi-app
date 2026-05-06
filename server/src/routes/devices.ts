@@ -3,7 +3,7 @@ import multer from 'multer';
 import ExcelJS from 'exceljs';
 import pool from '../database/db';
 import { uploadFileToOSS } from '../utils/oss';
-import { deviceHistoryList, getDeviceHistoryDetail, saveDeviceHistoryDetail } from '../database/memory-storage';
+import { deviceHistoryList, getDeviceHistoryDetail, saveDeviceHistoryDetail, memoryDevices as storageMemoryDevices } from '../database/memory-storage';
 
 const router = express.Router();
 
@@ -13,6 +13,9 @@ const upload = multer({ storage });
 
 // 检查是否使用内存存储
 const USE_MEMORY_STORAGE = true; // 数据库超时，启用内存存储
+
+// 内存设备履历表数据
+let memoryDeviceHistory: any[] = deviceHistoryList;
 
 // 带重试的查询函数
 async function queryWithRetry(query: string, params: any[] = [], retries = 3, delay = 1000) {
@@ -1386,6 +1389,123 @@ router.get('/:deviceId/history-detail/export', async (req, res) => {
   } catch (error) {
     console.error('Export device history detail error:', error);
     res.status(500).json({ error: '导出失败' });
+  }
+});
+
+// 导入设备履历表详情
+router.post('/:deviceId/history-detail/import', upload.single('file'), async (req: any, res: any) => {
+  try {
+    const { deviceId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传文件' });
+    }
+
+    // 解析Excel文件
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    const worksheet = workbook.getWorksheet(1);
+    if (!worksheet) {
+      return res.status(400).json({ error: 'Excel文件为空' });
+    }
+
+    // 读取第一行作为字段映射
+    const headers: string[] = [];
+    worksheet.getRow(1).eachCell((cell: any, colNumber: number) => {
+      headers[colNumber] = cell.text?.trim() || '';
+    });
+
+    // 读取数据行
+    const historyData: any = {};
+    let rowCount = 0;
+
+    worksheet.eachRow({ includeEmpty: false }, (row: any, rowNumber: number) => {
+      if (rowNumber === 1) return; // 跳过表头
+
+      row.eachCell((cell: any, colNumber: number) => {
+        const header = headers[colNumber];
+        const value = cell.text?.trim() || '';
+
+        // 建立字段映射
+        if (header.includes('设备名称')) historyData.device_name = value;
+        else if (header.includes('产品规格')) historyData.product_spec = value;
+        else if (header.includes('设备编码')) historyData.device_code = value;
+        else if (header.includes('合同名称')) historyData.contract_name = value;
+        else if (header.includes('合同编号')) historyData.contract_number = value;
+        else if (header.includes('合同日期')) historyData.contract_date = value;
+        else if (header.includes('归属客户')) historyData.customer_name = value;
+        else if (header.includes('销售负责人')) historyData.sales_manager = value;
+        else if (header.includes('质保期限')) historyData.warranty_period = value;
+        else if (header.includes('制造单位')) historyData.production_unit = value;
+        else if (header.includes('生产订单')) historyData.production_order = value;
+        else if (header.includes('批次号')) historyData.batch_number = value;
+        else if (header.includes('生产负责人')) historyData.production_manager = value;
+        else if (header.includes('生产完成日期')) historyData.production_complete_date = value;
+        else if (header.includes('调试员')) historyData.tester = value;
+        else if (header.includes('调试完成日期')) historyData.debug_complete_date = value;
+        else if (header.includes('质检员')) historyData.quality_inspector = value;
+        else if (header.includes('出厂检验员')) historyData.factory_inspector = value;
+        else if (header.includes('出厂日期')) historyData.factory_date = value;
+        else if (header.includes('质保到期日期')) historyData.warranty_expiry_date = value;
+      });
+
+      rowCount++;
+    });
+
+    if (rowCount === 0) {
+      return res.status(400).json({ error: '没有有效数据可导入' });
+    }
+
+    // 保存到数据库或内存存储
+    historyData.device_id = deviceId;
+    historyData.updated_at = new Date().toISOString();
+
+    // 尝试保存到数据库
+    try {
+      // 检查记录是否存在
+      const existing = await pool.query(
+        'SELECT id FROM device_history_detail WHERE device_id = $1',
+        [deviceId]
+      );
+
+      if (existing.rows.length > 0) {
+        // 更新
+        const fields = Object.keys(historyData);
+        const values = Object.values(historyData);
+        const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
+
+        await pool.query(
+          `UPDATE device_history_detail SET ${setClause}, updated_at = NOW() WHERE device_id = $${fields.length + 1}`,
+          [...values, deviceId]
+        );
+      } else {
+        // 插入
+        const fields = Object.keys(historyData);
+        const values = Object.values(historyData);
+        const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
+
+        await pool.query(
+          `INSERT INTO device_history_detail (${fields.join(', ')}) VALUES (${placeholders})`,
+          values
+        );
+      }
+    } catch (error: any) {
+      console.log('Database save failed, will update memory storage:', error.message);
+
+      // 更新内存存储
+      const memoryIndex = memoryDeviceHistory.findIndex(h => h.device_id === deviceId);
+      if (memoryIndex >= 0) {
+        memoryDeviceHistory[memoryIndex] = { ...memoryDeviceHistory[memoryIndex], ...historyData };
+      } else {
+        memoryDeviceHistory.push(historyData);
+      }
+    }
+
+    res.json({ message: `导入成功，共处理 ${rowCount} 行数据`, count: rowCount });
+  } catch (error: any) {
+    console.error('Import device history error:', error);
+    res.status(500).json({ error: '导入失败: ' + error.message });
   }
 });
 

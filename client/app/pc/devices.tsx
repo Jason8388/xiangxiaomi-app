@@ -405,6 +405,99 @@ export default function PCDevices() {
     }
   };
 
+  // 导出设备信息
+  const handleExportDevices = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/export`
+      );
+
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+
+      if (Platform.OS === 'web') {
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `设备信息导出_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = decodeURIComponent(filenameMatch[1]);
+          }
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Alert.alert('成功', '导出成功！');
+      } else {
+        const fileUri = FileSystem.documentDirectory + `设备信息导出.xlsx`;
+        const base64 = await response.text();
+        await (FileSystem as any).writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        Alert.alert('成功', '文件已保存到文档目录');
+      }
+    } catch (error) {
+      console.error('导出失败:', error);
+      Alert.alert('错误', '导出失败，请重试');
+    }
+  };
+
+  // 导入设备信息
+  const handleImportDevices = () => {
+    // 创建隐藏的文件输入框
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/import`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        const result = await response.json();
+
+        if (response.ok) {
+          Alert.alert('成功', result.message || '导入成功！');
+          fetchDevices();
+        } else {
+          Alert.alert('错误', result.error || '导入失败');
+        }
+      } catch (error) {
+        console.error('导入失败:', error);
+        Alert.alert('错误', '导入失败，请重试');
+      }
+    };
+    input.click();
+  };
+
+  // 下载导入模板
+  const handleDownloadTemplate = () => {
+    window.open(
+      `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/devices/template`,
+      '_blank'
+    );
+  };
+
   return (
     <PCLayout activePath="/pc/devices">
       <div style={styles.container}>
@@ -448,6 +541,20 @@ export default function PCDevices() {
           </div>
           <div style={styles.stats}>
             <span>共 {filteredDevices.length} 台设备</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+            <button style={{ ...styles.filterSelect, backgroundColor: '#f0f0f0', cursor: 'pointer' }} onClick={handleDownloadTemplate} title="下载导入模板">
+              <FontAwesome6 name="file-excel" size={14} color="#1E88E5" />
+              <span style={{ marginLeft: '4px' }}>模板</span>
+            </button>
+            <button style={{ ...styles.filterSelect, backgroundColor: '#f0f0f0', cursor: 'pointer' }} onClick={handleImportDevices} title="导入设备">
+              <FontAwesome6 name="file-import" size={14} color="#3498DB" />
+              <span style={{ marginLeft: '4px' }}>导入</span>
+            </button>
+            <button style={{ ...styles.filterSelect, backgroundColor: '#f0f0f0', cursor: 'pointer' }} onClick={handleExportDevices} title="导出设备">
+              <FontAwesome6 name="file-export" size={14} color="#2ECC71" />
+              <span style={{ marginLeft: '4px' }}>导出</span>
+            </button>
           </div>
         </div>
 
