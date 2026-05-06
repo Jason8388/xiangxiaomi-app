@@ -121,7 +121,7 @@ export default function PCLogin() {
         {/* 左侧品牌区域 */}
         <div className="pc-login-left">
           <div className="pc-login-logo">
-            <img src="/client/assets/images/icon.png" alt="项小秘" />
+            <img src="/client/assets/images/icon.png" alt="项小秘" onError={(e) => { console.log('[登录页] 图标加载失败'); e.currentTarget.style.display = 'none'; }} />
             <div className="pc-login-logo-text">
               <span className="pc-login-logo-title">项小秘</span>
               <span className="pc-login-logo-subtitle">Xiang Xiao Mi</span>
