@@ -41,7 +41,8 @@ function RootLayoutInner() {
 
   // 全局错误处理 - 隐藏失败的图片和资源
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    // 仅在 Web 环境下处理 Coze 平台代理图片（React Native 原生环境不支持 document）
+    if (typeof document === 'undefined') return;
     
     const handleImageError = (event: Event) => {
       const target = event.target as HTMLElement;
