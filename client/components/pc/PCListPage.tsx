@@ -88,7 +88,13 @@ export function createPCListPage({ title, description, apiEndpoint, columns, moc
 
     return (
       <>
-        <style>{`<style>@import url('/assets/styles/pc-global.css');</style>`}</style>
+        <style>{`<style>
+          .pc-page-header { margin-bottom: 24px; }
+          .pc-page-title { font-size: 24px; font-weight: 600; color: #1f2937; margin: 0 0 8px 0; }
+          .pc-page-description { font-size: 14px; color: #6b7280; margin: 0; }
+          .pc-page-content { flex: 1; padding: 24px; overflow-y: auto; }
+          .pc-page-footer { padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+        </style>`}</style>
         <PCLayout>
           <div className="pc-page-header">
             <h1 className="pc-page-title">{title}</h1>

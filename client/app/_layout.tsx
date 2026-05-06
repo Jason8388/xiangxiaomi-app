@@ -39,6 +39,40 @@ function RootLayoutInner() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 全局错误处理 - 隐藏失败的图片和资源
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleImageError = (event: Event) => {
+      const target = event.target as HTMLElement;
+      target.style.display = 'none';
+    };
+
+    // 立即处理现有元素
+    document.querySelectorAll('img, link[rel="stylesheet"]').forEach(el => {
+      const htmlEl = el as HTMLElement;
+      htmlEl.onerror = handleImageError;
+    });
+
+    // 监听新添加的元素
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          const el = node as HTMLElement;
+          if (el.tagName === 'IMG' || (el.tagName === 'LINK' && el.rel === 'stylesheet')) {
+            el.onerror = handleImageError;
+          }
+        });
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   // 认证检查逻辑 - 应用启动时检查
   useEffect(() => {
     // 等待导航挂载
