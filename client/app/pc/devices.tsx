@@ -728,18 +728,6 @@ export default function PCDevices() {
                       rows={3}
                     />
                   </div>
-                  <div style={styles.formRow}>
-                    <label style={styles.label}>状态</label>
-                    <select
-                      value={deviceForm.status}
-                      onChange={(e) => setDeviceForm(prev => ({ ...prev, status: e.target.value }))}
-                      style={styles.select}
-                    >
-                      {statusOptions.map(status => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
-                  </div>
                 </ScrollView>
               </div>
               <div style={styles.modalFooter}>
