@@ -121,7 +121,18 @@ export default function PCLogin() {
         {/* 左侧品牌区域 */}
         <div className="pc-login-left">
           <div className="pc-login-logo">
-            <img src="/client/assets/images/icon.png" alt="项小秘" onError={(e) => { console.log('[登录页] 图标加载失败'); e.currentTarget.style.display = 'none'; }} />
+            {/* 内联SVG图标，避免外部图片加载问题 */}
+            <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: '12px' }}>
+              <rect width="60" height="60" rx="12" fill="url(#gradient)" />
+              <path d="M20 25h20M20 30h15M20 35h10" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+              <circle cx="40" cy="35" r="6" stroke="white" strokeWidth="2.5" fill="none"/>
+              <defs>
+                <linearGradient id="gradient" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#4F46E5"/>
+                  <stop offset="1" stopColor="#7C3AED"/>
+                </linearGradient>
+              </defs>
+            </svg>
             <div className="pc-login-logo-text">
               <span className="pc-login-logo-title">项小秘</span>
               <span className="pc-login-logo-subtitle">Xiang Xiao Mi</span>
