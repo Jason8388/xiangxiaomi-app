@@ -379,6 +379,19 @@ export default function PCDevices() {
     setTypeFilter(type === typeFilter ? '' : type);
   };
 
+  // 处理页面中所有图片加载错误
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const imgElements = document.querySelectorAll('img');
+      imgElements.forEach((img) => {
+        img.onerror = () => {
+          console.log('[设备管理] 图片加载失败，隐藏错误图片');
+          img.style.display = 'none';
+        };
+      });
+    }
+  }, []);
+
   const handlePickImage = () => {
     photoInputRef.current?.click();
   };
