@@ -379,17 +379,36 @@ export default function PCDevices() {
     setTypeFilter(type === typeFilter ? '' : type);
   };
 
-  // 处理页面中所有图片加载错误
+  // 处理页面中所有图片加载错误（包括Coze平台代理图片）
   useEffect(() => {
-    if (typeof document !== 'undefined') {
+    if (typeof document === 'undefined') return;
+
+    // 为现有图片添加错误处理
+    const setupImageErrorHandlers = () => {
       const imgElements = document.querySelectorAll('img');
       imgElements.forEach((img) => {
-        img.onerror = () => {
-          console.log('[设备管理] 图片加载失败，隐藏错误图片');
-          img.style.display = 'none';
-        };
+        if (!img.onerror) {
+          img.onerror = () => {
+            console.log('[设备管理] 图片加载失败，隐藏错误图片:', img.src);
+            img.style.display = 'none';
+          };
+        }
       });
-    }
+    };
+
+    // 初始设置
+    setupImageErrorHandlers();
+
+    // 监听新添加的图片元素
+    const observer = new MutationObserver(() => {
+      setupImageErrorHandlers();
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   const handlePickImage = () => {
