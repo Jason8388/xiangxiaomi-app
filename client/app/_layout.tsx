@@ -49,12 +49,12 @@ function RootLayoutInner() {
     };
 
     // 立即处理现有元素
-    document.querySelectorAll('img, link[rel="stylesheet"]').forEach(el => {
-      const htmlEl = el as HTMLElement;
-      htmlEl.onerror = handleImageError;
+    document.querySelectorAll('img').forEach(el => {
+      const imgEl = el as HTMLImageElement;
+      imgEl.onerror = () => handleImageError({ target: imgEl } as any);
       // 检查是否是 Coze 平台代理的图片
-      if (el.tagName === 'IMG' && el.src.includes('coze.cn')) {
-        el.style.display = 'none';
+      if (imgEl.src && imgEl.src.includes('coze.cn')) {
+        imgEl.style.display = 'none';
       }
     });
 
@@ -62,12 +62,14 @@ function RootLayoutInner() {
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
-          const el = node as HTMLElement;
-          if (el.tagName === 'IMG' || (el.tagName === 'LINK' && el.rel === 'stylesheet')) {
-            el.onerror = handleImageError;
-            // 检查是否是 Coze 平台代理的图片，立即隐藏
-            if (el.tagName === 'IMG' && el.src.includes('coze.cn')) {
-              el.style.display = 'none';
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as HTMLImageElement;
+            if (el.tagName === 'IMG') {
+              el.onerror = () => handleImageError({ target: el } as any);
+              // 检查是否是 Coze 平台代理的图片，立即隐藏
+              if (el.src && el.src.includes('coze.cn')) {
+                el.style.display = 'none';
+              }
             }
           }
         });

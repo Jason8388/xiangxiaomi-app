@@ -1389,6 +1389,35 @@ router.get('/:deviceId/history-detail/export', async (req, res) => {
   }
 });
 
+// 上传设备履历表文件
+router.post('/:deviceId/history-detail/upload', upload.single('file'), async (req: any, res: any) => {
+  try {
+    const { deviceId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传文件' });
+    }
+
+    const { originalname, buffer, mimetype } = req.file;
+
+    // 上传到对象存储
+    const fileName = `device-history/${deviceId}/${Date.now()}_${originalname}`;
+    const ossUrl = await uploadFileToOSS(buffer, fileName, mimetype);
+
+    res.json({
+      success: true,
+      url: ossUrl,
+      path: ossUrl,
+      name: originalname,
+      size: buffer.length,
+      type: mimetype,
+    });
+  } catch (error) {
+    console.error('Upload history file error:', error);
+    res.status(500).json({ error: '文件上传失败' });
+  }
+});
+
 // 设备批量导入
 router.post('/batch', upload.single('file'), async (req: any, res: any) => {
   try {
