@@ -52,6 +52,10 @@ function RootLayoutInner() {
     document.querySelectorAll('img, link[rel="stylesheet"]').forEach(el => {
       const htmlEl = el as HTMLElement;
       htmlEl.onerror = handleImageError;
+      // 检查是否是 Coze 平台代理的图片
+      if (el.tagName === 'IMG' && el.src.includes('coze.cn')) {
+        el.style.display = 'none';
+      }
     });
 
     // 监听新添加的元素
@@ -61,6 +65,10 @@ function RootLayoutInner() {
           const el = node as HTMLElement;
           if (el.tagName === 'IMG' || (el.tagName === 'LINK' && el.rel === 'stylesheet')) {
             el.onerror = handleImageError;
+            // 检查是否是 Coze 平台代理的图片，立即隐藏
+            if (el.tagName === 'IMG' && el.src.includes('coze.cn')) {
+              el.style.display = 'none';
+            }
           }
         });
       });
@@ -68,8 +76,19 @@ function RootLayoutInner() {
 
     observer.observe(document.body, { childList: true, subtree: true });
 
+    // 定时检查并隐藏所有 Coze 代理的图片
+    const intervalId = setInterval(() => {
+      document.querySelectorAll('img').forEach(el => {
+        const img = el as HTMLImageElement;
+        if (img.src.includes('coze.cn')) {
+          img.style.display = 'none';
+        }
+      });
+    }, 100);
+
     return () => {
       observer.disconnect();
+      clearInterval(intervalId);
     };
   }, []);
 
