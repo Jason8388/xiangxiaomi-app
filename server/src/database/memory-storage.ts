@@ -755,6 +755,43 @@ export const memoryMeetingMinutes = [
 
 export const memorySessions: any[] = [];
 
+// 设备履历列表
+export const deviceHistoryList = [
+  {
+    id: 1,
+    device_id: 1,
+    type: '保养',
+    title: '设备保养',
+    description: '对设备进行全面清洁和润滑',
+    result: '完成',
+    operator: '张师傅',
+    created_at: '2024-05-01 10:00:00',
+    updated_at: '2024-05-01 10:00:00',
+  },
+  {
+    id: 2,
+    device_id: 1,
+    type: '维修',
+    title: '设备维修',
+    description: '更换磨损零件',
+    result: '完成',
+    operator: '李师傅',
+    created_at: '2024-05-10 14:30:00',
+    updated_at: '2024-05-10 14:30:00',
+  },
+  {
+    id: 3,
+    device_id: 1,
+    type: '巡检',
+    title: '设备巡检',
+    description: '例行安全检查',
+    result: '通过',
+    operator: '王师傅',
+    created_at: '2024-05-15 09:00:00',
+    updated_at: '2024-05-15 09:00:00',
+  },
+];
+
 export function getUserByUsername(username: string) {
   const user = memoryUsers[username as keyof typeof memoryUsers];
   return user || null;
@@ -788,3 +825,52 @@ export function deactivateOldestSession(userId: number) {
     oldestSession.is_active = false;
   }
 }
+
+// 预置设备履历数据
+export const memoryDeviceHistory = [
+  {
+    id: 1,
+    device_id: 1,
+    type: '保养',
+    description: '例行保养，更换润滑油',
+    result: '完成',
+    date: '2025-01-15',
+    operator: '张师傅',
+  },
+  {
+    id: 2,
+    device_id: 1,
+    type: '维修',
+    description: '变频器故障，更换变频器模块',
+    result: '完成',
+    date: '2025-01-20',
+    operator: '李师傅',
+  },
+  {
+    id: 3,
+    device_id: 1,
+    type: '巡检',
+    description: '日常巡检，检查运行状态',
+    result: '正常',
+    date: '2025-02-01',
+    operator: '王师傅',
+  },
+  {
+    id: 4,
+    device_id: 2,
+    type: '保养',
+    description: '年度保养，清洗过滤网',
+    result: '完成',
+    date: '2025-01-10',
+    operator: '张师傅',
+  },
+  {
+    id: 5,
+    device_id: 2,
+    type: '巡检',
+    description: '月度巡检，检测温湿度',
+    result: '正常',
+    date: '2025-02-05',
+    operator: '王师傅',
+  },
+];

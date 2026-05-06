@@ -3,6 +3,7 @@ import multer from 'multer';
 import ExcelJS from 'exceljs';
 import pool from '../database/db';
 import { uploadFileToOSS } from '../utils/oss';
+import { deviceHistoryList } from '../database/memory-storage';
 
 const router = express.Router();
 
@@ -435,6 +436,71 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 设备履历表
+
+// 获取设备履历表
+router.get('/device-history/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { type } = req.query;
+
+    if (USE_MEMORY_STORAGE) {
+      const historyList = deviceHistoryList.filter(h => h.device_id === parseInt(deviceId));
+      if (type) {
+        const filtered = historyList.filter(h => h.type === type);
+        return res.json({ code: 0, data: filtered, message: 'success' });
+      }
+      return res.json({ code: 0, data: historyList, message: 'success' });
+    }
+
+    let query = 'SELECT * FROM device_history WHERE device_id = $1';
+    const params: any[] = [deviceId];
+    if (type) {
+      query += ' AND type = $2';
+      params.push(type);
+    }
+    query += ' ORDER BY date DESC';
+
+    const result = await pool.query(query, params);
+    res.json({ code: 0, data: result.rows, message: 'success' });
+  } catch (error) {
+    console.error('获取设备履历表失败:', error);
+    res.status(500).json({ code: 500, message: '获取设备履历表失败' });
+  }
+});
+
+
+// 设备统计
+router.get('/stats', async (req, res) => {
+  try {
+    if (USE_MEMORY_STORAGE) {
+      const devices = memoryDevices;
+      const stats = {
+        total: devices.length,
+        inUse: devices.filter(d => d.status === '在用').length,
+        idle: devices.filter(d => d.status === '闲置').length,
+        repairing: devices.filter(d => d.status === '维修中').length,
+        scrapped: devices.filter(d => d.status === '已报废').length,
+      };
+      return res.json(stats);
+    }
+    
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = '在用' THEN 1 END) as in_use,
+        COUNT(CASE WHEN status = '闲置' THEN 1 END) as idle,
+        COUNT(CASE WHEN status = '维修中' THEN 1 END) as repairing,
+        COUNT(CASE WHEN status = '已报废' THEN 1 END) as scrapped
+      FROM devices
+    `);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Get device stats error:', error);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
 // 获取客户设备列表
 router.get('/customer/:customerId', async (req, res) => {
   try {
@@ -449,7 +515,6 @@ router.get('/customer/:customerId', async (req, res) => {
     res.status(500).json({ error: '服务器错误' });
   }
 });
-
 // 获取设备详情
 router.get('/:id', async (req, res) => {
   try {
@@ -1068,11 +1133,16 @@ router.delete('/:deviceId/history-detail', async (req, res) => {
 router.get('/:deviceId/history', async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const result = await pool.query(
-      'SELECT * FROM device_history WHERE device_id = $1 ORDER BY event_date DESC, created_at DESC',
-      [deviceId]
-    );
-    res.json(result.rows);
+    if (USE_MEMORY_STORAGE) {
+      const history = deviceHistoryList.filter(h => h.device_id === parseInt(deviceId));
+      res.json(history);
+    } else {
+      const result = await pool.query(
+        'SELECT * FROM device_history WHERE device_id = $1 ORDER BY event_date DESC, created_at DESC',
+        [deviceId]
+      );
+      res.json(result.rows);
+    }
   } catch (error) {
     console.error('Get device history error:', error);
     res.status(500).json({ error: '服务器错误' });
@@ -1153,7 +1223,6 @@ router.get('/:deviceId/history-detail/export', async (req, res) => {
           contract_number: device.contract_number,
           contract_date: device.factory_date,
           customer_name: device.customer_name,
-          device_code: device.device_number,
           factory_date: device.factory_date,
           acceptance_date: device.acceptance_date,
           warranty_end_date: device.warranty_end_date,

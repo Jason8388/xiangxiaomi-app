@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
-import PCLayout from '@/components/pc/PCLayout';
-import { API_BASE } from '@/utils/api';
+import { PCLayout } from '@/components/pc/PCLayout';
+import { apiUrl } from '@/utils/api';
 
 interface Device {
   id: number;
@@ -40,12 +40,10 @@ interface HistoryRecord {
   id: number;
   device_id: number;
   type: '保养' | '维修' | '巡检';
-  date: string;
+  created_at: string;
   description: string;
   result?: string;
 }
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
 const deviceTypes = ['工业设备', '医疗设备', '办公设备', '安防设备', '网络设备', '其他'];
 const statusOptions = ['在用', '闲置', '维修中', '已报废'];
@@ -101,7 +99,7 @@ export default function PCDevices() {
   // 获取设备列表
   const fetchDevices = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/devices`);
+      const response = await fetch(apiUrl('/api/v1/devices'));
       if (response.ok) {
         const data = await response.json();
         setDevices(data.data || []);
@@ -116,7 +114,7 @@ export default function PCDevices() {
   // 获取客户列表
   const fetchCustomers = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/customers`);
+      const response = await fetch(apiUrl('/api/v1/customers'));
       if (response.ok) {
         const data = await response.json();
         setCustomers(data.data || []);
@@ -129,7 +127,7 @@ export default function PCDevices() {
   // 获取合同列表
   const fetchContracts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/contracts`);
+      const response = await fetch(apiUrl('/api/v1/contracts'));
       if (response.ok) {
         const data = await response.json();
         setContracts(data.data || []);
@@ -143,7 +141,7 @@ export default function PCDevices() {
   const fetchDeviceDetail = async (id: number) => {
     setDetailLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/devices/${id}`);
+      const response = await fetch(apiUrl(`/api/v1/devices/${id}`));
       if (response.ok) {
         const data = await response.json();
         setDetailDevice(data);
@@ -160,7 +158,7 @@ export default function PCDevices() {
   const fetchDeviceHistory = async (id: number) => {
     setHistoryLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/device-history/${id}`);
+      const response = await fetch(apiUrl(`/api/v1/devices/device-history/${id}`));
       if (response.ok) {
         const data = await response.json();
         setHistoryRecords(data.data || []);
@@ -270,8 +268,8 @@ export default function PCDevices() {
 
     try {
       const url = editingDevice
-        ? `${API_BASE_URL}/api/v1/devices/${editingDevice.id}`
-        : `${API_BASE_URL}/api/v1/devices`;
+        ? apiUrl(`/api/v1/devices/${editingDevice.id}`)
+        : apiUrl('/api/v1/devices');
       
       const method = editingDevice ? 'PUT' : 'POST';
       
@@ -305,7 +303,7 @@ export default function PCDevices() {
     if (!deletingId) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/devices/${deletingId}`, {
+      const response = await fetch(apiUrl(`/api/v1/devices/${deletingId}`), {
         method: 'DELETE',
       });
 
@@ -799,7 +797,7 @@ export default function PCDevices() {
                             <span style={{...styles.historyType, backgroundColor: getHistoryTypeColor(record.type) + '20', color: getHistoryTypeColor(record.type)}}>
                               {record.type}
                             </span>
-                            <span style={styles.historyDate}>{formatDate(record.date)}</span>
+                            <span style={styles.historyDate}>{formatDate(record.created_at)}</span>
                           </div>
                           <p style={styles.historyDesc}>{record.description}</p>
                           {record.result && (
