@@ -105,9 +105,9 @@ export default function PCEmployeeManagement() {
         return;
       }
 
-      // 并行加载用户和部门数据
+      // 并行加载用户和部门数据（包括禁用的用户，用于显示禁用状态）
       const [usersRes, deptsRes] = await Promise.all([
-        fetch(`${getApiBaseUrl()}/api/v1/users`, {
+        fetch(`${getApiBaseUrl()}/api/v1/users?include_disabled=true`, {
           headers: { Authorization: `Bearer ${sessionId}` },
         }),
         fetch(`${getApiBaseUrl()}/api/v1/departments`, {
