@@ -387,6 +387,11 @@ export default function PCDevices() {
     const setupImageErrorHandlers = () => {
       const imgElements = document.querySelectorAll('img');
       imgElements.forEach((img) => {
+        // 立即隐藏来自assets路径的图片（Coze平台代理图片）
+        if (img.src.includes('/assets/') || img.src.includes('assets%2F')) {
+          img.style.display = 'none';
+          return;
+        }
         if (!img.onerror) {
           img.onerror = () => {
             console.log('[设备管理] 图片加载失败，隐藏错误图片:', img.src);
