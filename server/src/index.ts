@@ -1,14 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-// 获取 ES module 中的 __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // 加载环境变量
 dotenv.config();
@@ -55,35 +47,6 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// ========== PC端静态文件托管配置 ==========
-// 定义Expo构建产物的路径
-const distPath = join(__dirname, '../../client/dist');
-const pcDistPath = join(__dirname, '../../client/dist/_expo');
-
-// PC端静态资源托管（支持 /pc/* 路径）
-if (fs.existsSync(pcDistPath)) {
-  app.use('/pc', express.static(pcDistPath));
-  console.log(`PC端静态文件已托管: ${pcDistPath}`);
-} else if (fs.existsSync(distPath)) {
-  // 兼容：如果没有 _expo 目录，使用 dist 目录
-  app.use('/pc', express.static(distPath));
-  console.log(`PC端静态文件已托管(兼容模式): ${distPath}`);
-}
-
-// SPA Fallback - 所有未匹配的 /pc/* 路由返回 index.html
-app.get('/pc/*', (req, res) => {
-  const indexPath = fs.existsSync(pcDistPath) 
-    ? path.join(pcDistPath, 'index.html')
-    : path.join(distPath, 'index.html');
-  
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).send('PC端页面未构建，请先执行 npm run build');
-  }
-});
-// ========== PC端静态文件托管配置结束 ==========
-
 // Routes
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/customers', customerRoutes);
@@ -119,12 +82,20 @@ app.use('/api/v1/permissions', permissionRoutes);
 app.use('/api/v1/logs', logRoutes);
 app.use('/api/v1/system-cleanup', systemCleanupRoutes);
 
+// 根路由
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'API Server is running' });
+});
+
+// Health check
 app.get('/api/v1/health', (req, res) => {
-  console.log('Health check success');
-  res.status(200).json({ status: 'ok' });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-
+// Start server
 app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}/`);
+  console.log(`Server running on port ${port}`);
+  console.log(`Health check: http://localhost:${port}/api/v1/health`);
 });
+
+export default app;
