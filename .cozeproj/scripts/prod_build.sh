@@ -3,6 +3,17 @@ if [ -z "${BASH_VERSION:-}" ]; then exec /usr/bin/env bash "$0" "$@"; fi
 set -euo pipefail
 ROOT_DIR="$(pwd)"
 
+# ==================== Coze 平台检测 ====================
+# 检测是否在 Coze FaaS 环境
+if [ -n "${COZE_FAAS:-}" ] || [ -n "${_FAAS_FUNC_NAME:-}" ]; then
+  IS_COZE=true
+  info "检测到 Coze FaaS 环境"
+  info "  - 项目类型: ${COZE_PROJECT_TYPE:-unknown}"
+  info "  - 函数超时: ${_FAAS_FUNC_TIMEOUT:-unknown}s"
+else
+  IS_COZE=false
+fi
+
 # ==================== 工具函数 ====================
 info() {
   echo "[INFO] $1"
@@ -48,6 +59,7 @@ info "==================== Server 构建完成！====================\n"
 # ==================== 构建 Web 端 (Expo) ====================
 info "==================== 构建 Web 端 ===================="
 info "开始执行：pnpm run build:web (Expo)"
+info "注意：Coze 平台会自动执行 Android 构建，但不影响 Web 端部署"
 # 设置环境变量，只构建 web 平台
 export EXPO_PLATFORM=web
 export CI=true
@@ -65,3 +77,4 @@ info "  - Server: $ROOT_DIR/server/dist/"
 info "  - Web: $ROOT_DIR/client/dist/"
 info ""
 info "下一步：执行 ./prod_run.sh 启动服务"
+info "==================== 构建脚本执行完毕！===================="
