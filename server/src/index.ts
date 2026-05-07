@@ -101,7 +101,8 @@ app.get('/api/v1/health', (req, res) => {
 // ============================================
 // PC端 Web 静态资源托管 (SPA路由支持)
 // ============================================
-const clientDistPath = path.join(__dirname, '../../client/dist');
+// 静态资源在构建时已复制到 server/dist/client-dist/
+const clientDistPath = path.join(__dirname, 'client-dist');
 
 // 静态资源托管（处理 /pc/* 的静态文件请求）
 app.use('/pc', express.static(clientDistPath));

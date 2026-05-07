@@ -54,7 +54,12 @@ export CI=true
 (pushd "$ROOT_DIR/client" > /dev/null && pnpm run build:web; popd > /dev/null) || error "Web 构建失败"
 info "==================== Web 构建完成！====================\n"
 
-info "==================== 构建完成！===================="
+# ==================== 复制 Client 静态资源到 Server ====================
+info "==================== 复制 Client 静态资源 ===================="
+mkdir -p "$ROOT_DIR/server/dist/client-dist"
+cp -r "$ROOT_DIR/client/dist/"* "$ROOT_DIR/server/dist/client-dist/" || error "Client 静态资源复制失败"
+info "Client 静态资源已复制到 server/dist/client-dist/"
+info "==================== 静态资源复制完成！====================\n"
 info "产物位置："
 info "  - Server: $ROOT_DIR/server/dist/"
 info "  - Web: $ROOT_DIR/client/dist/"
