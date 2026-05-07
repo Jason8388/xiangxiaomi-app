@@ -20,8 +20,8 @@ check_command() {
   fi
 }
 
-info "==================== 开始构建 ===================="
-info "开始执行构建脚本（build_prod.sh）..."
+info "==================== 开始构建（仅Web端）===================="
+info "开始执行构建脚本（prod_build.sh）..."
 info "正在检查依赖命令是否存在..."
 # 检查核心命令
 check_command "pnpm"
@@ -39,9 +39,24 @@ else
 fi
 info "==================== 依赖安装完成！====================\n"
 
-info "==================== dist打包 ===================="
+# ==================== 构建 Server (Express) ====================
+info "==================== 构建 Server ===================="
 info "开始执行：pnpm run build (server)"
-(pushd "$ROOT_DIR/server" > /dev/null && pnpm run build; popd > /dev/null) || error "dist打包失败"
-info "==================== dist打包完成！====================\n"
+(pushd "$ROOT_DIR/server" > /dev/null && pnpm run build; popd > /dev/null) || error "Server 构建失败"
+info "==================== Server 构建完成！====================\n"
 
+# ==================== 构建 Web 端 (Expo) ====================
+info "==================== 构建 Web 端 ===================="
+info "开始执行：pnpm run build:web (Expo)"
+# 设置环境变量，只构建 web 平台
+export EXPO_PLATFORM=web
+export CI=true
+(pushd "$ROOT_DIR/client" > /dev/null && pnpm run build:web; popd > /dev/null) || error "Web 构建失败"
+info "==================== Web 构建完成！====================\n"
+
+info "==================== 构建完成！===================="
+info "产物位置："
+info "  - Server: $ROOT_DIR/server/dist/"
+info "  - Web: $ROOT_DIR/client/dist/"
+info ""
 info "下一步：执行 ./prod_run.sh 启动服务"
