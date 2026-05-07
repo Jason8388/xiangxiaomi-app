@@ -15,4 +15,3 @@ node-compile-cache/
 .env
 .env.local
 .env.*.local
-client/android
