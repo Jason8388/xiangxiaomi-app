@@ -1,6 +1,12 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// ES Module 兼容 __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 加载环境变量
 dotenv.config();
@@ -90,6 +96,25 @@ app.get('/', (req, res) => {
 // Health check
 app.get('/api/v1/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ============================================
+// PC端 Web 静态资源托管 (SPA路由支持)
+// ============================================
+const clientDistPath = path.join(__dirname, '../../client/dist');
+
+// 静态资源托管（处理 /pc/* 的静态文件请求）
+app.use('/pc', express.static(clientDistPath));
+
+// PC端 SPA 路由 fallback - 所有 /pc/* 请求返回 index.html
+app.get('/pc/*', (req, res) => {
+  const indexPath = path.join(clientDistPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('PC端 index.html not found:', indexPath);
+      res.status(404).send('PC端页面未构建，请先执行 npm run build:web');
+    }
+  });
 });
 
 // Start server
