@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(pwd)"
 
 HOST="${HOST:-0.0.0.0}"
-PORT="${PORT:-5000}"
+PORT="${PORT:-9091}"
 
 # ==================== 工具函数 ====================
 info() {
