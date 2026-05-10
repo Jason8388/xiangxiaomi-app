@@ -164,6 +164,10 @@ export async function uploadAndGetUrl(
   // OSS未配置时，使用Supabase Storage
   if (isSupabaseConfigured()) {
     console.log('[OSS] OSS未配置，使用Supabase Storage...');
+    console.log('[OSS] Supabase配置:', {
+      url: process.env.COZE_SUPABASE_URL ? '已设置' : '未设置',
+      key: process.env.COZE_SUPABASE_ANON_KEY ? '已设置' : '未设置'
+    });
     return await uploadToSupabase(file, filename, folder);
   }
   
