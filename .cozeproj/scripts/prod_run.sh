@@ -24,6 +24,13 @@ check_command() {
   fi
 }
 
+# ============== 复制项目 assets 到服务端目录 ======================
+info "开始复制项目 assets 目录..."
+if [ -d "$ROOT_DIR/assets" ]; then
+  mkdir -p "$ROOT_DIR/server/dist/assets"
+  cp -r "$ROOT_DIR/assets/"* "$ROOT_DIR/server/dist/assets/" || warn "assets 复制失败，跳过"
+fi
+
 # ============== 启动服务 ======================
 # 检查核心命令
 check_command "pnpm"

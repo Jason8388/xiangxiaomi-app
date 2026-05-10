@@ -74,6 +74,18 @@ info "==================== 复制 Client 静态资源 ===================="
 mkdir -p "$ROOT_DIR/server/dist/client-dist"
 cp -r "$ROOT_DIR/client/dist/"* "$ROOT_DIR/server/dist/client-dist/" || error "Client 静态资源复制失败"
 info "Client 静态资源已复制到 server/dist/client-dist/"
+
+# ==================== 复制项目根目录 assets 到 client/assets ====================
+info "==================== 复制项目 assets 目录到 client/assets ===================="
+if [ -d "$ROOT_DIR/assets" ]; then
+  # 创建 client/assets 目录（如果不存在）
+  mkdir -p "$ROOT_DIR/client/assets"
+  # 复制项目根目录 assets 到 client/assets
+  cp -r "$ROOT_DIR/assets/"* "$ROOT_DIR/client/assets/" || warn "项目 assets 复制失败，跳过"
+  info "项目 assets 目录已复制到 client/assets/"
+else
+  info "未发现项目根目录 assets 目录，跳过"
+fi
 info "==================== 静态资源复制完成！====================\n"
 info "产物位置："
 info "  - Server: $ROOT_DIR/server/dist/"
