@@ -47,16 +47,19 @@ function getOSSStorage(): S3Storage | null {
 }
 
 // 本地文件存储配置
-// 生产环境：保存到 server/dist/assets/uploads/（构建时会复制到 client/dist/assets/uploads/）
-const LOCAL_UPLOAD_DIR = path.resolve(__dirname, '../../assets');
+// 本地存储路径：保存到 client/dist/assets/uploads/
+// 这样 Express 服务器可以直接提供服务
+// __dirname = server/dist/services/
+// clientDistPath = ../../client/dist
+const CLIENT_DIST_PATH = path.resolve(__dirname, '../../client/dist');
+const LOCAL_UPLOAD_DIR = path.join(CLIENT_DIST_PATH, 'assets/uploads');
 
 // 确保本地上传目录存在
 function ensureLocalUploadDir(): string {
-  const uploadDir = path.join(LOCAL_UPLOAD_DIR, 'uploads');
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+  if (!fs.existsSync(LOCAL_UPLOAD_DIR)) {
+    fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
   }
-  return uploadDir;
+  return LOCAL_UPLOAD_DIR;
 }
 
 /**
@@ -77,9 +80,9 @@ async function uploadToLocalStorage(
   // 保存文件
   fs.writeFileSync(localPath, buffer);
   
-  // 生成可访问的URL（通过Coze沙箱文件代理访问）
-  // file_path 参数相对于项目根目录的 assets/ 文件夹
-  const url = `https://code.coze.cn/api/sandbox/coze_coding/file/proxy?file_path=assets/uploads/${encodeURIComponent(key)}`;
+  // 生成可访问的URL（通过 Express 服务器的静态文件服务访问）
+  // Express 托管 client/dist/ 目录，所以 URL 格式为 /assets/uploads/xxx
+  const url = `/assets/uploads/${encodeURIComponent(key)}`;
   
   console.log('[LocalStorage] 文件已保存到:', localPath);
   console.log('[LocalStorage] 访问URL:', url);
