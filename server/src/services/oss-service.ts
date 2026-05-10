@@ -1,10 +1,11 @@
 /**
- * 阿里云OSS存储服务
+ * 阿里云OSS/Supabase Storage存储服务
  * 使用S3Storage SDK实现文件上传和访问URL生成
- * 当OSS未配置时，使用本地文件存储作为后备方案
+ * 当OSS未配置时，尝试使用Supabase Storage
  */
 
 import { S3Storage } from "coze-coding-dev-sdk";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import fs from 'fs';
 import path from 'path';
 
@@ -15,6 +16,14 @@ function isOSSConfigured(): boolean {
     process.env.OSS_ACCESS_KEY_ID &&
     process.env.OSS_ACCESS_KEY_SECRET &&
     process.env.OSS_BUCKET
+  );
+}
+
+// 检查Supabase配置是否可用
+function isSupabaseConfigured(): boolean {
+  return !!(
+    process.env.COZE_SUPABASE_URL &&
+    process.env.COZE_SUPABASE_ANON_KEY
   );
 }
 
@@ -44,6 +53,24 @@ function getOSSStorage(): S3Storage | null {
     });
   }
   return storage;
+}
+
+// Supabase Storage 客户端
+let supabaseClient: SupabaseClient | null = null;
+
+function getSupabaseClient(): SupabaseClient | null {
+  if (!isSupabaseConfigured()) {
+    console.warn('[OSS] Supabase配置不可用，请检查环境变量: COZE_SUPABASE_URL, COZE_SUPABASE_ANON_KEY');
+    return null;
+  }
+
+  if (!supabaseClient) {
+    supabaseClient = createClient(
+      process.env.COZE_SUPABASE_URL!,
+      process.env.COZE_SUPABASE_ANON_KEY!
+    );
+  }
+  return supabaseClient;
 }
 
 // 本地文件存储配置
@@ -122,8 +149,44 @@ export async function getSignedUrl(key: string): Promise<string> {
 }
 
 /**
+ * 上传文件到Supabase Storage
+ */
+async function uploadToSupabase(
+  buffer: Buffer,
+  filename: string,
+  bucket: string = "uploads"
+): Promise<{ url: string; key: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    throw new Error('Supabase未正确配置，无法上传文件');
+  }
+  
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 10);
+  const ext = filename.split(".").pop() || "";
+  const key = `${bucket}/${timestamp}_${randomStr}${ext ? "." + ext : ""}`;
+  
+  const { data, error } = await client.storage
+    .from(bucket)
+    .upload(key, buffer, {
+      contentType: "application/octet-stream",
+      upsert: true,
+    });
+
+  if (error) {
+    console.error('[Supabase] 上传失败:', error);
+    throw new Error(`Supabase上传失败: ${error.message}`);
+  }
+
+  // 获取公开访问URL
+  const { data: urlData } = client.storage.from(bucket).getPublicUrl(key);
+  console.log('[Supabase] 文件上传成功:', urlData.publicUrl);
+  return { url: urlData.publicUrl, key };
+}
+
+/**
  * 上传文件到OSS并返回URL和key（兼容接口）
- * 当OSS未配置时，自动使用本地存储
+ * 优先级：OSS > Supabase > 本地存储
  */
 export async function uploadAndGetUrl(
   file: Buffer,
@@ -143,8 +206,19 @@ export async function uploadAndGetUrl(
     return { url, key };
   }
   
-  // OSS未配置时，使用本地存储
-  console.log('[OSS] OSS未配置，使用本地存储作为后备方案');
+  // OSS未配置时，尝试使用Supabase Storage
+  if (isSupabaseConfigured()) {
+    try {
+      console.log('[OSS] OSS未配置，尝试使用Supabase Storage...');
+      return await uploadToSupabase(file, filename, folder);
+    } catch (supabaseError) {
+      console.error('[OSS] Supabase上传失败:', supabaseError);
+      // 继续使用本地存储作为最后的方案
+    }
+  }
+  
+  // 最后使用本地存储（容器重启后会丢失，这是临时方案）
+  console.log('[OSS] Supabase也不可用，使用本地存储作为最后方案');
   const result = await uploadToLocalStorage(file, filename, "application/octet-stream");
   return { url: result.url, key: result.key };
 }
