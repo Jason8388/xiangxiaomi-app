@@ -37,6 +37,21 @@ if [ -f "$ROOT_DIR/package.json" ]; then
 else
   warn "未找到 $ROOT_DIR/package.json 文件，请检查路径是否正确"
 fi
+
+# ==================== 强制删除 Android 目录 ====================
+info "==================== 删除 Android 目录 ===================="
+if [ -d "$ROOT_DIR/client/android" ]; then
+  info "发现 client/android 目录，正在删除..."
+  rm -rf "$ROOT_DIR/client/android"
+  info "client/android 目录已删除"
+else
+  info "未发现 client/android 目录，跳过"
+fi
+
+# 防止 expo prebuild 重新生成 android 目录
+info "==================== 标记禁用 Android 构建 ===================="
+echo "androidBlocked=true" >> "$ROOT_DIR/client/.android-blocked"
+info "Android 构建已被禁用"
 info "==================== 依赖安装完成！====================\n"
 
 # ==================== 构建 Server (Express) ====================
