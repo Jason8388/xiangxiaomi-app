@@ -22,7 +22,7 @@ function isOSSConfigured(): boolean {
 // 凭证从环境变量读取
 let storage: S3Storage | null = null;
 
-function getStorage(): S3Storage | null {
+function getOSSStorage(): S3Storage | null {
   if (!isOSSConfigured()) {
     console.warn('[OSS] OSS配置不完整，请检查环境变量: OSS_ENDPOINT, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET');
     console.warn('[OSS] 当前配置:', {
@@ -62,7 +62,7 @@ function ensureLocalUploadDir(): string {
 /**
  * 上传文件到本地存储（后备方案）
  */
-export async function uploadToLocalStorage(
+async function uploadToLocalStorage(
   buffer: Buffer,
   filename: string,
   contentType: string
@@ -95,12 +95,15 @@ export async function uploadToOSS(
   filename: string,
   contentType: string
 ): Promise<string> {
-  const oss = getStorage();
+  const oss = getOSSStorage();
   if (!oss) {
     throw new Error('OSS未正确配置，无法上传文件');
   }
-  const key = `uploads/${Date.now()}-${filename}`;
-  const url = await oss.upload(buffer, key, contentType);
+  const url = await oss.uploadFile({
+    fileContent: buffer,
+    fileName: `uploads/${Date.now()}-${filename}`,
+    contentType: contentType,
+  });
   return url;
 }
 
@@ -108,11 +111,11 @@ export async function uploadToOSS(
  * 生成带签名的访问URL
  */
 export async function getSignedUrl(key: string): Promise<string> {
-  const oss = getStorage();
+  const oss = getOSSStorage();
   if (!oss) {
     throw new Error('OSS未正确配置，无法生成签名URL');
   }
-  return await oss.getSignedUrl(key);
+  return await oss.generatePresignedUrl({ key });
 }
 
 /**
@@ -126,9 +129,13 @@ export async function uploadAndGetUrl(
 ): Promise<{ url: string; key: string }> {
   // 优先使用OSS
   if (isOSSConfigured()) {
-    const oss = getStorage()!;
+    const oss = getOSSStorage()!;
     const key = `${folder}/${Date.now()}-${filename}`;
-    const url = await oss.upload(file, key, "application/octet-stream");
+    const url = await oss.uploadFile({
+      fileContent: file,
+      fileName: key,
+      contentType: "application/octet-stream",
+    });
     console.log('[OSS] 文件上传成功:', url);
     return { url, key };
   }
