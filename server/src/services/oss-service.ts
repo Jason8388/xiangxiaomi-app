@@ -115,10 +115,33 @@ async function uploadToSupabase(
     throw new Error('Supabase未正确配置，无法上传文件');
   }
   
+  // 确保bucket存在且有public权限
+  try {
+    const { data: buckets, error: listError } = await client.storage.listBuckets();
+    if (listError) {
+      console.error('[Supabase] 列出buckets失败:', listError);
+    } else {
+      const bucketExists = buckets?.find(b => b.name === bucket);
+      if (!bucketExists) {
+        console.log('[Supabase] 创建bucket:', bucket);
+        const { error: createError } = await client.storage.createBucket(bucket, {
+          public: true
+        });
+        if (createError && createError.message !== 'Bucket already exists') {
+          console.error('[Supabase] 创建bucket失败:', createError);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Supabase] bucket检查/创建异常:', e);
+  }
+  
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 10);
   const ext = filename.split(".").pop() || "";
   const key = `${bucket}/${timestamp}_${randomStr}${ext ? "." + ext : ""}`;
+  
+  console.log('[Supabase] 开始上传文件:', { bucket, key, size: buffer.length });
   
   const { data, error } = await client.storage
     .from(bucket)
