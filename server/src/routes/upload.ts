@@ -31,15 +31,28 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     console.log("[Upload] 准备上传文件:", originalname, "大小:", buffer.length, "类型:", mimetype);
 
-    // 上传到OSS并获取URL
-    const result = await uploadAndGetUrl(buffer, originalname, mimetype);
+    // 上传到OSS并获取URL (folder参数为 "uploads")
+    const result = await uploadAndGetUrl(buffer, originalname, "uploads");
 
-    console.log("[Upload] 文件上传成功:", result.url);
+    // 确保返回完整URL
+    let finalUrl = result.url;
+    if (result.url && !result.url.startsWith('http')) {
+      // 如果返回的是相对路径，尝试拼接 Supabase URL
+      const supabaseUrl = process.env.COZE_SUPABASE_URL;
+      if (supabaseUrl) {
+        // 移除重复的路径前缀
+        const cleanKey = result.url.replace(/^uploads\//, '');
+        finalUrl = `${supabaseUrl}/storage/v1/object/public/uploads/${cleanKey}`;
+        console.log("[Upload] 拼接完整URL:", finalUrl);
+      }
+    }
+    
+    console.log("[Upload] 文件上传成功, URL:", finalUrl);
 
     res.json({
       success: true,
-      url: result.url,
-      filename: result.filename,
+      url: finalUrl,
+      filename: result.key,
       originalname: originalname,
       size: buffer.length,
       mimetype: mimetype,

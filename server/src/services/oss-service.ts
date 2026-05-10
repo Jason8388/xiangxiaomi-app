@@ -164,7 +164,14 @@ async function uploadToSupabase(
   // 获取公开访问URL
   const { data: urlData } = client.storage.from(bucket).getPublicUrl(key);
   console.log('[Supabase] 文件上传成功:', urlData.publicUrl);
-  return { url: urlData.publicUrl, key };
+  
+  // 确保返回完整URL（Supabase SDK 可能返回相对路径）
+  const publicUrl = urlData.publicUrl.startsWith('http') 
+    ? urlData.publicUrl 
+    : `${process.env.COZE_SUPABASE_URL}/storage/v1/object/public/${key}`;
+  
+  console.log('[Supabase] 公开访问URL:', publicUrl);
+  return { url: publicUrl, key };
 }
 
 /**
@@ -177,8 +184,19 @@ export async function uploadAndGetUrl(
   filename: string,
   folder: string = "uploads"
 ): Promise<{ url: string; key: string }> {
+  console.log('[Storage] uploadAndGetUrl 被调用, folder:', folder);
+  console.log('[Storage] OSS配置检查:', {
+    OSS_ENDPOINT: process.env.OSS_ENDPOINT ? '已设置' : '未设置',
+    OSS_ACCESS_KEY_ID: process.env.OSS_ACCESS_KEY_ID ? '已设置' : '未设置',
+    OSS_ACCESS_KEY_SECRET: process.env.OSS_ACCESS_KEY_SECRET ? '已设置' : '未设置',
+    OSS_BUCKET: process.env.OSS_BUCKET ? '已设置' : '未设置',
+    isOSSConfigured: isOSSConfigured(),
+    isSupabaseConfigured: isSupabaseConfigured(),
+  });
+  
   // 优先使用OSS
   if (isOSSConfigured()) {
+    console.log('[Storage] 正在使用 OSS 上传...');
     const oss = getOSSStorage()!;
     const key = `${folder}/${Date.now()}-${filename}`;
     const url = await oss.uploadFile({
