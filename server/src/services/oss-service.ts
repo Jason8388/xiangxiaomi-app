@@ -19,10 +19,16 @@ function isOSSConfigured(): boolean {
 
 // 检查Supabase配置是否可用
 function isSupabaseConfigured(): boolean {
-  return !!(
+  const configured = !!(
     process.env.COZE_SUPABASE_URL &&
     process.env.COZE_SUPABASE_ANON_KEY
   );
+  console.log('[Storage] Supabase配置状态:', {
+    COZE_SUPABASE_URL: process.env.COZE_SUPABASE_URL ? '(已设置: ' + process.env.COZE_SUPABASE_URL + ')' : '(未设置)',
+    COZE_SUPABASE_ANON_KEY: process.env.COZE_SUPABASE_ANON_KEY ? '(已设置)' : '(未设置)',
+    整体: configured ? '已配置' : '未配置',
+  });
+  return configured;
 }
 
 // 初始化OSS存储客户端
