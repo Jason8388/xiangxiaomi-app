@@ -102,7 +102,7 @@ app.get('/api/v1/health', (req, res) => {
 // Web 静态资源托管 (SPA路由支持)
 //
 // Coze FaaS 部署结构:
-// - 前端构建产物在 ./client-dist/ (与 server 目录平级，在 dist 内)
+// - 前端构建产物在 ./client-dist/ (构建脚本复制到这里)
 //
 // 构建脚本复制位置: server/dist/client-dist/
 // 相对于 server/dist/index.js 的路径: ./client-dist/
