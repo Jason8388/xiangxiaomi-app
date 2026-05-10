@@ -99,21 +99,28 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 // ============================================
-// PC端 Web 静态资源托管 (SPA路由支持)
+// Web 静态资源托管 (SPA路由支持)
+//
+// Coze FaaS 部署结构:
+// - 前端构建产物在 ../client/dist/ (相对于 server 目录)
 // ============================================
-// 静态资源在构建时已复制到 server/dist/client-dist/
-const clientDistPath = path.join(__dirname, 'client-dist');
+const clientDistPath = path.resolve(__dirname, '../../client/dist');
 
-// 静态资源托管（处理 /pc/* 的静态文件请求）
-app.use('/pc', express.static(clientDistPath));
+// 静态资源托管
+app.use(express.static(clientDistPath));
 
-// PC端 SPA 路由 fallback - 所有 /pc/* 请求返回 index.html
-app.get('/pc/*', (req, res) => {
+// SPA 路由 fallback - 所有非 API 请求返回 index.html
+app.get('*', (req, res) => {
+  // 跳过 API 路由
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API not found' });
+  }
+  
   const indexPath = path.join(clientDistPath, 'index.html');
   res.sendFile(indexPath, (err) => {
     if (err) {
-      console.error('PC端 index.html not found:', indexPath);
-      res.status(404).send('PC端页面未构建，请先执行 npm run build:web');
+      console.error('index.html not found:', indexPath);
+      res.status(404).send('前端页面未构建，请先执行 npx expo export --platform web');
     }
   });
 });
