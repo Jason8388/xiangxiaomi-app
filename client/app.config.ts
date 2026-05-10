@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       }
     },
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "updates": {
       "url": "https://u.expo.dev/" + (projectId || "anonymous")
     },
