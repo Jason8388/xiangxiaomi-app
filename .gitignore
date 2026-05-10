@@ -18,3 +18,6 @@ node-compile-cache/
 
 server/.env
 server/.env.production
+
+# 截图文件（临时调试用）
+*.png
