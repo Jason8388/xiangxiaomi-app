@@ -31,6 +31,11 @@ if [ -d "$ROOT_DIR/assets" ]; then
   cp -r "$ROOT_DIR/assets/"* "$ROOT_DIR/server/dist/assets/" || warn "assets 复制失败，跳过"
 fi
 
+# ============== 创建 uploads 子目录（确保可写）======================
+info "创建上传目录..."
+mkdir -p "$ROOT_DIR/server/dist/assets/uploads" || warn "uploads 目录创建失败，跳过"
+chmod 755 "$ROOT_DIR/server/dist/assets/uploads" || true
+
 # ============== 启动服务 ======================
 # 检查核心命令
 check_command "pnpm"
