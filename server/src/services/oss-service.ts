@@ -1,13 +1,11 @@
 /**
  * 阿里云OSS/Supabase Storage存储服务
  * 使用S3Storage SDK实现文件上传和访问URL生成
- * 当OSS未配置时，尝试使用Supabase Storage
+ * 当OSS未配置时，使用Supabase Storage
  */
 
 import { S3Storage } from "coze-coding-dev-sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import fs from 'fs';
-import path from 'path';
 
 // 检查OSS配置是否完整
 function isOSSConfigured(): boolean {
@@ -71,50 +69,6 @@ function getSupabaseClient(): SupabaseClient | null {
     );
   }
   return supabaseClient;
-}
-
-// 本地文件存储配置
-// 本地存储路径：保存到 client/dist/assets/uploads/
-// 这样 Express 服务器可以直接提供服务
-// __dirname = server/dist/services/
-// clientDistPath = ../../client/dist
-const CLIENT_DIST_PATH = path.resolve(__dirname, '../../client/dist');
-const LOCAL_UPLOAD_DIR = path.join(CLIENT_DIST_PATH, 'assets/uploads');
-
-// 确保本地上传目录存在
-function ensureLocalUploadDir(): string {
-  if (!fs.existsSync(LOCAL_UPLOAD_DIR)) {
-    fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
-  }
-  return LOCAL_UPLOAD_DIR;
-}
-
-/**
- * 上传文件到本地存储（后备方案）
- */
-async function uploadToLocalStorage(
-  buffer: Buffer,
-  filename: string,
-  contentType: string
-): Promise<{ url: string; key: string; localPath: string }> {
-  const uploadDir = ensureLocalUploadDir();
-  const timestamp = Date.now();
-  const randomStr = Math.random().toString(36).substring(2, 10);
-  const ext = filename.split(".").pop() || "";
-  const key = `${timestamp}_${randomStr}${ext ? "." + ext : ""}`;
-  const localPath = path.join(uploadDir, key);
-  
-  // 保存文件
-  fs.writeFileSync(localPath, buffer);
-  
-  // 生成可访问的URL（通过 Express 服务器的静态文件服务访问）
-  // Express 托管 client/dist/ 目录，所以 URL 格式为 /assets/uploads/xxx
-  const url = `/assets/uploads/${encodeURIComponent(key)}`;
-  
-  console.log('[LocalStorage] 文件已保存到:', localPath);
-  console.log('[LocalStorage] 访问URL:', url);
-  
-  return { url, key, localPath };
 }
 
 /**
@@ -186,7 +140,8 @@ async function uploadToSupabase(
 
 /**
  * 上传文件到OSS并返回URL和key（兼容接口）
- * 优先级：OSS > Supabase > 本地存储
+ * 优先级：OSS > Supabase
+ * 注意：本地存储不可用（Coze FaaS文件系统是只读的）
  */
 export async function uploadAndGetUrl(
   file: Buffer,
@@ -206,19 +161,13 @@ export async function uploadAndGetUrl(
     return { url, key };
   }
   
-  // OSS未配置时，尝试使用Supabase Storage
+  // OSS未配置时，使用Supabase Storage
   if (isSupabaseConfigured()) {
-    try {
-      console.log('[OSS] OSS未配置，尝试使用Supabase Storage...');
-      return await uploadToSupabase(file, filename, folder);
-    } catch (supabaseError) {
-      console.error('[OSS] Supabase上传失败:', supabaseError);
-      // 继续使用本地存储作为最后的方案
-    }
+    console.log('[OSS] OSS未配置，使用Supabase Storage...');
+    return await uploadToSupabase(file, filename, folder);
   }
   
-  // 最后使用本地存储（容器重启后会丢失，这是临时方案）
-  console.log('[OSS] Supabase也不可用，使用本地存储作为最后方案');
-  const result = await uploadToLocalStorage(file, filename, "application/octet-stream");
-  return { url: result.url, key: result.key };
+  // 如果都没有配置，抛出错误
+  console.error('[OSS] 错误：OSS和Supabase都未配置，无法上传文件');
+  throw new Error('文件存储服务未配置。请配置OSS或确保Supabase可用。');
 }
