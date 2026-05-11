@@ -46,7 +46,7 @@ import logRoutes from "./routes/logs";
 import systemCleanupRoutes from "./routes/system-cleanup";
 
 const app = express();
-const port = process.env.PORT || 80;
+const port = parseInt(process.env.PORT || '5000', 10);
 
 // Middleware
 app.use(cors());
