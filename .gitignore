@@ -1,5 +1,4 @@
 node_modules/
-dist/
 build/
 .expo/
 .expo-shared/
@@ -21,3 +20,8 @@ server/.env.production
 
 # 截图文件（临时调试用）
 *.png
+
+# Server 构建产物 - 只保留 client-dist（前端静态资源）
+server/dist/index.js
+server/dist/*.js
+!server/dist/client-dist/
